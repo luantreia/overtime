@@ -21,7 +21,7 @@ router.post('/', verificarToken, async (req, res) => {
   }
 });
 
-router.get('/mi-perfil', verificarToken, async (req, res) => {
+router.get('/usuarios', verificarToken, async (req, res) => {
   const uid = req.user.uid;
   const usuario = await Usuario.findOne({ firebaseUid: uid });
 
