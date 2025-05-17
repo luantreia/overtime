@@ -35,6 +35,7 @@ app.use(express.json());
   // Rutas
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/jugadores', jugadoresRoutes);
+app.use('/api/usuarios', jugadoresRoutes);
 
 
 // Definir puerto del servidor

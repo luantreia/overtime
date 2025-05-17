@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
+import verificarToken from '../middlewares/authMiddleware.js';
+import Usuario from '../models/Usuario.js';
 const router = express.Router();
-const verificarToken = require('../middlewares/authMiddleware');
-const Usuario = require('../models/Usuario');
 
 router.post('/', verificarToken, async (req, res) => {
   try {

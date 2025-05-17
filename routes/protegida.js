@@ -1,8 +1,9 @@
 // routes/protegida.js
-const express = require("express");
+import express from 'express';
+import verificarToken from '../middlewares/authMiddleware.js';
+import Usuario from '../models/Usuario.js';
+
 const router = express.Router();
-const verificarToken = require("../middlewares/authMiddleware");
-const Usuario = require("../models/Usuario");
 
 router.get("/solo-editores", verificarToken, async (req, res) => {
   const uid = req.user.uid;
