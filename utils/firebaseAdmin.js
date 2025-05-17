@@ -1,5 +1,5 @@
 // ./utils/firebaseAdmin.js
-import admin from '../utils/firebase-admin.js';
+import admin from 'firebase-admin';
 
 const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
