@@ -25,7 +25,7 @@ mongoose.connect(process.env.MONGO_URI, {
 // Middleware
 // Configurar CORS para aceptar solicitudes desde cualquier origen
 app.use(cors({
-  origin: 'http://localhost:3000',  // Permite solicitudes desde el frontend
+  origin: 'https://overtime-ddyl.onrender.com',  // Permite solicitudes desde el frontend
   methods: 'GET,POST,PUT,DELETE',  // Métodos permitidos
   allowedHeaders: 'Content-Type,Authorization',  // Encabezados permitidos
 }));
