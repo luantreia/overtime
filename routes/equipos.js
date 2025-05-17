@@ -36,5 +36,26 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.put('/:id', verificarToken, verificarRol(['admin']), async (req, res) => {
+  const { id } = req.params;
+  const { nombre, escudo, foto } = req.body;
+
+  try {
+    const equipoActualizado = await Equipo.findByIdAndUpdate(
+      id,
+      { nombre, escudo, foto },
+      { new: true }
+    );
+
+    if (!equipoActualizado) {
+      return res.status(404).json({ message: 'Equipo no encontrado' });
+    }
+
+    res.status(200).json(equipoActualizado);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar el equipo', error: error.message });
+  }
+});
+
 export default router;
 
