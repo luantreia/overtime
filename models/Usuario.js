@@ -1,5 +1,6 @@
 // models/Usuario.js
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
+
 
 const usuarioSchema = new mongoose.Schema({
   firebaseUid: { type: String, required: true, unique: true },
@@ -7,4 +8,4 @@ const usuarioSchema = new mongoose.Schema({
   rol: { type: String, enum: ["lector", "editor", "admin"], default: "lector" },
 });
 
-module.exports = mongoose.model("Usuario", usuarioSchema);
+export default mongoose.model("Usuario", usuarioSchema);

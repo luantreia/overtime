@@ -1,4 +1,4 @@
-const admin = require('../utils/firebaseAdmin'); // tu configuración de Firebase Admin SDK
+import admin from '../utils/firebaseAdmin'; // tu configuración de Firebase Admin SDK
 
 const verificarToken = async (req, res, next) => {
   const header = req.headers.authorization;
@@ -19,4 +19,4 @@ const verificarToken = async (req, res, next) => {
   }
 };
 
-module.exports = verificarToken;
+export default verificarToken;

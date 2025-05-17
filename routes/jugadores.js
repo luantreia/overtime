@@ -1,8 +1,9 @@
-//./server/routes/jugadores.js
-const express = require('express');
-const Jugador = require('../models/Jugador');
-const Equipo = require('../models/Equipo');
-const { Types } = require('mongoose');
+import express from 'express';
+import Jugador from '../models/Jugador.js';
+import Equipo from '../models/Equipo.js';
+import mongoose from 'mongoose';
+
+const { Types } = mongoose;
 const router = express.Router();
 
 
@@ -49,4 +50,5 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
+

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const jugadorSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
@@ -8,5 +8,4 @@ const jugadorSchema = new mongoose.Schema({
   foto: { type: String },
 });
 
-const Jugador = mongoose.model('Jugador', jugadorSchema);
-module.exports = Jugador;
+export default mongoose.model('Jugador', jugadorSchema);

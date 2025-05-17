@@ -1,5 +1,5 @@
 // middlewares/verificarRol.js
-const Usuario = require('../models/Usuario');
+import Usuario from '../models/Usuario';
 
 const verificarRol = (rolesPermitidos) => {
   return async (req, res, next) => {
@@ -16,4 +16,4 @@ const verificarRol = (rolesPermitidos) => {
   };
 };
 
-module.exports = verificarRol;
+export default verificarRol;

@@ -1,8 +1,10 @@
-const express = require('express');
-const Equipo = require('../models/Equipo');
-const verificarToken = require('../middlewares/authMiddleware');
-const verificarRol = require('../middlewares/verificarRol');
+import express from 'express';
+import Equipo from '../models/Equipo.js';
+import verificarToken from '../middlewares/authMiddleware.js';
+import verificarRol from '../middlewares/verificarRol.js';
+
 const router = express.Router();
+
 
 
 // Ruta para crear un nuevo equipo
@@ -35,4 +37,5 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
+

@@ -1,13 +1,15 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config(); // Añadir esto al inicio del archivo
-const app = express();
-const bodyParser = require('body-parser');
-const usuariosRoutes = require('./routes/usuarios');
-const equiposRoutes = require('./routes/equipos');
-const jugadoresRoutes = require('./routes/jugadores');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import bodyParser from 'body-parser';
+import usuariosRoutes from './routes/usuarios.js';
+import equiposRoutes from './routes/equipos.js';
+import jugadoresRoutes from './routes/jugadores.js';
 
+dotenv.config(); // inicializar dotenv
+
+const app = express();
 
 // Conectar a la base de datos de MongoDB usando Mongoose
 mongoose.connect(process.env.MONGO_URI, {
@@ -33,7 +35,7 @@ app.use(express.json());
   // Rutas
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/jugadores', jugadoresRoutes);
-app.use('/api/usuarios', usuariosRoutes);
+
 
 // Definir puerto del servidor
 const PORT = process.env.PORT || 5000;

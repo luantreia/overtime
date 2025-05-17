@@ -1,3 +1,6 @@
+import mongoose from 'mongoose';
+
+
 const partido = {
   id: Number,
   liga: Number, // solo uno, no array

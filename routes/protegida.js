@@ -1,7 +1,7 @@
 // routes/protegida.js
 const express = require("express");
 const router = express.Router();
-const verificarToken = require("../middlewares/auth");
+const verificarToken = require("../middlewares/authMiddleware");
 const Usuario = require("../models/Usuario");
 
 router.get("/solo-editores", verificarToken, async (req, res) => {
@@ -17,4 +17,5 @@ router.get("/solo-editores", verificarToken, async (req, res) => {
   res.json({ mensaje: "Contenido para editores" });
 });
 
-module.exports = router;
+export default router;
+
