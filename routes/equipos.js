@@ -9,16 +9,15 @@ const router = express.Router();
 
 // Ruta para crear un nuevo equipo
 router.post('/', verificarToken, verificarRol(["admin"]), async (req, res) => {
-  const { nombre } = req.body;
+  const { nombre, escudo, foto } = req.body;
 
   try {
-    // Opcional: Validar si ya existe un equipo con ese número
     const existente = await Equipo.findOne({ nombre });
     if (existente) {
       return res.status(400).json({ message: 'Ya existe un equipo con ese nombre' });
     }
 
-    const nuevoEquipo = new Equipo({ nombre, creadoPor: req.user.uid });
+    const nuevoEquipo = new Equipo({ nombre, escudo, foto, creadoPor: req.user.uid });
     await nuevoEquipo.save();
     res.status(201).json(nuevoEquipo);
   } catch (error) {
