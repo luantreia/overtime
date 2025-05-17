@@ -1,9 +1,11 @@
 // ./utils/firebaseAdmin.js
 const admin = require('firebase-admin');
-const serviceAccount = require('./overtime-dodgeball-firebase-adminsdk-fbsvc-8d1916a051.json'); // ← reemplaza con tu ruta real
+const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
-module.exports = admin;
+export default admin;

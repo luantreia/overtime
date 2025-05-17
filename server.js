@@ -1,7 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config(); // Añadir esto al inicio del archivo
+import dotenv from 'dotenv';
+dotenv.config();
 const app = express();
 const bodyParser = require('body-parser');
 const usuariosRoutes = require('./routes/usuarios');
