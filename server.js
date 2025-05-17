@@ -24,8 +24,21 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Middleware
 // Configurar CORS para aceptar solicitudes desde cualquier origen
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://overtime-dodgeball.vercel.app'
+];
+
 app.use(cors({
-  origin: 'http://localhost:3000',  // Permite solicitudes desde el frontend
+  origin: function(origin, callback) {
+    // Permite solicitudes sin origen (como Postman o backend a backend)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   methods: 'GET,POST,PUT,DELETE',  // Métodos permitidos
   allowedHeaders: 'Content-Type,Authorization',  // Encabezados permitidos
 }));
