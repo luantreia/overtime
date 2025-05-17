@@ -1,4 +1,4 @@
-import admin from '../utils/firebaseAdmin'; // tu configuración de Firebase Admin SDK
+import admin from '../utils/firebaseAdmin.js'; // tu configuración de Firebase Admin SDK
 
 const verificarToken = async (req, res, next) => {
   const header = req.headers.authorization;
