@@ -3,9 +3,9 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
-import usuariosRoutes from './routes/usuarios.js';
-import equiposRoutes from './routes/equipos.js';
-import jugadoresRoutes from './routes/jugadores.js';
+import usuariosRouter from './routes/usuarios.js';
+import equiposRouter from './routes/equipos.js';
+import jugadoresRouter from './routes/jugadores.js';
 
 dotenv.config(); // inicializar dotenv
 
@@ -46,9 +46,9 @@ app.use(cors({
 app.use(express.json());
 
   // Rutas
-app.use('/api/equipos', equiposRoutes);
-app.use('/api/jugadores', jugadoresRoutes);
-app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/equipos', equiposRouter);
+app.use('/api/jugadores', jugadoresRouter);
+app.use('/api/usuarios', usuariosRouter);
 
 
 // Definir puerto del servidor
