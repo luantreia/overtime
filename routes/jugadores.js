@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 const { Types } = mongoose;
 const router = express.Router();
 
-
 // Crear nuevo jugador
 router.post('/', async (req, res) => {
   let { nombre, posicion, equipoId, edad, foto } = req.body;
@@ -40,10 +39,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Ruta para obtener todos los jugadores
+// Ruta para obtener jugadores, filtrando por equipoId si se proporciona
 router.get('/', async (req, res) => {
   try {
-    const jugadores = await Jugador.find().populate('equipoId');
+    const { equipoId } = req.query;
+    const filtro = {};
+
+    if (equipoId && Types.ObjectId.isValid(equipoId)) {
+      filtro.equipoId = equipoId;
+    }
+
+    const jugadores = await Jugador.find(filtro).populate('equipoId');
     res.status(200).json(jugadores);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -51,4 +57,3 @@ router.get('/', async (req, res) => {
 });
 
 export default router;
-
