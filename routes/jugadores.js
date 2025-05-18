@@ -44,11 +44,7 @@ router.get('/', async (req, res) => {
   try {
     const { equipoId } = req.query;
     const filtro = {};
-
-    if (equipoId && Types.ObjectId.isValid(equipoId)) {
-      filtro.equipoId = equipoId;
-    }
-
+    if (equipoId) filtro.equipoId = equipoId;
     const jugadores = await Jugador.find(filtro).populate('equipoId');
     res.status(200).json(jugadores);
   } catch (error) {
