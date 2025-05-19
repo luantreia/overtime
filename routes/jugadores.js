@@ -51,5 +51,41 @@ router.get('/', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, posicion, equipo, edad, foto } = req.body;
+
+  try {
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID de jugador no válido' });
+    }
+
+    const jugador = await Jugador.findById(id);
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+
+    if (equipo && !Types.ObjectId.isValid(equipo)) {
+      const equipoEncontrado = await Equipo.findOne({ numero: parseInt(equipo) });
+      if (!equipoEncontrado) {
+        return res.status(400).json({ message: 'Equipo no encontrado' });
+      }
+      jugador.equipoId = equipoEncontrado._id;
+    } else if (equipo) {
+      jugador.equipoId = equipo;
+    }
+
+    jugador.nombre = nombre ?? jugador.nombre;
+    jugador.posicion = Array.isArray(posicion) ? posicion : [posicion];
+    jugador.edad = edad ?? jugador.edad;
+    jugador.foto = foto ?? jugador.foto;
+
+    await jugador.save();
+    res.status(200).json(jugador);
+  } catch (error) {
+    console.error('Error al actualizar jugador:', error);
+    res.status(400).json({ message: 'Error al actualizar jugador', error: error.message });
+  }
+});
 
 export default router;
