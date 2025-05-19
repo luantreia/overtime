@@ -87,5 +87,25 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({ message: 'Error al actualizar jugador', error: error.message });
   }
 });
+// Eliminar jugador por ID
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID de jugador no válido' });
+    }
+
+    const jugador = await Jugador.findByIdAndDelete(id);
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+
+    res.status(200).json({ message: 'Jugador eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar jugador:', error);
+    res.status(500).json({ message: 'Error al eliminar jugador', error: error.message });
+  }
+});
 
 export default router;
