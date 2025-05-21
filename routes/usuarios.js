@@ -1,3 +1,5 @@
+// server/routes/usuarios.js
+
 import express from 'express';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
@@ -39,6 +41,38 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al obtener perfil:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Actualizar perfil del usuario autenticado
+router.put('/actualizar', verificarToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { nombre } = req.body;
+
+    if (!nombre) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
+
+    const usuarioActualizado = await Usuario.findOneAndUpdate(
+      { firebaseUid: uid },
+      { nombre },
+      { new: true }
+    );
+
+    if (!usuarioActualizado) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      mensaje: 'Perfil actualizado',
+      nombre: usuarioActualizado.nombre,
+      email: usuarioActualizado.email,
+      rol: usuarioActualizado.rol,
+    });
+  } catch (error) {
+    console.error('Error al actualizar perfil:', error);
+    res.status(500).json({ error: 'No se pudo actualizar el perfil' });
   }
 });
 
