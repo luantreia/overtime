@@ -44,6 +44,24 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
   }
 });
 
+// Eliminar usuario autenticado
+router.delete('/eliminar', verificarToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+
+    // Eliminar en MongoDB
+    await Usuario.deleteOne({ firebaseUid: uid });
+
+    // Eliminar en Firebase
+    await admin.auth().deleteUser(uid);
+
+    res.json({ mensaje: 'Cuenta eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar cuenta:', error);
+    res.status(500).json({ error: 'No se pudo eliminar la cuenta' });
+  }
+});
+
 // Actualizar perfil del usuario autenticado
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
@@ -76,22 +94,5 @@ router.put('/actualizar', verificarToken, async (req, res) => {
   }
 });
 
-// Eliminar usuario autenticado
-router.delete('/eliminar', verificarToken, async (req, res) => {
-  try {
-    const { uid } = req.user;
-
-    // Eliminar en MongoDB
-    await Usuario.deleteOne({ firebaseUid: uid });
-
-    // Eliminar en Firebase
-    await admin.auth().deleteUser(uid);
-
-    res.json({ mensaje: 'Cuenta eliminada correctamente' });
-  } catch (error) {
-    console.error('Error al eliminar cuenta:', error);
-    res.status(500).json({ error: 'No se pudo eliminar la cuenta' });
-  }
-});
 
 export default router;
