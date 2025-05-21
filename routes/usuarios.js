@@ -1,6 +1,9 @@
+// routes/usuarios.js
+
 import express from 'express';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
+import admin from '../utils/firebaseAdmin.js';
 const router = express.Router();
 
 router.post('/', verificarToken, async (req, res) => {
@@ -13,6 +16,9 @@ router.post('/', verificarToken, async (req, res) => {
 
     const nuevoUsuario = new Usuario({ email, rol, firebaseUid });
     await nuevoUsuario.save();
+
+    // Establecer claim personalizado en Firebase
+    await admin.auth().setCustomUserClaims(firebaseUid, { rol });
 
     res.status(201).json({ mensaje: 'Usuario guardado' });
   } catch (error) {

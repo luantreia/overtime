@@ -1,17 +1,18 @@
+// middlewares/authMiddleware.js
+
 import admin from '../utils/firebaseAdmin.js'; // tu configuración de Firebase Admin SDK
 
 const verificarToken = async (req, res, next) => {
-  const header = req.headers.authorization;
+  const token = req.headers.authorization?.split('Bearer ')[1];
 
-  if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token no proporcionado' });
-  }
-
-  const token = header.split(' ')[1];
+  if (!token) return res.status(401).json({ mensaje: 'Token requerido' });
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken;  // Aquí asignas el token decodificado a req.user
+    req.user = { 
+      uid: decodedToken.uid,
+      rol: decodedToken.rol || "lector",
+    };
     next();
   } catch (error) {
     console.error('Token inválido:', error);

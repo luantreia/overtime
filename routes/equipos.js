@@ -1,13 +1,15 @@
+// routes/equipo.js
+
 import express from 'express';
+import mongoose from 'mongoose';
 import Equipo from '../models/Equipo.js';
 import verificarToken from '../middlewares/authMiddleware.js';
-import verificarRol from '../middlewares/verificarRol.js';
-import mongoose from 'mongoose';
+import esAdminDelEquipo from '../middlewares/esAdminDelEquipo.js';
 
 const router = express.Router();
 const { Types } = mongoose;
 
-// Middleware para validar ObjectId en rutas que lo requieran
+// Middleware para validar ObjectId
 function validarObjectId(req, res, next) {
   const { id } = req.params;
   if (!Types.ObjectId.isValid(id)) {
@@ -17,7 +19,7 @@ function validarObjectId(req, res, next) {
 }
 
 // Crear nuevo equipo
-router.post('/', verificarToken, verificarRol(['admin']), async (req, res) => {
+router.post('/', verificarToken, async (req, res) => {
   const { nombre, escudo, foto } = req.body;
 
   if (!nombre || nombre.trim() === '') {
@@ -34,7 +36,7 @@ router.post('/', verificarToken, verificarRol(['admin']), async (req, res) => {
       nombre: nombre.trim(),
       escudo,
       foto,
-      creadoPor: req.user.uid
+      administradores: [req.user.uid], // array con el UID del creador
     });
 
     await nuevoEquipo.save();
@@ -72,8 +74,8 @@ router.get('/:id', validarObjectId, async (req, res) => {
   }
 });
 
-// Actualizar equipo
-router.put('/:id', verificarToken, verificarRol(['admin']), validarObjectId, async (req, res) => {
+// Actualizar equipo (solo admins de ese equipo)
+router.put('/:id', verificarToken, validarObjectId, esAdminDelEquipo, async (req, res) => {
   const { id } = req.params;
   const { nombre, escudo, foto } = req.body;
 
@@ -82,7 +84,6 @@ router.put('/:id', verificarToken, verificarRol(['admin']), validarObjectId, asy
   }
 
   try {
-    // Opcional: verificar que no haya otro equipo con ese nombre (distinto al actual)
     const equipoExistente = await Equipo.findOne({ nombre: nombre.trim(), _id: { $ne: id } });
     if (equipoExistente) {
       return res.status(400).json({ message: 'Ya existe otro equipo con ese nombre' });
@@ -105,4 +106,24 @@ router.put('/:id', verificarToken, verificarRol(['admin']), validarObjectId, asy
   }
 });
 
+// Agregar otro administrador (solo admins actuales del equipo)
+router.post('/:id/agregar-admin', verificarToken, validarObjectId, esAdminDelEquipo, async (req, res) => {
+  const { nuevoAdminUid } = req.body;
+  const equipo = req.equipo;
+
+  if (!nuevoAdminUid) {
+    return res.status(400).json({ message: 'Falta el UID del nuevo administrador' });
+  }
+
+  if (equipo.administradores.includes(nuevoAdminUid)) {
+    return res.status(400).json({ message: 'Ese usuario ya es administrador' });
+  }
+
+  equipo.administradores.push(nuevoAdminUid);
+  await equipo.save();
+
+  res.status(200).json({ message: 'Nuevo administrador agregado', equipo });
+});
+
 export default router;
+

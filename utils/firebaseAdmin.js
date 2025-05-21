@@ -1,3 +1,4 @@
+// utils/firebaseAdmin.js
 import admin from 'firebase-admin';
 
 const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
