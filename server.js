@@ -6,6 +6,7 @@ import bodyParser from 'body-parser';
 import usuariosRouter from './routes/usuarios.js';
 import equiposRouter from './routes/equipos.js';
 import jugadoresRouter from './routes/jugadores.js';
+import partidosRouter from './routes/partidos.js';
 
 dotenv.config(); // inicializar dotenv
 
@@ -49,6 +50,7 @@ app.use(express.json());
 app.use('/api/equipos', equiposRouter);
 app.use('/api/jugadores', jugadoresRouter);
 app.use('/api/usuarios', usuariosRouter);
+app.use('/api/partidos', partidosRouter);
 
 
 // Definir puerto del servidor
