@@ -26,11 +26,13 @@ const PartidoSchema = new mongoose.Schema({
   },
   // --- IMPORTANT: Use separate fields for local and visitor teams ---
   equipoLocal: {
-    equipoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo' }, // Assuming Equipo IDs are MongoDB ObjectIds
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Equipo',
     required: true
   },
   equipoVisitante: {
-    equipoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo' },
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Equipo',
     required: true
   },
   // --- Add fields for scores as per frontend ---
