@@ -1,91 +1,25 @@
 // server/routes/partidos.js
 import express from 'express';
 import Partido from '../models/Partido.js';
-import Equipo from '../models/Equipo.js'; // Make sure to import your Equipo model
+import Equipo from '../models/Equipo.js';
+import Jugador from '../models/Jugador.js';
 
 const router = express.Router();
 
-// Helper function to apply common population logic
+// Helper para poblar datos comunes del partido
 const populatePartidoQuery = (query) => {
   return query
-    .populate('equipoLocal', 'nombre escudo') // Populate name and shield for local team
-    .populate('equipoVisitante', 'nombre escudo'); // Populate name and shield for visitor team
-    // If you add Liga as an ObjectId later, you'd add .populate('liga', 'nombre') here
+    .populate('equipoLocal', 'nombre escudo')
+    .populate('equipoVisitante', 'nombre escudo')
+    // Poblar jugador y equipo dentro de cada statsJugadoresSet dentro de cada set
+    .populate('sets.statsJugadoresSet.jugador', 'nombre')
+    .populate('sets.statsJugadoresSet.equipo', 'nombre');
 };
 
+// --- (Tus rutas POST / y GET / existentes) ---
+// Asegúrate de que en el POST inicial, el arreglo 'sets' sea vacío o con el primer set sin stats.
 
-// --- Crear partido (POST /api/partidos) ---
-router.post('/', async (req, res) => {
-  try {
-    // Destructure specifically for the new schema fields
-    const {
-      liga,
-      modalidad,
-      categoria,
-      fecha,
-      equipoLocal,    // Now a separate field
-      equipoVisitante, // Now a separate field
-      marcadorLocal,
-      marcadorVisitante,
-      // Add 'goles' and 'eventos' here if you include them in the schema and frontend
-    } = req.body;
-
-    // Optional: Basic validation for required fields
-    if (!liga || !modalidad || !categoria || !fecha || !equipoLocal || !equipoVisitante) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios para crear el partido.' });
-    }
-
-    // Optional: Validate if provided Equipo IDs exist
-    const [existingEquipoLocal, existingEquipoVisitante] = await Promise.all([
-      Equipo.findById(equipoLocal),
-      Equipo.findById(equipoVisitante)
-    ]);
-
-    if (!existingEquipoLocal) {
-      return res.status(400).json({ error: 'El equipo local proporcionado no existe.' });
-    }
-    if (!existingEquipoVisitante) {
-      return res.status(400).json({ error: 'El equipo visitante proporcionado no existe.' });
-    }
-
-    // Create a new Partido instance with the correct fields
-    const nuevoPartido = new Partido({
-      liga,
-      modalidad,
-      categoria,
-      fecha,
-      equipoLocal,
-      equipoVisitante,
-      marcadorLocal: marcadorLocal !== undefined ? marcadorLocal : 0,
-      marcadorVisitante: marcadorVisitante !== undefined ? marcadorVisitante : 0,
-    });
-
-    await nuevoPartido.save();
-
-    // Populate the saved partido before sending it back
-    const partidoPopulado = await populatePartidoQuery(Partido.findById(nuevoPartido._id)).lean();
-
-    res.status(201).json(partidoPopulado);
-  } catch (error) {
-    console.error('Error al crear partido:', error);
-    res.status(400).json({ error: error.message || 'Error desconocido al crear el partido.' });
-  }
-});
-
-// --- Listar partidos (GET /api/partidos) ---
-router.get('/', async (req, res) => {
-  try {
-    // Apply population and then convert to plain JS objects
-    const partidos = await populatePartidoQuery(Partido.find()).lean();
-    res.json(partidos);
-  } catch (error) {
-    console.error('Error al obtener partidos:', error);
-    res.status(500).json({ error: error.message || 'Error desconocido al obtener los partidos.' });
-  }
-});
-
-// --- Get Partido by ID (GET /api/partidos/:id) ---
-// Highly recommended for displaying single match details in a modal
+// --- Obtener Partido por ID (GET /api/partidos/:id) ---
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -94,7 +28,6 @@ router.get('/:id', async (req, res) => {
     if (!partido) {
       return res.status(404).json({ error: 'Partido no encontrado.' });
     }
-
     res.json(partido);
   } catch (error) {
     console.error(`Error al obtener partido con ID ${req.params.id}:`, error);
@@ -102,12 +35,12 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// --- Update Partido (PUT /api/partidos/:id) ---
-// Essential for updating scores, adding goals, etc.
+// --- Actualizar Marcadores Generales del Partido (PUT /api/partidos/:id) ---
+// Esta ruta es para actualizar marcadorLocal, marcadorVisitante o el estado general del partido.
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = req.body; // Puede contener marcadorLocal, marcadorVisitante, estado
 
     const updatedPartido = await populatePartidoQuery(
       Partido.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true })
@@ -123,22 +56,100 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({ error: error.message || 'Error desconocido al actualizar el partido.' });
   }
 });
-
-// --- Delete Partido (DELETE /api/partidos/:id) ---
-router.delete('/:id', async (req, res) => {
+// --- Agregar un Nuevo Set a un Partido (POST /api/partidos/:id/sets) ---
+router.post('/:id/sets', async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedPartido = await Partido.findByIdAndDelete(id);
+    const { numeroSet, marcadorLocalSet, marcadorVisitanteSet } = req.body;
 
-    if (!deletedPartido) {
-      return res.status(404).json({ error: 'Partido no encontrado para eliminar.' });
+    const partido = await Partido.findById(id);
+    if (!partido) {
+      return res.status(404).json({ error: 'Partido no encontrado.' });
     }
 
-    res.status(204).send();
+    // Validación básica: asegura que el numeroSet es incremental y único
+    if (partido.sets.some(s => s.numeroSet === numeroSet)) {
+      return res.status(400).json({ error: `El set número ${numeroSet} ya existe.` });
+    }
+    if (numeroSet <= 0 || (partido.sets.length > 0 && numeroSet !== partido.sets.length + 1)) {
+        return res.status(400).json({ error: 'El número de set debe ser consecutivo.' });
+    }
+
+    partido.sets.push({ numeroSet, marcadorLocalSet, marcadorVisitanteSet });
+    await partido.save();
+
+    const updatedPartido = await populatePartidoQuery(Partido.findById(partido._id)).lean();
+    res.status(201).json(updatedPartido);
   } catch (error) {
-    console.error(`Error al eliminar partido con ID ${req.params.id}:`, error);
-    res.status(500).json({ error: error.message || 'Error desconocido al eliminar el partido.' });
+    console.error('Error al agregar set:', error);
+    res.status(400).json({ error: error.message || 'Error desconocido al agregar el set.' });
   }
 });
+
+// --- Actualizar Estadísticas de Jugadores para un Set Específico (PUT /api/partidos/:id/sets/:numeroSet/stats) ---
+// Esta es la ruta CRÍTICA para tu necesidad. Recibe todas las stats de los jugadores para ESE set.
+router.put('/:id/sets/:numeroSet/stats', async (req, res) => {
+  try {
+    const { id, numeroSet } = req.params;
+    const { statsJugadoresSet } = req.body; // Este arreglo debe contener las stats de TODOS los jugadores para este set
+
+    const partido = await Partido.findById(id);
+    if (!partido) {
+      return res.status(404).json({ error: 'Partido no encontrado.' });
+    }
+
+    const setIndex = partido.sets.findIndex(s => s.numeroSet === parseInt(numeroSet));
+    if (setIndex === -1) {
+      return res.status(404).json({ error: `Set número ${numeroSet} no encontrado en este partido.` });
+    }
+
+    // Validación de que statsJugadoresSet es un arreglo
+    if (!Array.isArray(statsJugadoresSet)) {
+      return res.status(400).json({ error: 'statsJugadoresSet debe ser un arreglo de estadísticas de jugadores.' });
+    }
+
+    // Reemplaza el arreglo completo de stats para ese set
+    partido.sets[setIndex].statsJugadoresSet = statsJugadoresSet;
+    await partido.save();
+
+    const updatedPartido = await populatePartidoQuery(Partido.findById(partido._id)).lean();
+    res.json(updatedPartido);
+  } catch (error) {
+    console.error('Error al actualizar estadísticas del set:', error);
+    res.status(400).json({ error: error.message || 'Error desconocido al actualizar estadísticas del set.' });
+  }
+});
+
+// Opcional: Actualizar el estado de un set o su marcador
+router.put('/:id/sets/:numeroSet', async (req, res) => {
+  try {
+    const { id, numeroSet } = req.params;
+    const { marcadorLocalSet, marcadorVisitanteSet, estadoSet } = req.body;
+
+    const partido = await Partido.findById(id);
+    if (!partido) {
+      return res.status(404).json({ error: 'Partido no encontrado.' });
+    }
+
+    const set = partido.sets.find(s => s.numeroSet === parseInt(numeroSet));
+    if (!set) {
+      return res.status(404).json({ error: `Set número ${numeroSet} no encontrado.` });
+    }
+
+    if (marcadorLocalSet !== undefined) set.marcadorLocalSet = marcadorLocalSet;
+    if (marcadorVisitanteSet !== undefined) set.marcadorVisitanteSet = marcadorVisitanteSet;
+    if (estadoSet !== undefined) set.estadoSet = estadoSet;
+
+    await partido.save();
+
+    const updatedPartido = await populatePartidoQuery(Partido.findById(partido._id)).lean();
+    res.json(updatedPartido);
+  } catch (error) {
+    console.error('Error al actualizar set:', error);
+    res.status(400).json({ error: error.message || 'Error desconocido al actualizar el set.' });
+  }
+});
+
+// --- (Tus rutas DELETE /:id existentes) ---
 
 export default router;

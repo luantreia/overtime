@@ -1,70 +1,60 @@
 // server/models/Partido.js
 import mongoose from 'mongoose';
 
-// Define the schema object with a capital 'P'
-const PartidoSchema = new mongoose.Schema({
-  // Liga as a String for now, as you requested
-  liga: {
+const Schema = mongoose.Schema;
+
+const PartidoSchema = new Schema({
+  liga: { type: String, required: true, trim: true },
+  modalidad: { type: String, enum: ['Foam', 'Cloth'], required: true, trim: true },
+  categoria: { type: String, enum: ['Masculino', 'Femenino', 'Mixto'], required: true, trim: true },
+  fecha: { type: Date, required: true },
+  equipoLocal: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+  equipoVisitante: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+  marcadorLocal: { type: Number, default: 0 },
+  marcadorVisitante: { type: Number, default: 0 },
+  estado: {
     type: String,
-    required: true,
-    trim: true
+    enum: ['programado', 'en_juego', 'finalizado', 'cancelado'],
+    default: 'programado'
   },
-  modalidad: {
-    type: String,
-    enum: ['Foam', 'Cloth'], // Added enum for validation as per frontend
-    required: true,
-    trim: true
-  },
-  categoria: {
-    type: String,
-    enum: ['Masculino', 'Femenino', 'Mixto'], // Added enum for validation as per frontend
-    required: true,
-    trim: true
-  },
-  fecha: {
-    type: Date,
-    required: true
-  },
-  // --- IMPORTANT: Use separate fields for local and visitor teams ---
-  equipoLocal: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipo',
-    required: true
-  },
-  equipoVisitante: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipo',
-    required: true
-  },
-  // --- Add fields for scores as per frontend ---
-  marcadorLocal: {
-    type: Number,
-    default: 0
-  },
-  marcadorVisitante: {
-    type: Number,
-    default: 0
-  },
-  // You might consider adding `goles` and `eventos` arrays here later if needed
-  // as discussed in previous responses.
+
+  // --- NUEVO: Estructura para Sets ---
+  sets: [
+    {
+      numeroSet: { type: Number, required: true },
+      // Opcional: marcador del set si es relevante
+      marcadorLocalSet: { type: Number, default: 0 },
+      marcadorVisitanteSet: { type: Number, default: 0 },
+      // Estado del set (ej. 'finalizado', 'en_juego')
+      estadoSet: { type: String, enum: ['en_juego', 'finalizado'], default: 'en_juego' },
+
+      // Estadísticas de los jugadores para ESTE SET
+      statsJugadoresSet: [
+        {
+          jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
+          equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+          // Las estadísticas que quieres por jugador y por set
+          lanzamientos: { type: Number, default: 0 }, // Launches / Throws
+          hits: { type: Number, default: 0 },         // Successful hits/eliminations
+          outs: { type: Number, default: 0 },         // Times player was out
+          capturas: { type: Number, default: 0 },     // Catches
+          // Puedes agregar más aquí si lo necesitas (ej. asistencias, bloqueos, etc.)
+          _id: false // Para evitar que Mongoose cree un _id para cada subdocumento de stat
+        }
+      ],
+      _id: false // Para evitar que Mongoose cree un _id para cada subdocumento de set
+    }
+  ]
+  // --- FIN NUEVA ESTRUCTURA ---
 });
 
-// --- Campo virtual para nombre del partido ---
-// *** Corrected: Use PartidoSchema (capital P) here ***
 PartidoSchema.virtual('nombre').get(function() {
-  // Check if teams are populated; if not, use the raw ID or a placeholder.
-  // Assuming your Equipo model has a 'nombre' field.
   const localName = this.equipoLocal ? this.equipoLocal.nombre : (this.equipoLocal || 'Equipo Local');
   const visitanteName = this.equipoVisitante ? this.equipoVisitante.nombre : (this.equipoVisitante || 'Equipo Visitante');
-
   return `${localName} vs ${visitanteName} - ${this.liga} - ${this.modalidad} - ${this.categoria}`;
 });
 
-// Para que los virtuales se incluyan en el toJSON y toObject
-// *** Corrected: Use PartidoSchema (capital P) here ***
 PartidoSchema.set('toJSON', { virtuals: true });
-// *** Corrected: Use PartidoSchema (capital P) here ***
 PartidoSchema.set('toObject', { virtuals: true });
 
-// Export the model
 export default mongoose.model('Partido', PartidoSchema);
