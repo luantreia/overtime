@@ -1,6 +1,7 @@
 // server/models/Partido.js
 import mongoose from 'mongoose';
 
+// Define the schema object with a capital 'P'
 const PartidoSchema = new mongoose.Schema({
   // Liga as a String for now, as you requested
   liga: {
@@ -26,12 +27,12 @@ const PartidoSchema = new mongoose.Schema({
   },
   // --- IMPORTANT: Use separate fields for local and visitor teams ---
   equipoLocal: {
-    type: mongoose.Schema.Types.ObjectId, 
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipo',
     required: true
   },
   equipoVisitante: {
-    type: mongoose.Schema.Types.ObjectId, 
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipo',
     required: true
   },
@@ -49,8 +50,8 @@ const PartidoSchema = new mongoose.Schema({
 });
 
 // --- Campo virtual para nombre del partido ---
-// This virtual will now use equipoLocal and equipoVisitante (after population)
-partidoSchema.virtual('nombre').get(function() {
+// *** Corrected: Use PartidoSchema (capital P) here ***
+PartidoSchema.virtual('nombre').get(function() {
   // Check if teams are populated; if not, use the raw ID or a placeholder.
   // Assuming your Equipo model has a 'nombre' field.
   const localName = this.equipoLocal ? this.equipoLocal.nombre : (this.equipoLocal || 'Equipo Local');
@@ -60,8 +61,10 @@ partidoSchema.virtual('nombre').get(function() {
 });
 
 // Para que los virtuales se incluyan en el toJSON y toObject
-partidoSchema.set('toJSON', { virtuals: true });
-partidoSchema.set('toObject', { virtuals: true });
+// *** Corrected: Use PartidoSchema (capital P) here ***
+PartidoSchema.set('toJSON', { virtuals: true });
+// *** Corrected: Use PartidoSchema (capital P) here ***
+PartidoSchema.set('toObject', { virtuals: true });
 
+// Export the model
 export default mongoose.model('Partido', PartidoSchema);
-
