@@ -1,9 +1,7 @@
 // server/models/Partido.js
 import mongoose from 'mongoose';
 
-const Schema = mongoose.Schema;
-
-const PartidoSchema = new Schema({
+const PartidoSchema = new mongoose.Schema({
   // Liga as a String for now, as you requested
   liga: {
     type: String,
