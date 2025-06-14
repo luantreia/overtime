@@ -1,27 +1,70 @@
+// server/models/Partido.js
 import mongoose from 'mongoose';
 
-const partidoSchema = new mongoose.Schema({
-  liga: { type: String, required: true },
-  modalidad: { type: String, required: true },    // lo agregamos para el ejemplo
-  categoria: { type: String, required: true },   // lo agregamos también
-  fecha: { type: Date, required: true },
-  equipos: {
-    type: [String], // ids o nombres de equipos
+const Schema = mongoose.Schema;
+
+const PartidoSchema = new Schema({
+  // Liga as a String for now, as you requested
+  liga: {
+    type: String,
     required: true,
-    validate: [arr => arr.length === 2, 'Deben ser dos equipos exactamente'],
+    trim: true
   },
+  modalidad: {
+    type: String,
+    enum: ['Foam', 'Cloth'], // Added enum for validation as per frontend
+    required: true,
+    trim: true
+  },
+  categoria: {
+    type: String,
+    enum: ['Masculino', 'Femenino', 'Mixto'], // Added enum for validation as per frontend
+    required: true,
+    trim: true
+  },
+  fecha: {
+    type: Date,
+    required: true
+  },
+  // --- IMPORTANT: Use separate fields for local and visitor teams ---
+  equipoLocal: {
+    type: Schema.Types.ObjectId, // Assuming Equipo IDs are MongoDB ObjectIds
+    ref: 'Equipo',               // Reference to your Equipo model
+    required: true
+  },
+  equipoVisitante: {
+    type: Schema.Types.ObjectId, // Reference to your Equipo model
+    ref: 'Equipo',
+    required: true
+  },
+  // --- Add fields for scores as per frontend ---
+  marcadorLocal: {
+    type: Number,
+    default: 0
+  },
+  marcadorVisitante: {
+    type: Number,
+    default: 0
+  },
+  // You might consider adding `goles` and `eventos` arrays here later if needed
+  // as discussed in previous responses.
 });
 
-// Campo virtual para nombre del partido
+// --- Campo virtual para nombre del partido ---
+// This virtual will now use equipoLocal and equipoVisitante (after population)
 partidoSchema.virtual('nombre').get(function() {
-  // Aquí armamos el nombre combinando datos
-  return `${this.equipos[0]} vs ${this.equipos[1]} - ${this.liga} - ${this.modalidad} - ${this.categoria}`;
+  // Check if teams are populated; if not, use the raw ID or a placeholder.
+  // Assuming your Equipo model has a 'nombre' field.
+  const localName = this.equipoLocal ? this.equipoLocal.nombre : (this.equipoLocal || 'Equipo Local');
+  const visitanteName = this.equipoVisitante ? this.equipoVisitante.nombre : (this.equipoVisitante || 'Equipo Visitante');
+
+  return `${localName} vs ${visitanteName} - ${this.liga} - ${this.modalidad} - ${this.categoria}`;
 });
 
 // Para que los virtuales se incluyan en el toJSON y toObject
 partidoSchema.set('toJSON', { virtuals: true });
 partidoSchema.set('toObject', { virtuals: true });
 
-const Partido = mongoose.model('Partido', partidoSchema);
+const Partido = mongoose.model('Partido', PartidoSchema);
 
 export default Partido;
