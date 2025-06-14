@@ -65,6 +65,5 @@ partidoSchema.virtual('nombre').get(function() {
 partidoSchema.set('toJSON', { virtuals: true });
 partidoSchema.set('toObject', { virtuals: true });
 
-const Partido = mongoose.model('Partido', PartidoSchema);
+export default mongoose.model('Partido', PartidoSchema);
 
-export default Partido;
