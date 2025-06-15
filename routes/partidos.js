@@ -16,8 +16,16 @@ const populatePartidoQuery = (query) => {
     .populate('sets.statsJugadoresSet.equipo', 'nombre');
 };
 
-// --- (Tus rutas POST / y GET / existentes) ---
-// Asegúrate de que en el POST inicial, el arreglo 'sets' sea vacío o con el primer set sin stats.
+
+router.get('/', async (req, res) => {
+  try {
+    const partidos = await populatePartidoQuery(Partido.find().sort({ fecha: -1 })).lean(); // más recientes primero
+    res.json(partidos);
+  } catch (error) {
+    console.error('Error al obtener partidos:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener los partidos.' });
+  }
+});
 
 // --- Obtener Partido por ID (GET /api/partidos/:id) ---
 router.get('/:id', async (req, res) => {
