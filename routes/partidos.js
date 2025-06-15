@@ -16,16 +16,21 @@ const populatePartidoQuery = (query) => {
     .populate('sets.statsJugadoresSet.equipo', 'nombre');
 };
 
-
+// --- Obtener todos los partidos (GET /api/partidos) ---
 router.get('/', async (req, res) => {
   try {
-    const partidos = await populatePartidoQuery(Partido.find().sort({ fecha: -1 })).lean(); // más recientes primero
+    const partidos = await populatePartidoQuery(
+      Partido.find().sort({ fecha: -1 }) // opcional: orden por fecha descendente
+    ).lean();
+
     res.json(partidos);
   } catch (error) {
-    console.error('Error al obtener partidos:', error);
-    res.status(500).json({ error: error.message || 'Error al obtener los partidos.' });
+    console.error('Error al obtener los partidos:', error);
+    res.status(500).json({ error: error.message || 'Error desconocido al obtener los partidos.' });
   }
 });
+
+// Asegúrate de que en el POST inicial, el arreglo 'sets' sea vacío o con el primer set sin stats.
 
 // --- Obtener Partido por ID (GET /api/partidos/:id) ---
 router.get('/:id', async (req, res) => {
@@ -81,6 +86,9 @@ router.post('/:id/sets', async (req, res) => {
     }
     if (numeroSet <= 0 || (partido.sets.length > 0 && numeroSet !== partido.sets.length + 1)) {
         return res.status(400).json({ error: 'El número de set debe ser consecutivo.' });
+    }
+    if (!numeroSet || typeof numeroSet !== 'number') {
+      return res.status(400).json({ error: 'numeroSet debe ser un número válido.' });
     }
 
     partido.sets.push({ numeroSet, marcadorLocalSet, marcadorVisitanteSet });
@@ -158,6 +166,20 @@ router.put('/:id/sets/:numeroSet', async (req, res) => {
   }
 });
 
-// --- (Tus rutas DELETE /:id existentes) ---
+// --- Eliminar un partido (DELETE /api/partidos/:id) ---
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Partido.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Partido no encontrado para eliminar.' });
+    }
+    res.json({ mensaje: 'Partido eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar partido:', error);
+    res.status(500).json({ error: error.message || 'Error desconocido al eliminar el partido.' });
+  }
+});
+
 
 export default router;
