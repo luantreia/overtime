@@ -44,11 +44,14 @@ export async function crearPartido(req, res) {
       equipoVisitante,
       fecha,
       ubicacion,
-      estado = 'pendiente', // o el valor por defecto que uses
+      estado = 'pendiente',
       marcadorLocal = 0,
       marcadorVisitante = 0,
-      sets = [] // opcional: podés dejarlo vacío al crear
+      sets = []
     } = req.body;
+
+    // Suponiendo que tenés el id del usuario en req.user._id
+    const adminPartido = req.user ? req.user._id : null; // o lanzar error si no autenticado
 
     const nuevoPartido = new Partido({
       equipoLocal,
@@ -58,7 +61,8 @@ export async function crearPartido(req, res) {
       estado,
       marcadorLocal,
       marcadorVisitante,
-      sets
+      sets,
+      adminPartido
     });
 
     const partidoGuardado = await nuevoPartido.save();

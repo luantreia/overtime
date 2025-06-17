@@ -12,6 +12,7 @@ const PartidoSchema = new Schema({
   equipoVisitante: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
   marcadorLocal: { type: Number, default: 0 },
   marcadorVisitante: { type: Number, default: 0 },
+  adminPartido: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
   estado: {
     type: String,
     enum: ['programado', 'en_juego', 'finalizado', 'cancelado'],
@@ -19,32 +20,35 @@ const PartidoSchema = new Schema({
   },
 
   // --- NUEVO: Estructura para Sets ---
-  sets: [
-    {
-      numeroSet: { type: Number, required: true },
-      // Opcional: marcador del set si es relevante
-      marcadorLocalSet: { type: Number, default: 0 },
-      marcadorVisitanteSet: { type: Number, default: 0 },
-      // Estado del set (ej. 'finalizado', 'en_juego')
-      estadoSet: { type: String, enum: ['en_juego', 'finalizado'], default: 'en_juego' },
-
-      // Estadísticas de los jugadores para ESTE SET
-      statsJugadoresSet: [
-        {
-          jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
-          equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
-          // Las estadísticas que quieres por jugador y por set
-          lanzamientos: { type: Number, default: 0 }, // Launches / Throws
-          hits: { type: Number, default: 0 },         // Successful hits/eliminations
-          outs: { type: Number, default: 0 },         // Times player was out
-          capturas: { type: Number, default: 0 },     // Catches
-          // Puedes agregar más aquí si lo necesitas (ej. asistencias, bloqueos, etc.)
-          _id: false // Para evitar que Mongoose cree un _id para cada subdocumento de stat
-        }
-      ],
-      _id: false // Para evitar que Mongoose cree un _id para cada subdocumento de set
+  sets: {
+    type: [
+      {
+        numeroSet: { type: Number, required: true },
+        marcadorLocalSet: { type: Number, default: 0 },
+        marcadorVisitanteSet: { type: Number, default: 0 },
+        estadoSet: { type: String, enum: ['en_juego', 'finalizado'], default: 'en_juego' },
+        statsJugadoresSet: [
+          {
+            jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
+            equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+            throws: { type: Number, default: 0 },
+            hits: { type: Number, default: 0 },
+            outs: { type: Number, default: 0 },
+            catches: { type: Number, default: 0 },
+            _id: false
+          }
+        ],
+        _id: false
+      }
+    ],
+    validate: {
+      validator: function (sets) {
+        const numeros = sets.map(s => s.numeroSet);
+        return new Set(numeros).size === numeros.length;
+      },
+      message: 'No puede haber dos sets con el mismo número.'
     }
-  ]
+  }
   // --- FIN NUEVA ESTRUCTURA ---
 });
 
