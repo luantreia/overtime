@@ -1,14 +1,26 @@
 import express from 'express';
-import * as partidoController from '../controllers/partidoController.js';
+import {
+  obtenerPartidos,
+  obtenerPartidoPorId,
+  crearPartido,
+  actualizarPartido,
+  agregarSet,
+  actualizarStatsSet,
+  actualizarSet,
+  eliminarPartido
+} from '../controllers/partidoController.js';
+
+import { validarObjectId } from '../middlewares/validarObjectId.js';
 
 const router = express.Router();
 
-router.get('/', partidoController.obtenerPartidos);
-router.get('/:id', partidoController.obtenerPartidoPorId);
-router.put('/:id', partidoController.actualizarPartido);
-router.post('/:id/sets', partidoController.agregarSet);
-router.put('/:id/sets/:numeroSet/stats', partidoController.actualizarStatsSet);
-router.put('/:id/sets/:numeroSet', partidoController.actualizarSet);
-router.delete('/:id', partidoController.eliminarPartido);
+router.get('/', obtenerPartidos);
+router.get('/:id', validarObjectId, obtenerPartidoPorId);
+router.post('/', crearPartido);
+router.put('/:id', validarObjectId, actualizarPartido);
+router.post('/:id/sets', validarObjectId, agregarSet);
+router.put('/:id/sets/:numeroSet/stats', validarObjectId, actualizarStatsSet);
+router.put('/:id/sets/:numeroSet', validarObjectId, actualizarSet);
+router.delete('/:id', validarObjectId, eliminarPartido);
 
 export default router;

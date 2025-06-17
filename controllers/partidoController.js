@@ -36,6 +36,45 @@ export async function obtenerPartidoPorId(req, res) {
   }
 }
 
+// Crear un nuevo partido
+export async function crearPartido(req, res) {
+  try {
+    const {
+      equipoLocal,
+      equipoVisitante,
+      fecha,
+      ubicacion,
+      estado = 'pendiente', // o el valor por defecto que uses
+      marcadorLocal = 0,
+      marcadorVisitante = 0,
+      sets = [] // opcional: podés dejarlo vacío al crear
+    } = req.body;
+
+    const nuevoPartido = new Partido({
+      equipoLocal,
+      equipoVisitante,
+      fecha,
+      ubicacion,
+      estado,
+      marcadorLocal,
+      marcadorVisitante,
+      sets
+    });
+
+    const partidoGuardado = await nuevoPartido.save();
+
+    const partidoCompleto = await Partido.findById(partidoGuardado._id)
+      .populate('equipoLocal', 'nombre escudo')
+      .populate('equipoVisitante', 'nombre escudo')
+      .lean();
+
+    res.status(201).json(partidoCompleto);
+  } catch (error) {
+    console.error('Error al crear partido:', error);
+    res.status(400).json({ error: error.message || 'Error al crear partido.' });
+  }
+}
+
 // Actualizar marcador o estado general del partido
 export async function actualizarPartido(req, res) {
   try {
