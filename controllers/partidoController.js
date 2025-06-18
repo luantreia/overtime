@@ -1,6 +1,7 @@
 // server/controllers/partidoController.js
 import Partido from '../models/Partido.js';
 
+
 // Obtener todos los partidos, ordenados por fecha descendente
 export async function obtenerPartidos(req, res) {
   try {
@@ -122,7 +123,7 @@ export async function agregarSet(req, res) {
       marcadorVisitanteSet,
       estadoSet,
       statsJugadoresSet
-    };
+    }; 
 
     partido.sets.push(nuevoSet);
     await partido.save();
