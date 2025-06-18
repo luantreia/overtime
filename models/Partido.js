@@ -12,7 +12,7 @@ const PartidoSchema = new Schema({
   equipoVisitante: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
   marcadorLocal: { type: Number, default: 0 },
   marcadorVisitante: { type: Number, default: 0 },
-  administradores: { type: [String], required: true },
+  adminPartido: { type: [String], required: true },
   estado: {
     type: String,
     enum: ['programado', 'en_juego', 'finalizado', 'cancelado'],
