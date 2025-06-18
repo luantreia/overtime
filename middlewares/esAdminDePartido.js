@@ -3,10 +3,10 @@ import Partido from '../models/Partido.js';
 
 export const esAdminDePartido = async (req, res, next) => {
   try {
-    const { id: partidoId } = req.params;
-    const userId = req.user?._id; // asumimos que ya está autenticado
+    const partidoId = req.params.id;
+    const uid = req.user.uid; // asumimos que ya está autenticado
 
-    if (!partidoId || !userId) {
+    if (!partidoId || !uid) {
       return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
     }
 
@@ -16,7 +16,7 @@ export const esAdminDePartido = async (req, res, next) => {
       return res.status(404).json({ error: 'Partido no encontrado.' });
     }
 
-    if (String(partido.adminPartido) !== String(userId)) {
+    if (String(partido.adminPartido) !== String(uid)) {
       return res.status(403).json({ error: 'No tienes permisos para modificar este partido.' });
     }
 
