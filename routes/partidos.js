@@ -25,3 +25,4 @@ router.put('/:id/sets/:numeroSet', validarObjectId, verificarToken, esAdminDePar
 router.delete('/:id', validarObjectId, verificarToken, esAdminDePartido, eliminarPartido);
 
 export default router;
+
