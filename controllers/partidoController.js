@@ -116,22 +116,19 @@ export async function agregarSet(req, res) {
       return res.status(400).json({ error: `El set número ${numeroSet} ya existe.` });
     }
 
-    partido.sets.push({
+    const nuevoSet = {
       numeroSet,
       marcadorLocalSet,
       marcadorVisitanteSet,
       estadoSet,
       statsJugadoresSet
-    });
+    };
+
+    partido.sets.push(nuevoSet);
     await partido.save();
 
-    const updatedPartido = await Partido.findById(id)
-      .populate('equipoLocal', 'nombre escudo')
-      .populate('equipoVisitante', 'nombre escudo')
-      .lean();
-
-    res.status(201).json(updatedPartido);
-  } catch (error) {
+    res.status(201).json(nuevoSet);
+      } catch (error) {
     console.error('Error al agregar set:', error);
     res.status(400).json({ error: error.message || 'Error al agregar el set.' });
   }
