@@ -1,7 +1,7 @@
 // server/middleware/isAdminDePartido.js
 import Partido from '../models/Partido.js';
 
-export const esAdminDePartido = async (req, res, next) => {
+export default const esAdminDePartido = async (req, res, next) => {
   try {
     const { partidoId } = req.params;
     const userId = req.usuario?._id; // asumimos que ya está autenticado
