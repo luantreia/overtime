@@ -11,7 +11,7 @@ import {
 } from '../controllers/partidoController.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import esAdminDePartido from '../middlewares/esAdminDePartido.js';
-import { validarObjectId } from '../middlewares/validarObjectId.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
