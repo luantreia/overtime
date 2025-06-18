@@ -1,7 +1,7 @@
 // server/middleware/isAdminDePartido.js
 import Partido from '../models/Partido.js';
 
-export const esAdminDePartido = async (req, res, next) => {
+const esAdminDePartido = async (req, res, next) => {
   try {
     const partidoId = req.params.id;
     const uid = req.user.uid; // asumimos que ya está autenticado
@@ -27,3 +27,5 @@ export const esAdminDePartido = async (req, res, next) => {
     res.status(500).json({ error: 'Error de servidor.' });
   }
 };
+
+export default esAdminDePartido;
