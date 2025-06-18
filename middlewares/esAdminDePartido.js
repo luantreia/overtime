@@ -3,7 +3,7 @@ import Partido from '../models/Partido.js';
 
 export const esAdminDePartido = async (req, res, next) => {
   try {
-    const { partidoId } = req.params;
+    const { id: partidoId } = req.params;
     const userId = req.usuario?._id; // asumimos que ya está autenticado
 
     if (!partidoId || !userId) {
