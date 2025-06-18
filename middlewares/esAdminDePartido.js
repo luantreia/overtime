@@ -4,7 +4,7 @@ import Partido from '../models/Partido.js';
 export const esAdminDePartido = async (req, res, next) => {
   try {
     const { id: partidoId } = req.params;
-    const userId = req.usuario?._id; // asumimos que ya está autenticado
+    const userId = req.user?._id; // asumimos que ya está autenticado
 
     if (!partidoId || !userId) {
       return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
