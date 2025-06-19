@@ -174,7 +174,12 @@ export async function actualizarStatsSet(req, res) {
 export async function actualizarSet(req, res) {
   try {
     const { id, numeroSet } = req.params;
-    const { marcadorLocalSet, marcadorVisitanteSet, estadoSet } = req.body;
+    const {
+      marcadorLocalSet,
+      marcadorVisitanteSet,
+      estadoSet,
+      statsJugadoresSet, // <--- AÑADIR
+    } = req.body;
 
     const partido = await Partido.findById(id);
     if (!partido) {
@@ -189,6 +194,7 @@ export async function actualizarSet(req, res) {
     if (marcadorLocalSet !== undefined) set.marcadorLocalSet = marcadorLocalSet;
     if (marcadorVisitanteSet !== undefined) set.marcadorVisitanteSet = marcadorVisitanteSet;
     if (estadoSet !== undefined) set.estadoSet = estadoSet;
+    if (statsJugadoresSet !== undefined) set.statsJugadoresSet = statsJugadoresSet; // <--- NUEVO
 
     await partido.save();
 
