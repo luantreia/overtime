@@ -29,12 +29,14 @@ const PartidoSchema = new Schema({
         estadoSet: { type: String, enum: ['en_juego', 'finalizado'], default: 'en_juego' },
         statsJugadoresSet: [
           {
-            jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: false },
-            equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: false },
-            throws: { type: Number, default: 0 },
-            hits: { type: Number, default: 0 },
-            outs: { type: Number, default: 0 },
-            catches: { type: Number, default: 0 },
+            jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
+            equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+            estadisticas: {
+              throws: { type: Number, default: 0 },
+              hits: { type: Number, default: 0 },
+              outs: { type: Number, default: 0 },
+              catches: { type: Number, default: 0 },
+            },
             _id: false
           }
         ],

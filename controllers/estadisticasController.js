@@ -45,11 +45,11 @@ export async function actualizarEstadisticaJugadorSet(req, res) {
     const statsIndex = statsJugadores.findIndex(s => s.jugador.toString() === jugadorId);
 
     if (statsIndex === -1) {
-      // Si no existe, agregar nuevo registro para ese jugador
-      statsJugadores.push({ jugador: jugadorId, ...estadistica });
+      // agregar nuevo objeto con propiedad estadisticas
+      statsJugadores.push({ jugador: jugadorId, estadisticas: estadistica });
     } else {
-      // Si existe, actualizar las propiedades de las stats
-      Object.assign(statsJugadores[statsIndex], estadistica);
+      // actualizar la propiedad estadisticas con los nuevos valores
+      statsJugadores[statsIndex].estadisticas = estadistica;
     }
 
     partido.sets[setIndex].statsJugadoresSet = statsJugadores;
