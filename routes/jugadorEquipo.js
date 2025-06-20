@@ -14,6 +14,7 @@ const { Types } = mongoose;
 
 // Crear nueva relación jugador-equipo
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  console.log('POST /api/jugador-equipo/ recibido con body:', req.body);
   try {
     const { jugador, equipo } = req.body;
     const usuarioId = req.user.uid;
