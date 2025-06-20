@@ -13,15 +13,14 @@ const router = express.Router();
 const { Types } = mongoose;
 
 // Crear nueva relación jugador-equipo
-router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
+router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { jugador, equipo } = req.body;
-    const firebaseUid = req.user.uid;
+    const usuarioId = req.user.uid;
 
-    const usuarioDB = await Usuario.findOne({ firebaseUid });
+    // Validar usuario en BD
+    const usuarioDB = await Usuario.findById(usuarioId);
     if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
-
-    const creadoPor = usuarioDB._id;
 
     if (!jugador || !equipo) {
       return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
@@ -29,12 +28,18 @@ router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, as
 
     const existeJugador = await Jugador.findById(jugador);
     const existeEquipo = await Equipo.findById(equipo);
-    
+
     if (!existeJugador || !existeEquipo) {
       return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
     }
 
-    const relacion = new JugadorEquipo({ jugador, equipo, creadoPor });
+    // Aquí valida si usuarioDB tiene permiso para crear relación en ese equipo
+    const esAdminEquipo = existeEquipo.creadoPor === usuarioId || existeEquipo.administradores.includes(usuarioId) || usuarioDB.rol === 'admin';
+    if (!esAdminEquipo) {
+      return res.status(403).json({ message: 'No tienes permisos sobre este equipo' });
+    }
+
+    const relacion = new JugadorEquipo({ jugador, equipo, creadoPor: usuarioId });
     await relacion.save();
 
     res.status(201).json(relacion);
@@ -43,7 +48,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, as
     res.status(500).json({ message: 'Error al crear relación', error: error.message });
   }
 });
-
 
 // Obtener relaciones con filtros opcionales
 router.get('/', async (req, res) => {
