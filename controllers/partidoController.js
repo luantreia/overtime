@@ -43,7 +43,7 @@ export async function crearPartido(req, res) {
       sets = []
     } = req.body;
 
-    const creadoPor = req.user?._id;
+    const creadoPor = req.user.uid;
     if (!creadoPor) return res.status(401).json({ error: 'No autenticado.' });
 
     const nuevoPartido = new Partido({
