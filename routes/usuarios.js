@@ -13,7 +13,7 @@ router.post('/', verificarToken, async (req, res) => {
     const { email, rol, nombre } = req.body;
     const firebaseUid = req.user.uid;
 
-    const nuevoUsuario = new Usuario({ email, rol, nombre,_id: firebaseUid });
+    const nuevoUsuario = new Usuario({ email, rol, nombre, _id: firebaseUid });
     await nuevoUsuario.save();
 
     await admin.auth().setCustomUserClaims(firebaseUid, { rol });

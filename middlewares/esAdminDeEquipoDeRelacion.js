@@ -47,8 +47,11 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
       return res.status(400).json({ message: 'No se proporcionó ID de relación o equipo' });
     }
 
-    const esCreador = equipo.creadoPor === req.user.uid;
-    const esAdminLocal = equipo.administradores.includes(req.user.uid);
+    const creadoPorId = equipo.creadoPor?._id?.toString() || equipo.creadoPor;
+    const esCreador = creadoPorId === usuarioId;
+
+    const administradoresIds = equipo.administradores.map(admin => admin._id?.toString() || admin);
+    const esAdminLocal = administradoresIds.includes(usuarioId);
 
     console.log('--- Permisos Equipo ---');
     console.log('Usuario ID:', usuarioId);
@@ -70,3 +73,4 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
     return res.status(500).json({ message: 'Error interno al verificar permisos' });
   }
 };
+
