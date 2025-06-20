@@ -1,34 +1,30 @@
 import express from 'express';
 import Jugador from '../models/Jugador.js';
-import Equipo from '../models/Equipo.js';
+import JugadorEquipo from '../models/JugadorEquipo.js';
 import mongoose from 'mongoose';
+import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
+import verificarToken from '../middlewares/authMiddleware.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const { Types } = mongoose;
 const router = express.Router();
 
 // Crear nuevo jugador
-router.post('/', async (req, res) => {
-  let { nombre, posicion, equipoId, edad, foto } = req.body;
-
+router.post('/', validarObjectId, verificarToken, async (req, res) => {
   try {
-    // Si equipoId no es un ObjectId válido, buscar por otro campo
-    if (!Types.ObjectId.isValid(equipoId)) {
-      // Intentar buscar por el campo "numero" si estás enviando un número como "1"
-      const equipo = await Equipo.findOne({ numero: parseInt(equipoId) });
-
-      if (!equipo) {
-        return res.status(400).json({ message: 'Equipo no encontrado con ID o número proporcionado' });
-      }
-
-      equipoId = equipo._id; // Usar el ObjectId real
+    const { nombre, alias, fechaNacimiento, genero, foto } = req.body;
+    if (!nombre || !fechaNacimiento) {
+      return res.status(400).json({ message: 'Nombre y fechaNacimiento son obligatorios' });
     }
 
     const jugador = new Jugador({
       nombre,
-      posicion: Array.isArray(posicion) ? posicion : [posicion],
-      equipoId,
-      edad,
-      foto
+      alias,
+      fechaNacimiento,
+      genero,
+      foto,
+      creadoPor: req.user.uid,  // <- asigna creador aquí
+      administradores: [req.user.uid] // opcional: asignar creador como admin inicial
     });
 
     await jugador.save();
@@ -51,60 +47,57 @@ router.get('/', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { nombre, posicion, equipo, edad, foto } = req.body;
+
+router.get('/por-equipo/:equipoId', async (req, res) => {
+  const { equipoId } = req.params;
+
+  if (!equipoId || !mongoose.Types.ObjectId.isValid(equipoId)) {
+    return res.status(400).json({ message: 'ID de equipo inválido' });
+  }
 
   try {
-    if (!Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'ID de jugador no válido' });
-    }
+    const relaciones = await JugadorEquipo.find({ equipoId, activo: true }) // o sin `activo` si no lo usás
+      .populate('jugador', 'nombre alias foto');
 
-    const jugador = await Jugador.findById(id);
-    if (!jugador) {
-      return res.status(404).json({ message: 'Jugador no encontrado' });
-    }
+    const jugadores = relaciones.map(rel => rel.jugador);
 
-    if (equipo && !Types.ObjectId.isValid(equipo)) {
-      const equipoEncontrado = await Equipo.findOne({ numero: parseInt(equipo) });
-      if (!equipoEncontrado) {
-        return res.status(400).json({ message: 'Equipo no encontrado' });
-      }
-      jugador.equipoId = equipoEncontrado._id;
-    } else if (equipo) {
-      jugador.equipoId = equipo;
-    }
+    res.status(200).json(jugadores);
+  } catch (error) {
+    console.error('Error al obtener jugadores por equipo:', error);
+    res.status(500).json({ message: 'Error al obtener jugadores por equipo', error: error.message });
+  }
+});
 
-    jugador.nombre = nombre ?? jugador.nombre;
-    jugador.posicion = Array.isArray(posicion) ? posicion : [posicion];
-    jugador.edad = edad ?? jugador.edad;
-    jugador.foto = foto ?? jugador.foto;
+router.put('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+  try {
+    const jugador = req.jugador; // ya validado por middleware
+    const { nombre, alias, fechaNacimiento, genero, foto, administradores } = req.body;
+
+    if (nombre !== undefined) jugador.nombre = nombre;
+    if (alias !== undefined) jugador.alias = alias;
+    if (fechaNacimiento !== undefined) jugador.fechaNacimiento = fechaNacimiento;
+    if (genero !== undefined) jugador.genero = genero;
+    if (foto !== undefined) jugador.foto = foto;
+    if (administradores !== undefined) jugador.administradores = administradores;
 
     await jugador.save();
     res.status(200).json(jugador);
   } catch (error) {
     console.error('Error al actualizar jugador:', error);
-    res.status(400).json({ message: 'Error al actualizar jugador', error: error.message });
+    res.status(500).json({ message: 'Error al actualizar jugador' });
   }
 });
+
 // Eliminar jugador por ID
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-
+router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
-    if (!Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'ID de jugador no válido' });
-    }
+    const jugador = req.jugador; // ya validado
 
-    const jugador = await Jugador.findByIdAndDelete(id);
-    if (!jugador) {
-      return res.status(404).json({ message: 'Jugador no encontrado' });
-    }
-
+    await jugador.deleteOne();
     res.status(200).json({ message: 'Jugador eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar jugador:', error);
-    res.status(500).json({ message: 'Error al eliminar jugador', error: error.message });
+    res.status(500).json({ message: 'Error al eliminar jugador' });
   }
 });
 

@@ -1,22 +1,13 @@
 // routes/equipo.js
-
 import express from 'express';
 import mongoose from 'mongoose';
 import Equipo from '../models/Equipo.js';
 import verificarToken from '../middlewares/authMiddleware.js';
-import esAdminDelEquipo from '../middlewares/esAdminDelEquipo.js';
+import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 const { Types } = mongoose;
-
-// Middleware para validar ObjectId
-function validarObjectId(req, res, next) {
-  const { id } = req.params;
-  if (!Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'ID de equipo inválido' });
-  }
-  next();
-}
 
 // Crear nuevo equipo
 router.post('/', verificarToken, async (req, res) => {
@@ -75,7 +66,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Actualizar equipo (solo admins de ese equipo)
-router.put('/:id', verificarToken, validarObjectId, esAdminDelEquipo, async (req, res) => {
+router.put('/:id', verificarToken, validarObjectId, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
   const { nombre, escudo, foto } = req.body;
 
@@ -107,7 +98,7 @@ router.put('/:id', verificarToken, validarObjectId, esAdminDelEquipo, async (req
 });
 
 // Agregar otro administrador (solo admins actuales del equipo)
-router.post('/:id/agregar-admin', verificarToken, validarObjectId, esAdminDelEquipo, async (req, res) => {
+router.post('/:id/agregar-admin', verificarToken, validarObjectId, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { nuevoAdminUid } = req.body;
   const equipo = req.equipo;
 
