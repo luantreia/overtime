@@ -6,7 +6,7 @@ export const cargarRolDesdeBD = async (req, res, next) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ message: 'No autorizado' });
 
-    const usuario = await Usuario.findOne({ firebaseUid: uid });
+    const usuario = await Usuario.findById(uid);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     req.user.rol = usuario.rol;
