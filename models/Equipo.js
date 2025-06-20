@@ -6,13 +6,13 @@ const equipoSchema = new mongoose.Schema({
   foto: { type: String },
   creadoPor: { 
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // o 'Usuario', como tengas tu modelo de usuario
+    ref: 'Usuario', // o 'Usuario', como tengas tu modelo de usuario
     required: true,
   },
   administradores: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Usuario',
     }
   ],
 }, { timestamps: true });
