@@ -5,6 +5,7 @@ import JugadorEquipo from '../models/JugadorEquipo.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Jugador from '../models/Jugador.js';
 import Equipo from '../models/Equipo.js';
+import Usuario from '../models/Usuario.js';
 import { esAdminDeEquipoDeRelacion } from '../middlewares/esAdminDeEquipoDeRelacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 
