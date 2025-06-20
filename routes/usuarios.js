@@ -13,7 +13,7 @@ router.post('/', verificarToken, async (req, res) => {
     const { email, rol, nombre } = req.body;
     const firebaseUid = req.user.uid;
 
-    const nuevoUsuario = new Usuario({ email, rol, nombre, firebaseUid });
+    const nuevoUsuario = new Usuario({ email, rol, nombre,_id: firebaseUid });
     await nuevoUsuario.save();
 
     await admin.auth().setCustomUserClaims(firebaseUid, { rol });
@@ -27,7 +27,7 @@ router.post('/', verificarToken, async (req, res) => {
 // Obtener datos del usuario autenticado
 router.get('/mi-perfil', verificarToken, async (req, res) => {
   try {
-    const usuario = await Usuario.findOne({ firebaseUid: req.user.uid });
+    const usuario = await Usuario.findById(req.user.uid);
 
     if (!usuario) {
       return res.status(404).json({ error: 'Usuario no encontrado' });

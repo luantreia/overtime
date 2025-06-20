@@ -47,15 +47,15 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
       return res.status(400).json({ message: 'No se proporcionó ID de relación o equipo' });
     }
 
-    const esCreador = equipo.creadoPor?._id.toString() === usuarioId;
-    const esAdminLocal = equipo.administradores?.some(admin => admin._id.toString() === usuarioId);
-    
+    const esCreador = equipo.creadoPor === req.user.uid;
+    const esAdminLocal = equipo.administradores.includes(req.user.uid);
+
     console.log('--- Permisos Equipo ---');
     console.log('Usuario ID:', usuarioId);
     console.log('Rol global:', rolGlobal);
     console.log('Equipo ID:', equipo?._id?.toString());
-    console.log('Equipo creadoPor:', equipo?.creadoPor?._id.toString());
-    console.log('Equipo administradores:', equipo?.administradores?.map(a => a._id.toString()));
+    console.log('Equipo creadoPor:', equipo.creadoPor);
+    console.log('Equipo administradores:', equipo.administradores);
     console.log('Es creador:', esCreador);
     console.log('Es admin local:', esAdminLocal);
 

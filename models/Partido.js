@@ -14,14 +14,14 @@ const PartidoSchema = new Schema({
   marcadorLocal: { type: Number, default: 0},
   marcadorVisitante: { type: Number, default: 0},
   creadoPor: { 
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
+    ref: 'Usuario',
     required: true,
   },
   administradores: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
+      ref: 'Usuario',
     }
   ],
   estado: {
