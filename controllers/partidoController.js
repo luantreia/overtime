@@ -39,7 +39,9 @@ export async function crearPartido(req, res) {
       equipoVisitante,
       fecha,
       ubicacion,
-      estado = 'pendiente',
+      estado = 'programado',
+      modalidad,
+      categoria,
       sets = []
     } = req.body;
 
@@ -52,6 +54,8 @@ export async function crearPartido(req, res) {
       fecha,
       ubicacion,
       estado,
+      modalidad,     // <--- agregado
+      categoria,     // <--- agregado
       sets,
       creadoPor,
       administradores: [creadoPor]
