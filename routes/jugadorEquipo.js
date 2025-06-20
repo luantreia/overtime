@@ -8,12 +8,13 @@ import Equipo from '../models/Equipo.js';
 import Usuario from '../models/Usuario.js';
 import { esAdminDeEquipoDeRelacion } from '../middlewares/esAdminDeEquipoDeRelacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
+import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 
 const router = express.Router();
 const { Types } = mongoose;
 
 // Crear nueva relación jugador-equipo
-router.post('/asociar', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.post('/asociar', verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   console.log('POST /api/jugador-equipo/ recibido con body:', req.body);
   try {
     const { jugador, equipo } = req.body;
