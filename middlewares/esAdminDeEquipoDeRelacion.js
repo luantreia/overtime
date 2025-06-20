@@ -48,6 +48,15 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
     const esCreador = equipo.creadoPor?.toString() === usuarioId;
     const esAdminLocal = equipo.administradores?.some(admin => admin?.toString() === usuarioId);
 
+    console.log('--- Permisos Equipo ---');
+    console.log('Usuario ID:', usuarioId);
+    console.log('Rol global:', rolGlobal);
+    console.log('Equipo ID:', equipo?._id?.toString());
+    console.log('Equipo creadoPor:', equipo?.creadoPor?.toString());
+    console.log('Equipo administradores:', equipo?.administradores?.map(a => a.toString()));
+    console.log('Es creador:', esCreador);
+    console.log('Es admin local:', esAdminLocal);
+
     if (rolGlobal === 'admin' || esCreador || esAdminLocal) {
       req.equipo = equipo;
       return next();
