@@ -15,21 +15,25 @@ const { Types } = mongoose;
 router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
     const { jugador, equipo } = req.body;
-    const creadoPor = req.user.uid;
+    const firebaseUid = req.user.uid;
 
-    // Solo validar jugador y equipo:
+    const usuarioDB = await Usuario.findOne({ firebaseUid });
+    if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const creadoPor = usuarioDB._id;
+
     if (!jugador || !equipo) {
       return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
     }
 
     const existeJugador = await Jugador.findById(jugador);
-    const existeEquipo = await Equipo.findById(equipo); // corregido aquí
+    const existeEquipo = await Equipo.findById(equipo);
     
     if (!existeJugador || !existeEquipo) {
       return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
     }
 
-    const relacion = new JugadorEquipo({ jugador, equipo, creadoPor }); // corregido aquí
+    const relacion = new JugadorEquipo({ jugador, equipo, creadoPor });
     await relacion.save();
 
     res.status(201).json(relacion);
