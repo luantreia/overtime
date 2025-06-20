@@ -40,6 +40,7 @@ export async function crearPartido(req, res) {
       fecha,
       ubicacion,
       estado = 'programado',
+      liga,
       modalidad,
       categoria,
       sets = []
@@ -54,6 +55,7 @@ export async function crearPartido(req, res) {
       fecha,
       ubicacion,
       estado,
+      liga,
       modalidad,     // <--- agregado
       categoria,     // <--- agregado
       sets,
