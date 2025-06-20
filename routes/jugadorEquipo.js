@@ -18,13 +18,16 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const { jugador, equipo } = req.body;
     const usuarioId = req.user.uid;
 
-    // Validar usuario en BD
-    const usuarioDB = await Usuario.findById(usuarioId);
-    if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
-
     if (!jugador || !equipo) {
       return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
     }
+
+    if (!mongoose.Types.ObjectId.isValid(jugador) || !mongoose.Types.ObjectId.isValid(equipo)) {
+      return res.status(400).json({ message: 'ID de jugador o equipo inválido' });
+    }
+
+    const usuarioDB = await Usuario.findById(usuarioId);
+    if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     const existeJugador = await Jugador.findById(jugador);
     const existeEquipo = await Equipo.findById(equipo);
@@ -33,8 +36,11 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
     }
 
-    // Aquí valida si usuarioDB tiene permiso para crear relación en ese equipo
-    const esAdminEquipo = existeEquipo.creadoPor === usuarioId || existeEquipo.administradores.includes(usuarioId) || usuarioDB.rol === 'admin';
+    const esAdminEquipo =
+      existeEquipo.creadoPor.toString() === usuarioId ||
+      existeEquipo.administradores.some(adminId => adminId.toString() === usuarioId) ||
+      usuarioDB.rol === 'admin';
+
     if (!esAdminEquipo) {
       return res.status(403).json({ message: 'No tienes permisos sobre este equipo' });
     }
@@ -48,6 +54,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     res.status(500).json({ message: 'Error al crear relación', error: error.message });
   }
 });
+
 
 // Obtener relaciones con filtros opcionales
 router.get('/', async (req, res) => {
