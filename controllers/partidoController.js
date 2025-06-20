@@ -22,7 +22,7 @@ export async function obtenerPartidoPorId(req, res) {
     const partido = await Partido.findById(id)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
-      .lean();
+      .populate('sets.statsJugadoresSet.jugador', 'nombre alias');
 
     if (!partido) return res.status(404).json({ error: 'Partido no encontrado.' });
     res.json(partido);
@@ -166,7 +166,7 @@ export async function actualizarSet(req, res) {
     const actualizado = await Partido.findById(partido._id)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
-      .populate('sets.statsJugadoresSet.jugador', 'nombre alias');
+      
       
 
     res.json(actualizado);
