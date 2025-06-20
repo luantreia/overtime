@@ -26,7 +26,7 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
         return res.status(404).json({ message: 'Relación no encontrada' });
       }
 
-      equipo = await Equipo.findById(relacion.equipoId);
+      equipo = await Equipo.findById(relacion.equipo);
       if (!equipo) {
         return res.status(404).json({ message: 'Equipo no encontrado' });
       }

@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
     const filtro = {};
 
     if (jugador) filtro.jugador = jugador;
-    if (equipo) filtro.equipoId = equipo; // corregido aquí
+    if (equipo) filtro.equipo = equipo; // corregido aquí
     if (liga) filtro.liga = liga;
     if (modalidad) filtro.modalidad = modalidad;
     if (categoria) filtro.categoria = categoria;
@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
 
     const relaciones = await JugadorEquipo.find(filtro)
       .populate('jugador', 'nombre alias foto')
-      .populate('equipoId', 'nombre escudo');
+      .populate('equipo', 'nombre escudo');
 
     res.status(200).json(relaciones);
   } catch (error) {
