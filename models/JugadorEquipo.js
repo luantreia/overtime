@@ -17,18 +17,16 @@ const jugadorEquipoSchema = new mongoose.Schema({
   modalidad: {
     type: String,
     enum: ['cloth', 'foam'],
-    required: true,
   },
 
   liga: {
     type: String,
-    required: true, // puede ser un nombre de torneo o "amistoso"
+
   },
 
   categoria: {
     type: String,
     enum: ['masculino', 'femenino', 'mixto', 'libre'],
-    required: true,
   },
 
   rol: {

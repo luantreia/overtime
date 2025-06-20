@@ -14,7 +14,8 @@ const { Types } = mongoose;
 // Crear nueva relación jugador-equipo
 router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
-    const { jugador, equipo, modalidad, liga, categoria, rol, desde, hasta } = req.body;
+    const { jugador, equipo } = req.body;
+    const creadoPor = req.user.uid;
 
     // Solo validar jugador y equipo:
     if (!jugador || !equipo) {
@@ -23,11 +24,12 @@ router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, as
 
     const existeJugador = await Jugador.findById(jugador);
     const existeEquipo = await Equipo.findById(equipo); // corregido aquí
+    
     if (!existeJugador || !existeEquipo) {
       return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
     }
 
-    const relacion = new JugadorEquipo({ jugador, equipo, modalidad, liga, categoria, rol, desde, hasta }); // corregido aquí
+    const relacion = new JugadorEquipo({ jugador, equipo, creadoPor }); // corregido aquí
     await relacion.save();
 
     res.status(201).json(relacion);
