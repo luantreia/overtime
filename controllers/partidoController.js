@@ -166,6 +166,7 @@ export async function actualizarSet(req, res) {
     const actualizado = await Partido.findById(partido._id)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
+      .populate('sets.statsJugadoresSet.jugador', 'nombre alias');
       
 
     res.json(actualizado);
