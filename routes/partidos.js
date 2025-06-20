@@ -32,7 +32,8 @@ router.put(
   esAdminDeEntidad(Partido, 'partido'),
   cargarPartido,
   actualizarSet
-);router.delete('/:id', verificarToken, esAdminDeEntidad(Partido, 'partido'), eliminarPartido);
+);
+router.delete('/:id', verificarToken, esAdminDeEntidad(Partido, 'partido'), eliminarPartido);
 
 export default router;
 
