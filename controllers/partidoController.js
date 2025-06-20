@@ -157,13 +157,16 @@ export async function actualizarSet(req, res) {
     if (marcadorVisitanteSet !== undefined) set.marcadorVisitanteSet = marcadorVisitanteSet;
     if (estadoSet !== undefined) set.estadoSet = estadoSet;
     if (statsJugadoresSet !== undefined) set.statsJugadoresSet = statsJugadoresSet;
-
+    
+    if (!partido.creadoPor && req.user?.uid) {
+      partido.creadoPor = req.user.uid;
+    }
     await partido.save();
 
-    const actualizado = await Partido.findById(partido.uid)
+    const actualizado = await Partido.findById(partido._id)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
-      .lean();
+      
 
     res.json(actualizado);
   } catch (error) {
