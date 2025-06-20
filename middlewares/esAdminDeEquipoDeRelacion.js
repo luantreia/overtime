@@ -37,7 +37,9 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
         return res.status(400).json({ message: 'ID de equipo inválido' });
       }
 
-      equipo = await Equipo.findById(equipoId);
+      equipo = await Equipo.findById(equipoId)
+        .populate('creadoPor', '_id email nombre')
+        .populate('administradores', '_id email nombre');
       if (!equipo) {
         return res.status(404).json({ message: 'Equipo no encontrado' });
       }
@@ -45,14 +47,14 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
       return res.status(400).json({ message: 'No se proporcionó ID de relación o equipo' });
     }
 
-    const esCreador = equipo.CreadoPor?.toString() === usuarioId;
+    const esCreador = equipo.creadoPor?.toString() === usuarioId;
     const esAdminLocal = equipo.administradores?.some(admin => admin?.toString() === usuarioId);
 
     console.log('--- Permisos Equipo ---');
     console.log('Usuario ID:', usuarioId);
     console.log('Rol global:', rolGlobal);
     console.log('Equipo ID:', equipo?._id?.toString());
-    console.log('Equipo creadoPor:', equipo?.CreadoPor?.toString());
+    console.log('Equipo creadoPor:', equipo?.creadoPor?.toString());
     console.log('Equipo administradores:', equipo?.administradores?.map(a => a.toString()));
     console.log('Es creador:', esCreador);
     console.log('Es admin local:', esAdminLocal);

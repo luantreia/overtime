@@ -27,7 +27,8 @@ router.post('/', verificarToken, async (req, res) => {
       nombre: nombre.trim(),
       escudo,
       foto,
-      administradores: [req.user.uid], // array con el UID del creador
+      creadoPor: req.user.uid,        // <--- AGREGAR esta línea
+      administradores: [req.user.uid],
     });
 
     await nuevoEquipo.save();
