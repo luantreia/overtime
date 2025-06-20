@@ -30,7 +30,7 @@ router.post('/asociar', verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Equip
       return res.status(400).json({ message: 'ID de jugador o equipo inválido' });
     }
     console.log('UID recibido en el endpoint:', req.user.uid);
-    const usuarioDB = await Usuario.findOne({ firebaseUid: usuarioId });
+    const usuarioDB = await Usuario.findById(usuarioId);
     console.log('Usuario en BD:', usuarioDB);
 
     if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
