@@ -12,7 +12,9 @@ import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 
 const router = express.Router();
 const { Types } = mongoose;
-
+router.get('/ping', (req, res) => {
+  res.json({ mensaje: 'pong jugador-equipo' });
+});
 // Crear nueva relación jugador-equipo
 router.post('/asociar', verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   console.log('POST /api/jugador-equipo/ recibido con body:', req.body);
