@@ -10,7 +10,7 @@ const { Types } = mongoose;
 const router = express.Router();
 
 // Crear nuevo jugador
-router.post('/', validarObjectId, verificarToken, async (req, res) => {
+router.post('/', verificarToken, async (req, res) => {
   try {
     const { nombre, alias, fechaNacimiento, genero, foto } = req.body;
     if (!nombre || !fechaNacimiento) {
