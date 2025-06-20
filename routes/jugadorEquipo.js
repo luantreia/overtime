@@ -6,12 +6,13 @@ import verificarToken from '../middlewares/authMiddleware.js';
 import Jugador from '../models/Jugador.js';
 import Equipo from '../models/Equipo.js';
 import { esAdminDeEquipoDeRelacion } from '../middlewares/esAdminDeEquipoDeRelacion.js';
+import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 
 const router = express.Router();
 const { Types } = mongoose;
 
 // Crear nueva relación jugador-equipo
-router.post('/', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
+router.post('/', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
     const { jugador, equipo, modalidad, liga, categoria, rol, desde, hasta } = req.body;
 
@@ -62,7 +63,7 @@ router.get('/', async (req, res) => {
 });
 
 // Actualizar relación
-router.put('/:id', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
+router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -80,7 +81,7 @@ router.put('/:id', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) =
 });
 
 // Eliminar relación
-router.delete('/:id', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
+router.delete('/:id', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
     const { id } = req.params;
     const eliminada = await JugadorEquipo.findByIdAndDelete(id);
