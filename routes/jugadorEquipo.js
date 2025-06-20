@@ -13,19 +13,19 @@ const { Types } = mongoose;
 // Crear nueva relación jugador-equipo
 router.post('/', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
-    const { jugador, equipoId, modalidad, liga, categoria, rol, desde, hasta } = req.body;
+    const { jugador, equipo, modalidad, liga, categoria, rol, desde, hasta } = req.body;
 
-    if (!jugador || !equipoId || !modalidad || !liga || !categoria) {
+    if (!jugador || !equipo || !modalidad || !liga || !categoria) {
       return res.status(400).json({ message: 'Faltan campos requeridos' });
     }
 
     const existeJugador = await Jugador.findById(jugador);
-    const existeEquipo = await Equipo.findById(equipoId); // corregido aquí
+    const existeEquipo = await Equipo.findById(equipo); // corregido aquí
     if (!existeJugador || !existeEquipo) {
       return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
     }
 
-    const relacion = new JugadorEquipo({ jugador, equipoId, modalidad, liga, categoria, rol, desde, hasta }); // corregido aquí
+    const relacion = new JugadorEquipo({ jugador, equipo, modalidad, liga, categoria, rol, desde, hasta }); // corregido aquí
     await relacion.save();
 
     res.status(201).json(relacion);
@@ -35,14 +35,46 @@ router.post('/', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => 
   }
 });
 
+router.post('/simple', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
+  try {
+    const { jugador, equipo } = req.body;
+
+    if (!jugador || !equipo) {
+      return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
+    }
+
+    const existeJugador = await Jugador.findById(jugador);
+    const existeEquipo = await Equipo.findById(equipo);
+
+    if (!existeJugador || !existeEquipo) {
+      return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
+    }
+
+    const relacion = new JugadorEquipo({
+      jugador,
+      equipo,
+      modalidad: 'cloth',    // o null, o dejar sin asignar
+      liga: 'amistoso',
+      categoria: 'libre',
+      rol: 'jugador',
+    });
+
+    await relacion.save();
+    res.status(201).json(relacion);
+  } catch (error) {
+    console.error('Error al crear relación básica:', error);
+    res.status(500).json({ message: 'Error interno', error: error.message });
+  }
+});
+
 // Obtener relaciones con filtros opcionales
 router.get('/', async (req, res) => {
   try {
-    const { jugador, equipoId, liga, modalidad, categoria, activo } = req.query;
+    const { jugador, equipo, liga, modalidad, categoria, activo } = req.query;
     const filtro = {};
 
     if (jugador) filtro.jugador = jugador;
-    if (equipoId) filtro.equipoId = equipoId; // corregido aquí
+    if (equipo) filtro.equipoId = equipo; // corregido aquí
     if (liga) filtro.liga = liga;
     if (modalidad) filtro.modalidad = modalidad;
     if (categoria) filtro.categoria = categoria;

@@ -8,7 +8,7 @@ const jugadorEquipoSchema = new mongoose.Schema({
     ref: 'Jugador',
     required: true,
   },
-  equipoId: {
+  equipo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipo',
     required: true,
@@ -47,7 +47,7 @@ const jugadorEquipoSchema = new mongoose.Schema({
 
   estado: { 
     type: String, enum: ['pendiente', 'aceptado'],
-    default: 'pendiente' 
+    default: 'aceptado' 
   },
 
   creadoPor: { 
