@@ -35,18 +35,16 @@ router.post('/', validarObjectId, verificarToken, async (req, res) => {
   }
 });
 
-// Ruta para obtener jugadores, filtrando por equipoId si se proporciona
+// GET /jugadores -> todos los jugadores, sin filtro por equipo
 router.get('/', async (req, res) => {
   try {
-    const { equipoId } = req.query;
-    const filtro = {};
-    if (equipoId) filtro.equipoId = equipoId;
-    const jugadores = await Jugador.find(filtro).populate('equipoId');
+    const jugadores = await Jugador.find();
     res.status(200).json(jugadores);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
+
 
 router.get('/por-equipo/:equipoId', async (req, res) => {
   const { equipoId } = req.params;
