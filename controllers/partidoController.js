@@ -160,7 +160,7 @@ export async function actualizarSet(req, res) {
 
     await partido.save();
 
-    const actualizado = await Partido.findById(partido._id)
+    const actualizado = await Partido.findById(partido.uid)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
       .lean();
