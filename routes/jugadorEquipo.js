@@ -15,8 +15,9 @@ router.post('/', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => 
   try {
     const { jugador, equipo, modalidad, liga, categoria, rol, desde, hasta } = req.body;
 
-    if (!jugador || !equipo || !modalidad || !liga || !categoria) {
-      return res.status(400).json({ message: 'Faltan campos requeridos' });
+    // Solo validar jugador y equipo:
+    if (!jugador || !equipo) {
+      return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
     }
 
     const existeJugador = await Jugador.findById(jugador);
@@ -35,37 +36,6 @@ router.post('/', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => 
   }
 });
 
-router.post('/simple', verificarToken, esAdminDeEquipoDeRelacion, async (req, res) => {
-  try {
-    const { jugador, equipo } = req.body;
-
-    if (!jugador || !equipo) {
-      return res.status(400).json({ message: 'Jugador y equipo son requeridos' });
-    }
-
-    const existeJugador = await Jugador.findById(jugador);
-    const existeEquipo = await Equipo.findById(equipo);
-
-    if (!existeJugador || !existeEquipo) {
-      return res.status(404).json({ message: 'Jugador o equipo no encontrado' });
-    }
-
-    const relacion = new JugadorEquipo({
-      jugador,
-      equipo,
-      modalidad: 'cloth',    // o null, o dejar sin asignar
-      liga: 'amistoso',
-      categoria: 'libre',
-      rol: 'jugador',
-    });
-
-    await relacion.save();
-    res.status(201).json(relacion);
-  } catch (error) {
-    console.error('Error al crear relación básica:', error);
-    res.status(500).json({ message: 'Error interno', error: error.message });
-  }
-});
 
 // Obtener relaciones con filtros opcionales
 router.get('/', async (req, res) => {
