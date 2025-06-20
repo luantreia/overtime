@@ -13,7 +13,7 @@ const router = express.Router();
 const { Types } = mongoose;
 
 // Crear nueva relación jugador-equipo
-router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.post('/asociar', verificarToken, cargarRolDesdeBD, async (req, res) => {
   console.log('POST /api/jugador-equipo/ recibido con body:', req.body);
   try {
     const { jugador, equipo } = req.body;
@@ -27,7 +27,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       return res.status(400).json({ message: 'ID de jugador o equipo inválido' });
     }
     console.log('UID recibido en el endpoint:', req.user.uid);
-    const usuarioDB = await Usuario.findById(req.user.uid);
+    const usuarioDB = await Usuario.findById(usuarioId);
     console.log('Usuario en BD:', usuarioDB);
 
     if (!usuarioDB) return res.status(404).json({ message: 'Usuario no encontrado' });
