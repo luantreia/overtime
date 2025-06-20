@@ -9,10 +9,10 @@ export const esAdminDeEntidad = (Modelo, nombreCampoEntidad = 'entidad') => {
       if (!usuarioId) {
         return res.status(401).json({ message: 'No autorizado, token inválido o ausente' });
       }
-
       const idEntidad =
         req.params.id ||
         req.body[`${nombreCampoEntidad}Id`] ||
+        req.body[nombreCampoEntidad] ||    // <--- esta línea agregada
         req.body.id ||
         req.query[`${nombreCampoEntidad}Id`] ||
         req.query.id;
