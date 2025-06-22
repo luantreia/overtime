@@ -28,6 +28,7 @@ router.post( '/:id/sets',
   verificarToken,
   cargarRolDesdeBD,
   esAdminDeEntidad(Partido, 'partido'),
+  cargarPartido,  
   agregarSet
 );
 
@@ -42,6 +43,7 @@ router.put(
   cargarPartido,
   actualizarSet
 );
+
 router.delete('/:id', verificarToken, esAdminDeEntidad(Partido, 'partido'), eliminarPartido);
 
 export default router;
