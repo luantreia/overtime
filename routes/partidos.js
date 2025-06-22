@@ -24,6 +24,7 @@ router.post('/', verificarToken, crearPartido);
 router.put('/:id', validarObjectId, verificarToken, esAdminDeEntidad(Partido, 'partido'), actualizarPartido);
 
 router.post( '/:id/sets',
+  validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
   esAdminDeEntidad(Partido, 'partido'),
