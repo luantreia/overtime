@@ -4,6 +4,7 @@ import Usuario from '../models/Usuario.js';
 export const cargarRolDesdeBD = async (req, res, next) => {
   try {
     const uid = req.user?.uid;
+    console.log('Usuario obtenido para permisos:', usuario);
     if (!uid) return res.status(401).json({ message: 'No autorizado' });
 
     const usuario = await Usuario.findById(uid);

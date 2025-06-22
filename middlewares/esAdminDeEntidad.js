@@ -30,7 +30,13 @@ export const esAdminDeEntidad = (Modelo, nombreCampoEntidad = 'entidad') => {
       const esAdmin = entidad.administradores?.some(
         adminId => adminId?.toString() === usuarioId
       );
-
+      console.log('Verificando permisos:', {
+        uid: req.user?.uid,
+        rol: req.user?.rol,
+        entidad: nombreCampoEntidad,
+        creadoPor: entidad.creadoPor,
+        administradores: entidad.administradores
+      });
       if (rolGlobal === 'admin' || esCreador || esAdmin) {
         req[nombreCampoEntidad] = entidad;
         return next();

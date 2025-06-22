@@ -22,8 +22,17 @@ router.get('/', obtenerPartidos);
 router.get('/:id', validarObjectId, obtenerPartidoPorId);
 router.post('/', verificarToken, crearPartido);
 router.put('/:id', validarObjectId, verificarToken, esAdminDeEntidad(Partido, 'partido'), actualizarPartido);
-router.post('/:id/sets', verificarToken, esAdminDeEntidad(Partido, 'partido'), agregarSet);
+
+router.post( '/:id/sets',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Partido, 'partido'),
+  agregarSet
+);
+
 router.put('/:id/sets/:numeroSet/stats', verificarToken, esAdminDeEntidad(Partido, 'partido'), actualizarStatsSet);
+
 router.put(
   '/:id/sets/:numeroSet',
   validarObjectId,
