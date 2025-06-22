@@ -5,6 +5,7 @@ import Equipo from '../models/Equipo.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -67,7 +68,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Actualizar equipo (solo admins de ese equipo)
-router.put('/:id', verificarToken, validarObjectId, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
+router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
   const { nombre, escudo, foto } = req.body;
 
