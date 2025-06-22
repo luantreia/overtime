@@ -1,3 +1,5 @@
+import Usuario from "../models/Usuario";
+
 export const cargarRolDesdeBD = async (req, res, next) => {
   try {
     const uid = req.user?.uid;
