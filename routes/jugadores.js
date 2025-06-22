@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
-
+import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 const { Types } = mongoose;
 const router = express.Router();
 
@@ -66,7 +66,7 @@ router.get('/por-equipo/:equipoId', async (req, res) => {
   }
 });
 
-router.put('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
     const jugador = req.jugador; // ya validado por middleware
     const { nombre, alias, fechaNacimiento, genero, foto, administradores } = req.body;
