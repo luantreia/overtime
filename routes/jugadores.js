@@ -69,14 +69,13 @@ router.get('/por-equipo/:equipoId', async (req, res) => {
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
     const jugador = req.jugador; // ya validado por middleware
-    const { nombre, alias, fechaNacimiento, genero, foto, administradores } = req.body;
+    const { nombre, alias, fechaNacimiento, genero, foto } = req.body;  // sin administradores
 
     if (nombre !== undefined) jugador.nombre = nombre;
     if (alias !== undefined) jugador.alias = alias;
     if (fechaNacimiento !== undefined) jugador.fechaNacimiento = fechaNacimiento;
     if (genero !== undefined) jugador.genero = genero;
     if (foto !== undefined) jugador.foto = foto;
-    if (administradores !== undefined) jugador.administradores = administradores;
 
     await jugador.save();
     res.status(200).json(jugador);
