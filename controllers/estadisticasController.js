@@ -1,14 +1,9 @@
-// controllers/estadisticasController.js
 import Partido from '../models/Partido.js';
 
 export const obtenerResumenEstadisticasJugador = async (req, res) => {
   const { jugadorId } = req.params;
 
   try {
-    // Buscar partidos donde participó el jugador
-    // y acumular estadísticas por jugador
-
-    // Ejemplo simplificado: buscar partidos que tengan sets con stats del jugador
     const partidos = await Partido.find({
       'sets.statsJugadoresSet.jugador': jugadorId
     }).lean();
@@ -16,27 +11,43 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
     let totalPartidos = partidos.length;
     let totalThrows = 0, totalHits = 0, totalOuts = 0, totalCatches = 0;
     let ultimoPartido = null;
+    const estadisticasPorPartido = [];
 
     partidos.forEach((partido) => {
-      // Buscar sets con stats del jugador
+      let statsPartido = { throws: 0, hits: 0, outs: 0, catches: 0 };
+
       partido.sets.forEach(set => {
         set.statsJugadoresSet.forEach(stat => {
           if (stat.jugador.toString() === jugadorId) {
-            totalThrows += stat.estadisticas?.throws || 0;
-            totalHits += stat.estadisticas?.hits || 0;
-            totalOuts += stat.estadisticas?.outs || 0;
-            totalCatches += stat.estadisticas?.catches || 0;
+            statsPartido.throws += stat.estadisticas?.throws || 0;
+            statsPartido.hits += stat.estadisticas?.hits || 0;
+            statsPartido.outs += stat.estadisticas?.outs || 0;
+            statsPartido.catches += stat.estadisticas?.catches || 0;
           }
         });
       });
 
-      // Último partido basado en fecha
+      totalThrows += statsPartido.throws;
+      totalHits += statsPartido.hits;
+      totalOuts += statsPartido.outs;
+      totalCatches += statsPartido.catches;
+
+      estadisticasPorPartido.push({
+        _id: partido._id,
+        fecha: partido.fecha,
+        liga: partido.liga,
+        equipoLocal: partido.equipoLocal,
+        equipoVisitante: partido.equipoVisitante,
+        marcadorLocal: partido.marcadorLocal,
+        marcadorVisitante: partido.marcadorVisitante,
+        ...statsPartido
+      });
+
       if (!ultimoPartido || new Date(partido.fecha) > new Date(ultimoPartido.fecha)) {
         ultimoPartido = partido;
       }
     });
 
-    // Opcional: promedio por partido
     const promedioThrows = totalPartidos ? (totalThrows / totalPartidos).toFixed(2) : 0;
     const promedioHits = totalPartidos ? (totalHits / totalPartidos).toFixed(2) : 0;
     const promedioOuts = totalPartidos ? (totalOuts / totalPartidos).toFixed(2) : 0;
@@ -59,7 +70,8 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
         equipoVisitante: ultimoPartido.equipoVisitante,
         marcadorLocal: ultimoPartido.marcadorLocal,
         marcadorVisitante: ultimoPartido.marcadorVisitante,
-      } : null
+      } : null,
+      estadisticasPorPartido
     });
   } catch (error) {
     console.error('Error en obtenerResumenEstadisticasJugador:', error);
