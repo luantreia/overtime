@@ -33,8 +33,7 @@ const PartidoSchema = new Schema({
     type: [
       {
         numeroSet: { type: Number, required: true },
-        marcadorLocalSet: { type: Number, default: 0 },
-        marcadorVisitanteSet: { type: Number, default: 0 },
+        ganadorSet: { type: String, enum: ['local', 'visitante', 'empate', 'pendiente'], default: 'pendiente' },
         estadoSet: { type: String, enum: ['en_juego', 'finalizado'], default: 'en_juego' },
         statsJugadoresSet: [
           {
@@ -73,26 +72,22 @@ PartidoSchema.methods.recalcularMarcador = function () {
   for (const set of this.sets) {
     if (set.estadoSet !== 'finalizado') continue;
 
-    const local = set.marcadorLocalSet;
-    const visitante = set.marcadorVisitanteSet;
-
     if (esCloth) {
-      if (local > visitante) {
+      if (set.ganadorSet === 'local') {
         puntosLocal += 2;
-      } else if (local === visitante) {
+      } else if (set.ganadorSet === 'visitante') {
+        puntosVisitante += 2;
+      } else if (set.ganadorSet === 'empate') {
         puntosLocal += 1;
         puntosVisitante += 1;
-      } else {
-        puntosVisitante += 2;
       }
     } else if (esFoam) {
-      if (local > visitante) {
+      if (set.ganadorSet === 'local') {
         puntosLocal += 1;
-      } else if (visitante > local) {
+      } else if (set.ganadorSet === 'visitante') {
         puntosVisitante += 1;
-      } else {
-        // Empate no permitido en Foam, no sumamos puntos
       }
+      // Empate no permitido en Foam
     }
   }
 
@@ -105,11 +100,12 @@ PartidoSchema.pre('save', function(next) {
     // Validación de empate en modalidad Foam
   if (this.modalidad === 'Foam') {
     for (const set of this.sets) {
-      if (set.estadoSet === 'finalizado' && set.marcadorLocalSet === set.marcadorVisitanteSet) {
+      if (set.estadoSet === 'finalizado' && set.ganadorSet === 'empate') {
         return next(new Error('No se permiten empates en sets para la modalidad Foam.'));
       }
     }
   }
+
   this.recalcularMarcador();
   next();
 });

@@ -151,21 +151,21 @@ export async function actualizarStatsSet(req, res) {
 
 export async function actualizarSet(req, res) {
   try {
-    const partido = req.partido;
+    const partido = req.partido; // Cargado por middleware
     const { numeroSet } = req.params;
-    const { marcadorLocalSet, marcadorVisitanteSet, estadoSet, statsJugadoresSet } = req.body;
+    const { ganadorSet, estadoSet, statsJugadoresSet } = req.body;
 
     const set = partido.sets.find(s => s.numeroSet === parseInt(numeroSet));
     if (!set) return res.status(404).json({ error: `Set número ${numeroSet} no encontrado.` });
 
-    if (marcadorLocalSet !== undefined) set.marcadorLocalSet = marcadorLocalSet;
-    if (marcadorVisitanteSet !== undefined) set.marcadorVisitanteSet = marcadorVisitanteSet;
+    if (ganadorSet !== undefined) set.ganadorSet = ganadorSet;
     if (estadoSet !== undefined) set.estadoSet = estadoSet;
     if (statsJugadoresSet !== undefined) set.statsJugadoresSet = statsJugadoresSet;
-    
+
     if (!partido.creadoPor && req.user?.uid) {
       partido.creadoPor = req.user.uid;
     }
+
     await partido.save();
 
     const actualizado = await Partido.findById(partido._id)
@@ -180,6 +180,7 @@ export async function actualizarSet(req, res) {
     res.status(400).json({ error: error.message || 'Error al actualizar el set.' });
   }
 }
+
 
 export async function eliminarPartido(req, res) {
   try {
