@@ -103,13 +103,24 @@ export async function actualizarPartido(req, res) {
 export async function agregarSet(req, res) {
   try {
     const partido = req.partido;
-    const { numeroSet, marcadorLocalSet = 0, marcadorVisitanteSet = 0, estadoSet = 'en_juego', statsJugadoresSet = [] } = req.body;
+    const {
+      numeroSet,
+      ganadorSet = 'pendiente',
+      estadoSet = 'en_juego',
+      statsJugadoresSet = [],
+    } = req.body;
 
     if (partido.sets.some(s => s.numeroSet === numeroSet)) {
       return res.status(400).json({ error: `El set número ${numeroSet} ya existe.` });
     }
 
-    const nuevoSet = { numeroSet, marcadorLocalSet, marcadorVisitanteSet, estadoSet, statsJugadoresSet };
+    const nuevoSet = {
+      numeroSet,
+      ganadorSet,
+      estadoSet,
+      statsJugadoresSet,
+    };
+
     partido.sets.push(nuevoSet);
     await partido.save();
 
