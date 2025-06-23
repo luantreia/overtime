@@ -44,6 +44,16 @@ router.put(
   actualizarSet
 );
 
+router.delete(
+  '/:id/sets/:numeroSet',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Partido, 'partido'),
+  cargarPartido,
+  eliminarSet
+);
+
 router.delete('/:id', verificarToken, esAdminDeEntidad(Partido, 'partido'), eliminarPartido);
 
 export default router;

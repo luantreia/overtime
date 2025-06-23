@@ -192,6 +192,34 @@ export async function actualizarSet(req, res) {
   }
 }
 
+export async function eliminarSet(req, res) {
+  try {
+    const partido = req.partido;  // partido cargado por middleware
+    const { numeroSet } = req.params;
+
+    // Buscar índice del set
+    const index = partido.sets.findIndex(s => s.numeroSet === parseInt(numeroSet));
+    if (index === -1) {
+      return res.status(404).json({ error: `Set número ${numeroSet} no encontrado.` });
+    }
+
+    // Eliminar set por índice
+    partido.sets.splice(index, 1);
+
+    await partido.save();
+
+    const actualizado = await Partido.findById(partido._id)
+      .populate('equipoLocal', 'nombre escudo')
+      .populate('equipoVisitante', 'nombre escudo')
+      .populate('sets.statsJugadoresSet.jugador', 'nombre alias')
+      .lean();
+
+    res.json(actualizado);
+  } catch (error) {
+    console.error('Error al eliminar set:', error);
+    res.status(500).json({ error: error.message || 'Error al eliminar el set.' });
+  }
+}
 
 export async function eliminarPartido(req, res) {
   try {
