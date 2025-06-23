@@ -7,6 +7,7 @@ import {
   agregarSet,
   actualizarStatsSet,
   actualizarSet,
+  eliminarSet,
   eliminarPartido
 } from '../controllers/partidoController.js';
 import Partido from '../models/Partido.js';
