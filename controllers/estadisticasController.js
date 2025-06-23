@@ -45,6 +45,10 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
         ? ((statsPartido.hits / statsPartido.throws) * 100).toFixed(2)
         : null;
 
+      const hoc = statsPartido.outs > 0
+        ? ((statsPartido.hits + statsPartido.catches) / statsPartido.outs).toFixed(2)
+        : null;
+
       estadisticasPorPartido.push({
         _id: partido._id,
         fecha: partido.fecha,
@@ -56,6 +60,7 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
         setsJugados: setsConStats,
         ...statsPartido,
         efectividad,
+        hoc,
       });
 
       if (!ultimoPartido || new Date(partido.fecha) > new Date(ultimoPartido.fecha)) {
@@ -75,6 +80,10 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
       ? ((totalHits / totalThrows) * 100).toFixed(2)
       : null;
 
+    const promedioHOC = totalOuts > 0
+      ? ((totalHits + totalCatches) / totalOuts).toFixed(2)
+      : null;
+
     res.json({
       totalPartidos,
       totalSets,
@@ -88,6 +97,7 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
       promedioCatches,
       promedioSetsPorPartido,
       efectividadPromedio,
+      promedioHOC,
       ultimoPartido: ultimoPartido ? {
         fecha: ultimoPartido.fecha,
         liga: ultimoPartido.liga,
