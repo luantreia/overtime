@@ -1,3 +1,7 @@
+// models/JugadorEquipo.js
+
+import mongoose from 'mongoose';
+
 const jugadorEquipoSchema = new mongoose.Schema({
   jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
   equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
@@ -35,3 +39,5 @@ jugadorEquipoSchema.pre('save', async function (next) {
     next(err);
   }
 });
+
+export default mongoose.model('JugadorEquipo', jugadorEquipoSchema);
