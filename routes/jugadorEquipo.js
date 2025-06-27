@@ -63,7 +63,7 @@ router.post('/asociar', verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Equip
 // Obtener relaciones con filtros opcionales
 router.get('/', async (req, res) => {
   try {
-    const { jugador, equipo, liga, modalidad, categoria, activo } = req.query;
+    const { jugador, equipo, activo } = req.query;
     const filtro = {};
 
     if (jugador) filtro.jugador = jugador;
