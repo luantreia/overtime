@@ -39,11 +39,14 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
+      const { nombre, ...datosCompetencia } = req.body; // Ignora 'nombre' si viene del frontend
+
       const nueva = new Competencia({
-        ...req.body,
+        ...datosCompetencia,
         creadoPor: req.user.uid,
         administradores: [req.user.uid],
       });
+
       const guardada = await nueva.save();
       res.status(201).json(guardada);
     } catch (error) {

@@ -26,7 +26,7 @@ const CompetenciaSchema = new mongoose.Schema({
   
   temporada: { 
     type: String, 
-    default: '2025',  // o lo que prefieras
+    default: '2025',
     trim: true,
   },
   
@@ -37,7 +37,7 @@ const CompetenciaSchema = new mongoose.Schema({
     trim: true,
   },
 
-  reglas: { type: String }, // campo para reglas específicas, link o JSON si querés
+  reglas: { type: String },
 
   fechaInicio: { type: Date, required: true },
   fechaFin: { type: Date },
@@ -49,15 +49,38 @@ const CompetenciaSchema = new mongoose.Schema({
   },
 
   creadoPor: { 
-    type: mongoose.Schema.Types.ObjectId, 
+    type: String, 
     ref: 'Usuario', 
     required: true,
   },
 
   administradores: [
-    { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' }
+    { type: String, ref: 'Usuario' }
   ],
 
 }, { timestamps: true });
+
+// Hook para generar nombre automáticamente
+CompetenciaSchema.pre('validate', async function (next) {
+  if (!this.nombre && this.tipo && this.modalidad && this.categoria && this.temporada && this.organizacion) {
+    // Obtener nombre de la organización (si es un ObjectId, buscarla)
+    let nombreOrg = '';
+    if (typeof this.organizacion === 'object' && this.organizacion.nombre) {
+      nombreOrg = this.organizacion.nombre;
+    } else {
+      const OrgModel = mongoose.model('Organizacion');
+      const org = await OrgModel.findById(this.organizacion).lean();
+      nombreOrg = org?.nombre || 'OrgDesconocida';
+    }
+
+    const capitalizar = str => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    const tipo = capitalizar(this.tipo);
+    const modalidad = capitalizar(this.modalidad);
+    const categoria = capitalizar(this.categoria);
+
+    this.nombre = `${tipo} ${modalidad} ${categoria} ${this.temporada} - ${nombreOrg}`;
+  }
+  next();
+});
 
 export default mongoose.model('Competencia', CompetenciaSchema);
