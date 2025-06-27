@@ -2,7 +2,7 @@ import express from 'express';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { validarObjectId } from '../middlewares/validarObjectId.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import Organizacion from '../models/Organizacion.js';
 
 const router = express.Router();

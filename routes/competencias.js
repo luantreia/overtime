@@ -3,7 +3,7 @@ import Competencia from '../models/Competencia.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { validarObjectId } from '../middlewares/validarObjectId.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
