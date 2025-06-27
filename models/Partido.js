@@ -4,7 +4,12 @@ import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 const PartidoSchema = new Schema({
-  liga: { type: String, required: true, trim: true },
+  competencia: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Competencia',
+    required: false,
+  },
+  nombrePartido: { type: String, trim: true },
   modalidad: { type: String, enum: ['Foam', 'Cloth'], required: true, trim: true },
   categoria: { type: String, enum: ['Masculino', 'Femenino', 'Mixto', 'Libre'], required: true, trim: true },
   fecha: { type: Date, required: true },
@@ -95,26 +100,48 @@ PartidoSchema.methods.recalcularMarcador = function () {
   this.marcadorVisitante = puntosVisitante;
 };
 
-// Hook que recalcula el marcador antes de guardar
-PartidoSchema.pre('save', function(next) {
+PartidoSchema.pre('save', async function (next) {
+  try {
     // Validación de empate en modalidad Foam
-  if (this.modalidad === 'Foam') {
-    for (const set of this.sets) {
-      if (set.estadoSet === 'finalizado' && set.ganadorSet === 'empate') {
-        return next(new Error('No se permiten empates en sets para la modalidad Foam.'));
+    if (this.modalidad === 'Foam') {
+      for (const set of this.sets) {
+        if (set.estadoSet === 'finalizado' && set.ganadorSet === 'empate') {
+          return next(new Error('No se permiten empates en sets para la modalidad Foam.'));
+        }
       }
     }
+
+    // Recalcular marcador
+    this.recalcularMarcador();
+
+    // Autogenerar nombre del partido
+    if (this.competencia && !this.populated('competencia')) {
+      await this.populate('competencia');
+    }
+    if (!this.populated('equipoLocal')) {
+      await this.populate('equipoLocal');
+    }
+    if (!this.populated('equipoVisitante')) {
+      await this.populate('equipoVisitante');
+    }
+
+    const nombreLocal = this.equipoLocal?.nombre || 'Local';
+    const nombreVisitante = this.equipoVisitante?.nombre || 'Visitante';
+    const categoria = this.categoria || '';
+    const modalidad = this.modalidad || '';
+
+    if (this.competencia) {
+      this.nombrePartido = `${this.competencia.nombre} - ${nombreLocal} vs ${nombreVisitante}`;
+    } else {
+      this.nombrePartido = `${nombreLocal} vs ${nombreVisitante} - ${categoria} - ${modalidad} - Amistoso`;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  this.recalcularMarcador();
-  next();
 });
 
-PartidoSchema.virtual('nombre').get(function() {
-  const localName = this.equipoLocal ? this.equipoLocal.nombre : (this.equipoLocal || 'Equipo Local');
-  const visitanteName = this.equipoVisitante ? this.equipoVisitante.nombre : (this.equipoVisitante || 'Equipo Visitante');
-  return `${localName} vs ${visitanteName} - ${this.liga} - ${this.modalidad} - ${this.categoria}`;
-});
 
 PartidoSchema.set('toJSON', { virtuals: true });
 PartidoSchema.set('toObject', { virtuals: true });

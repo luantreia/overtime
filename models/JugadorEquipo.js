@@ -13,28 +13,6 @@ const jugadorEquipoSchema = new mongoose.Schema({
     ref: 'Equipo',
     required: true,
   },
-
-  modalidad: {
-    type: String,
-    enum: ['cloth', 'foam'],
-  },
-
-  liga: {
-    type: String,
-
-  },
-
-  categoria: {
-    type: String,
-    enum: ['masculino', 'femenino', 'mixto', 'libre'],
-  },
-
-  rol: {
-    type: String,
-    enum: ['jugador', 'capitan', 'entrenador'],
-    default: 'jugador',
-  },
-
   desde: Date,
   hasta: Date,
 

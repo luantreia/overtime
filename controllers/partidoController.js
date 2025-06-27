@@ -59,8 +59,8 @@ export async function crearPartido(req, res) {
       ubicacion,
       estado,
       liga,
-      modalidad,     // <--- agregado
-      categoria,     // <--- agregado
+      modalidad,
+      categoria, 
       sets,
       creadoPor,
       administradores: [creadoPor]

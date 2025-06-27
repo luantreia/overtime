@@ -88,14 +88,13 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeE
 // Eliminar jugador por ID
 router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
-    const jugador = req.jugador; // ya validado
-
-    await jugador.deleteOne();
+    const jugador = req.jugador; // Cargado por esAdminDeEntidad
+    await jugador.deleteOne();   // ✅ Esto dispara el pre('remove')
     res.status(200).json({ message: 'Jugador eliminado correctamente' });
   } catch (error) {
-    console.error('Error al eliminar jugador:', error);
     res.status(500).json({ message: 'Error al eliminar jugador' });
   }
 });
+
 
 export default router;

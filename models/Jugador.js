@@ -35,6 +35,12 @@ jugadorSchema.virtual('edad').get(function () {
   return edad;
 });
 
+jugadorSchema.pre('remove', async function (next) {
+  const jugadorId = this._id;
+  await mongoose.model('JugadorEquipo').deleteMany({ jugador: jugadorId });
+  next();
+});
+
 jugadorSchema.set('toJSON', { virtuals: true });
 jugadorSchema.set('toObject', { virtuals: true });
 

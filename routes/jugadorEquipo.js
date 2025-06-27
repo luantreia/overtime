@@ -9,6 +9,7 @@ import Usuario from '../models/Usuario.js';
 import { esAdminDeEquipoDeRelacion } from '../middlewares/esAdminDeEquipoDeRelacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -67,9 +68,6 @@ router.get('/', async (req, res) => {
 
     if (jugador) filtro.jugador = jugador;
     if (equipo) filtro.equipo = equipo; // corregido aquí
-    if (liga) filtro.liga = liga;
-    if (modalidad) filtro.modalidad = modalidad;
-    if (categoria) filtro.categoria = categoria;
     if (activo !== undefined) filtro.activo = activo === 'true';
 
     const relaciones = await JugadorEquipo.find(filtro)
@@ -102,7 +100,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, 
 });
 
 // Eliminar relación
-router.delete('/:id', verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
+router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEquipoDeRelacion, async (req, res) => {
   try {
     const { id } = req.params;
     const eliminada = await JugadorEquipo.findByIdAndDelete(id);
