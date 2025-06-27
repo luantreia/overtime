@@ -41,6 +41,18 @@ const jugadorEquipoSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-jugadorEquipoSchema.index({ jugador: 1, equipo: 1, modalidad: 1, liga: 1, categoria: 1 }, { unique: false });
+jugadorEquipoSchema.index({ jugador: 1, equipo: 1}, { unique: true });
+
+// Virtual: nombreJugadorEquipo
+jugadorEquipoSchema.virtual('nombreJugadorEquipo').get(function () {
+  if (this.populated('jugador') && this.populated('equipo')) {
+    return `${this.jugador.nombre} - ${this.equipo.nombre}`;
+  }
+  return undefined;
+});
+
+jugadorEquipoSchema.set('toObject', { virtuals: true });
+jugadorEquipoSchema.set('toJSON', { virtuals: true });
+
 
 export default mongoose.model('JugadorEquipo', jugadorEquipoSchema);
