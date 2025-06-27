@@ -15,11 +15,17 @@ router.post(
   async (req, res) => {
     try {
       const { nombre, descripcion } = req.body;
+
+      const creadoPor = req.user.uid;
+      if (!creadoPor) return res.status(401).json({ error: 'No autenticado.' });
+      if (!nombre?.trim()) {
+        return res.status(400).json({ error: 'El nombre de la organización es obligatorio.' });
+      }
       const nueva = new Organizacion({
         nombre,
         descripcion,
-        creadaPor: req.user.uid,
-        administradores: [req.user.uid],
+        creadoPor,
+        administradores: [creadoPor],
       });
       const guardada = await nueva.save();
       res.status(201).json(guardada);
@@ -63,7 +69,8 @@ router.put(
   esAdminDeEntidad(Organizacion, 'organizacion'),
   async (req, res) => {
     try {
-      Object.assign(req.organizacion, req.body);
+      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, activa }) => ({ nombre, descripcion, logo, sitioWeb, activa }))(req.body);
+      Object.assign(req.organizacion, camposPermitidos);
       const orgActualizada = await req.organizacion.save();
       res.json(orgActualizada);
     } catch (error) {
