@@ -1,6 +1,7 @@
 import express from 'express';
 import Competencia from '../models/Competencia.js';
 import verificarToken from '../middlewares/authMiddleware.js';
+import Organizacion from '../models/Organizacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
@@ -39,7 +40,20 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { nombre, ...datosCompetencia } = req.body; // Ignora 'nombre' si viene del frontend
+      const { nombre, ...datosCompetencia } = req.body;
+
+      const organizacion = await Organizacion.findById(datosCompetencia.organizacion).lean();
+
+      if (!organizacion) {
+        return res.status(404).json({ error: 'Organización no encontrada' });
+      }
+
+      const esAdminGlobal = req.user.rol === 'admin';
+      const esAdminOrganizacion = organizacion.administradores?.includes(req.user.uid);
+
+      if (!esAdminGlobal && !esAdminOrganizacion) {
+        return res.status(403).json({ error: 'No tienes permisos para crear una competencia en esta organización' });
+      }
 
       const nueva = new Competencia({
         ...datosCompetencia,
