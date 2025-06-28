@@ -88,3 +88,5 @@ const FaseSchema = new mongoose.Schema({
     }
   ]
 }, { timestamps: true });
+
+export default mongoose.model('Fase', FaseSchema);
