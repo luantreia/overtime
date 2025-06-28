@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 // Obtener competencia por ID (público)
 router.get(
   '/:id',
-  validarObjectId, // no es obligatorio pero si viene token, req.user está seteado
+  validarObjectId,
   async (req, res, next) => {
     try {
       const competencia = await Competencia.findById(req.params.id).populate('organizacion', 'nombre').lean();

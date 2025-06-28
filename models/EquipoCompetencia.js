@@ -13,6 +13,11 @@ const EquipoCompetenciaSchema = new mongoose.Schema({
     required: true
   },
 
+  fase: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Fase',
+  },
+
   jugadoresCompetencia: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'JugadorCompetencia'
