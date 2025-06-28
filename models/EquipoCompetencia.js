@@ -79,13 +79,13 @@ const EquipoCompetenciaSchema = new mongoose.Schema({
   },
 
   creadoPor: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'Usuario',
     required: true
   },
 
   administradores: [{
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'Usuario'
   }]
 }, { timestamps: true });

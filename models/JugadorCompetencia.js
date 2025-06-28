@@ -40,7 +40,7 @@ const JugadorCompetenciaSchema = new mongoose.Schema({
   },
 
   creadoPor: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'Usuario',
     required: true
   }
