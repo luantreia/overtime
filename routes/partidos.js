@@ -13,7 +13,7 @@ import {
 import verificarToken from '../middlewares/authMiddleware.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 // import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoPartido.js'; // nuevo
+import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoDePartido.js'; // nuevo
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { cargarPartido } from '../middlewares/cargarPartido.js';
 
