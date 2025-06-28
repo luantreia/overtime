@@ -1,9 +1,26 @@
 // server/controllers/partidoController.js
 import Partido from '../models/Partido.js';
 
+// Obtener partidos con filtro por tipo y otros filtros opcionales
 export async function obtenerPartidos(req, res) {
   try {
-    const partidos = await Partido.find()
+    const { tipo, modalidad, estado, competenciaId } = req.query;
+
+    const filtro = {};
+
+    // Filtrado por tipo: amistoso (sin competencia), competencia (con competencia)
+    if (tipo === 'amistoso') {
+      filtro.competencia = { $exists: false };
+    } else if (tipo === 'competencia') {
+      filtro.competencia = { $exists: true, $ne: null };
+    }
+
+    // Filtrado adicional por modalidad, estado o competenciaId si se proveen
+    if (modalidad) filtro.modalidad = modalidad;
+    if (estado) filtro.estado = estado;
+    if (competenciaId) filtro.competencia = competenciaId;
+
+    const partidos = await Partido.find(filtro)
       .sort({ fecha: -1 })
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
@@ -16,6 +33,7 @@ export async function obtenerPartidos(req, res) {
   }
 }
 
+// Obtener partido por ID (sin cambios)
 export async function obtenerPartidoPorId(req, res) {
   try {
     const { id } = req.params;
@@ -25,8 +43,6 @@ export async function obtenerPartidoPorId(req, res) {
       .populate('sets.statsJugadoresSet.jugador', 'nombre alias')
       .lean();
 
-    console.log(partido.sets[0].statsJugadoresSet[0].jugador);
-
     if (!partido) return res.status(404).json({ error: 'Partido no encontrado.' });
     res.json(partido);
   } catch (error) {
@@ -35,6 +51,7 @@ export async function obtenerPartidoPorId(req, res) {
   }
 }
 
+// Crear partido (amistoso o de competencia)
 export async function crearPartido(req, res) {
   try {
     const {
@@ -46,7 +63,7 @@ export async function crearPartido(req, res) {
       competencia,
       modalidad,
       categoria,
-      sets = []
+      sets = [],
     } = req.body;
 
     const creadoPor = req.user.uid;
@@ -60,10 +77,10 @@ export async function crearPartido(req, res) {
       estado,
       competencia,
       modalidad,
-      categoria, 
+      categoria,
       sets,
       creadoPor,
-      administradores: [creadoPor]
+      administradores: [creadoPor],
     });
 
     const partidoGuardado = await nuevoPartido.save();
@@ -79,7 +96,7 @@ export async function crearPartido(req, res) {
   }
 }
 
-
+// Actualizar partido (sin cambios)
 export async function actualizarPartido(req, res) {
   try {
     const partido = req.partido;

@@ -1,41 +1,55 @@
 import mongoose from 'mongoose';
 
+const FormatoSchema = new mongoose.Schema({
+  tipo: {
+    type: String,
+    enum: ['liga', 'grupos', 'playoffs', 'grupos_playoffs', 'otro'],
+    required: true,
+  },
+  cantidadGrupos: Number,
+  equiposPorGrupo: Number,
+  clasificadosPorGrupo: Number,
+  partidosIdaVuelta: { type: Boolean, default: false },
+}, { _id: false });
+
 const CompetenciaSchema = new mongoose.Schema({
   nombre: { type: String, required: true, trim: true },
   descripcion: { type: String },
 
-  organizacion: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Organizacion', 
-    required: true 
+  organizacion: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organizacion',
+    required: true
   },
 
-  modalidad: { 
-    type: String, 
-    enum: ['Foam', 'Cloth'], 
+  modalidad: {
+    type: String,
+    enum: ['Foam', 'Cloth'],
     required: true,
     trim: true,
   },
 
-  categoria: { 
-    type: String, 
-    enum: ['Masculino', 'Femenino', 'Mixto', 'Libre'], 
+  categoria: {
+    type: String,
+    enum: ['Masculino', 'Femenino', 'Mixto', 'Libre'],
     required: true,
     trim: true,
   },
-  
-  temporada: { 
-    type: String, 
+
+  temporada: {
+    type: String,
     default: '2025',
     trim: true,
   },
-  
+
   tipo: {
     type: String,
     enum: ['liga', 'torneo', 'otro'],
     default: 'torneo',
     trim: true,
   },
+
+  formato: FormatoSchema,
 
   reglas: { type: String },
 
@@ -48,9 +62,9 @@ const CompetenciaSchema = new mongoose.Schema({
     default: 'programada',
   },
 
-  creadoPor: { 
-    type: String, 
-    ref: 'Usuario', 
+  creadoPor: {
+    type: String,
+    ref: 'Usuario',
     required: true,
   },
 
@@ -63,7 +77,6 @@ const CompetenciaSchema = new mongoose.Schema({
 // Hook para generar nombre automáticamente
 CompetenciaSchema.pre('validate', async function (next) {
   if (!this.nombre && this.tipo && this.modalidad && this.categoria && this.temporada && this.organizacion) {
-    // Obtener nombre de la organización (si es un ObjectId, buscarla)
     let nombreOrg = '';
     if (typeof this.organizacion === 'object' && this.organizacion.nombre) {
       nombreOrg = this.organizacion.nombre;
@@ -74,11 +87,7 @@ CompetenciaSchema.pre('validate', async function (next) {
     }
 
     const capitalizar = str => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-    const tipo = capitalizar(this.tipo);
-    const modalidad = capitalizar(this.modalidad);
-    const categoria = capitalizar(this.categoria);
-
-    this.nombre = `${tipo} ${modalidad} ${categoria} ${this.temporada} - ${nombreOrg}`;
+    this.nombre = `${capitalizar(this.tipo)} ${capitalizar(this.modalidad)} ${capitalizar(this.categoria)} ${this.temporada} - ${nombreOrg}`;
   }
   next();
 });

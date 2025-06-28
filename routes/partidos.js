@@ -10,10 +10,10 @@ import {
   eliminarSet,
   eliminarPartido
 } from '../controllers/partidoController.js';
-import Partido from '../models/Partido.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
-import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
+// import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
+import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoPartido.js'; // nuevo
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { cargarPartido } from '../middlewares/cargarPartido.js';
 
@@ -22,25 +22,25 @@ const router = express.Router();
 router.get('/', obtenerPartidos);
 router.get('/:id', validarObjectId, obtenerPartidoPorId);
 router.post('/', verificarToken, crearPartido);
-router.put('/:id', validarObjectId, verificarToken, esAdminDeEntidad(Partido, 'partido'), actualizarPartido);
+router.put('/:id', validarObjectId, verificarToken, esAdminSegunTipoPartido(), actualizarPartido);
 
-router.post( '/:id/sets',
+router.post('/:id/sets',
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
-  esAdminDeEntidad(Partido, 'partido'),
-  cargarPartido,  
+  esAdminSegunTipoPartido(),
+  cargarPartido,
   agregarSet
 );
 
-router.put('/:id/sets/:numeroSet/stats', verificarToken, esAdminDeEntidad(Partido, 'partido'), actualizarStatsSet);
+router.put('/:id/sets/:numeroSet/stats', verificarToken, esAdminSegunTipoPartido(), actualizarStatsSet);
 
 router.put(
   '/:id/sets/:numeroSet',
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
-  esAdminDeEntidad(Partido, 'partido'),
+  esAdminSegunTipoPartido(),
   cargarPartido,
   actualizarSet
 );
@@ -50,12 +50,11 @@ router.delete(
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
-  esAdminDeEntidad(Partido, 'partido'),
+  esAdminSegunTipoPartido(),
   cargarPartido,
   eliminarSet
 );
 
-router.delete('/:id', verificarToken, esAdminDeEntidad(Partido, 'partido'), eliminarPartido);
+router.delete('/:id', verificarToken, esAdminSegunTipoPartido(), eliminarPartido);
 
 export default router;
-

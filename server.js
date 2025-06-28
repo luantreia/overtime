@@ -11,6 +11,7 @@ import jugadorEquipoRouter from './routes/jugadorEquipo.js';
 import estadisticasRoutes from './routes/estadisticas.js';
 import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/competencias.js';
+import equiposCompetenciaRoutes from './routes/equiposCompetencia.js';
 
 dotenv.config(); // inicializar dotenv
 
@@ -59,6 +60,7 @@ app.use('/api/jugador-equipo', jugadorEquipoRouter);
 app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/organizaciones', organizacionesRoutes);
 app.use('/api/competencias', competenciasRoutes);
+app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
 
 
 // Definir puerto del servidor
