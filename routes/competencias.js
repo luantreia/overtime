@@ -9,14 +9,32 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 const router = express.Router();
 
 // Obtener todas las competencias (público)
-router.get('/', async (req, res) => {
-  try {
-    const competencias = await Competencia.find().populate('organizacion', 'nombre').lean();
-    res.json(competencias);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener competencias' });
+router.get(
+  '/:id',
+  verificarToken, // no es obligatorio pero si viene token, req.user está seteado
+  async (req, res, next) => {
+    try {
+      const competencia = await Competencia.findById(req.params.id).populate('organizacion', 'nombre').lean();
+      if (!competencia) return res.status(404).json({ error: 'Competencia no encontrada' });
+
+      if (!req.user) {
+        // usuario no autenticado, devuelve sin esAdmin
+        return res.json({ ...competencia, esAdmin: false });
+      }
+
+      // para verificar permisos, reutilizás la lógica del middleware:
+      const usuarioId = req.user.uid;
+      const rolGlobal = req.user.rol;
+      const esCreador = competencia.creadoPor?.toString() === usuarioId;
+      const esAdminEntidad = competencia.administradores?.some(adminId => adminId.toString() === usuarioId);
+      const esAdmin = rolGlobal === 'admin' || esCreador || esAdminEntidad;
+
+      return res.json({ ...competencia, esAdmin });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 // Obtener competencia por ID (público)
 router.get(
