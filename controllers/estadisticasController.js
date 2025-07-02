@@ -1,3 +1,4 @@
+// server/controllers/estadisticasController.js
 import Partido from '../models/Partido.js';
 
 export const obtenerResumenEstadisticasJugador = async (req, res) => {
@@ -85,6 +86,8 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
       ? ((totalHits + totalCatches) / totalOuts).toFixed(2)
       : null;
 
+    const evolucion = calcularEvolucionStatsJugador(partidos, jugadorId);
+    
     res.json({
       totalPartidos,
       totalSets,
@@ -107,7 +110,8 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
         marcadorLocal: ultimoPartido.marcadorLocal,
         marcadorVisitante: ultimoPartido.marcadorVisitante,
       } : null,
-      estadisticasPorPartido
+      estadisticasPorPartido,
+      evolucion
     });
   } catch (error) {
     console.error('Error en obtenerResumenEstadisticasJugador:', error);
@@ -200,6 +204,8 @@ export const obtenerResumenEstadisticasEquipo = async (req, res) => {
       ? ((totalHits + totalCatches) / totalOuts).toFixed(2)
       : null;
 
+    const evolucion = calcularEvolucionStatsEquipo(partidos, equipoId);
+
     res.json({
       totalPartidos,
       totalSets,
@@ -222,10 +228,69 @@ export const obtenerResumenEstadisticasEquipo = async (req, res) => {
         marcadorLocal: ultimoPartido.marcadorLocal,
         marcadorVisitante: ultimoPartido.marcadorVisitante,
       } : null,
-      estadisticasPorPartido
+      estadisticasPorPartido,
+      evolucion
     });
   } catch (error) {
     console.error('Error en obtenerResumenEstadisticasEquipo:', error);
     res.status(500).json({ error: 'Error al obtener resumen de estadísticas del equipo' });
   }
+};
+
+// Función para calcular evolución de estadísticas por partido para jugador
+const calcularEvolucionStatsJugador = (partidos, jugadorId) => {
+  return partidos.map(partido => {
+    let totalThrows = 0, totalHits = 0, totalOuts = 0, totalCatches = 0;
+
+    partido.sets.forEach(set => {
+      set.statsJugadoresSet.forEach(stat => {
+        const statJugadorId = typeof stat.jugador === 'object' ? stat.jugador._id : stat.jugador;
+        if (statJugadorId === jugadorId) {
+          totalThrows += stat.estadisticas?.throws || 0;
+          totalHits += stat.estadisticas?.hits || 0;
+          totalOuts += stat.estadisticas?.outs || 0;
+          totalCatches += stat.estadisticas?.catches || 0;
+        }
+      });
+    });
+
+    const efectividad = totalThrows > 0 ? (totalHits / totalThrows) * 100 : null;
+    const hoc = totalOuts > 0 ? (totalHits + totalCatches) / totalOuts : null;
+
+    return {
+      partidoId: partido._id,
+      fecha: partido.fecha,
+      nombrePartido: partido.nombrePartido,
+      efectividad: efectividad !== null ? Number(efectividad.toFixed(2)) : null,
+      hoc: hoc !== null ? Number(hoc.toFixed(2)) : null,
+    };
+  });
+};
+
+// Función para calcular evolución de estadísticas por partido para equipo
+const calcularEvolucionStatsEquipo = (partidos, equipoId) => {
+  return partidos.map(partido => {
+    let totalThrows = 0, totalHits = 0, totalOuts = 0, totalCatches = 0;
+
+    partido.sets.forEach(set => {
+      const statsEquipo = set.statsJugadoresSet.filter(stat => stat.equipo.toString() === equipoId);
+      statsEquipo.forEach(stat => {
+        totalThrows += stat.estadisticas?.throws || 0;
+        totalHits += stat.estadisticas?.hits || 0;
+        totalOuts += stat.estadisticas?.outs || 0;
+        totalCatches += stat.estadisticas?.catches || 0;
+      });
+    });
+
+    const efectividad = totalThrows > 0 ? (totalHits / totalThrows) * 100 : null;
+    const hoc = totalOuts > 0 ? (totalHits + totalCatches) / totalOuts : null;
+
+    return {
+      partidoId: partido._id,
+      fecha: partido.fecha,
+      nombrePartido: partido.nombrePartido,
+      efectividad: efectividad !== null ? Number(efectividad.toFixed(2)) : null,
+      hoc: hoc !== null ? Number(hoc.toFixed(2)) : null,
+    };
+  });
 };
