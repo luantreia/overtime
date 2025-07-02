@@ -65,6 +65,10 @@ app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
 app.use('/api/fases', fasesRoutes);
 
 
+app.get('/api/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
 // Definir puerto del servidor
 const PORT = process.env.PORT || 5000;
 
