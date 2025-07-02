@@ -51,6 +51,7 @@ export const obtenerResumenEstadisticasJugador = async (req, res) => {
 
       estadisticasPorPartido.push({
         _id: partido._id,
+        nombrePartido: partido.nombrePartido,
         fecha: partido.fecha,
         liga: partido.liga,
         equipoLocal: partido.equipoLocal,
@@ -167,6 +168,7 @@ export const obtenerResumenEstadisticasEquipo = async (req, res) => {
 
       estadisticasPorPartido.push({
         _id: partido._id,
+        nombrePartido: partido.nombrePartido,
         fecha: partido.fecha,
         liga: partido.liga,
         equipoLocal: partido.equipoLocal,
