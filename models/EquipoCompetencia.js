@@ -1,9 +1,8 @@
+// models/EquipoCompetencia.js
 import mongoose from 'mongoose';
 import Equipo from './Equipo.js';
 import Competencia from './Competencia.js';
 
-// models/EquipoCompetencia.js
-import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 const EquipoCompetenciaSchema = new Schema({
