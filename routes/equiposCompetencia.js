@@ -8,12 +8,12 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 const router = express.Router();
 
 // Obtener todos los equipos de competencia (filtros opcionales)
-// GET /equipos-competencia?competencia=competenciaId
 router.get('/', async (req, res) => {
   try {
     const filter = {};
     if (req.query.competencia) filter.competencia = req.query.competencia;
     if (req.query.equipo) filter.equipo = req.query.equipo;
+    if (req.query.fase) filter.fase = req.query.fase;
 
     const equipos = await EquipoCompetencia.find(filter)
       .populate('equipo', 'nombre')
@@ -22,25 +22,7 @@ router.get('/', async (req, res) => {
 
     res.json(equipos);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener equipos de competencia' });
-  }
-});
-
-// GET /equipos-competencia?competencia=...&fase=...
-router.get('/', async (req, res) => {
-  try {
-    const filter = {};
-    if (req.query.competencia) filter.competencia = req.query.competencia;
-    if (req.query.equipo) filter.equipo = req.query.equipo;
-    if (req.query.fase) filter.fase = req.query.fase; // ✅ Nuevo filtro por fase
-
-    const equipos = await EquipoCompetencia.find(filter)
-      .populate('equipo', 'nombre')
-      .populate('competencia', 'nombre')
-      .lean();
-
-    res.json(equipos);
-  } catch (error) {
+    console.error('Error en GET /equipos-competencia:', error); // <-- IMPORTANTE para ver detalles en consola
     res.status(500).json({ error: 'Error al obtener equipos de competencia' });
   }
 });

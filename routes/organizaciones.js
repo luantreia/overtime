@@ -5,7 +5,9 @@ import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import Organizacion from '../models/Organizacion.js';
 
+
 const router = express.Router();
+
 
 // Crear organización (usuario autenticado)
 router.post(
@@ -95,5 +97,6 @@ router.delete(
     }
   }
 );
+
 
 export default router;

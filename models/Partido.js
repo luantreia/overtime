@@ -9,10 +9,26 @@ const PartidoSchema = new Schema({
     ref: 'Competencia',
     required: false,
   },
-  nombrePartido: { type: String, trim: true },
-  modalidad: { type: String, enum: ['Foam', 'Cloth'], required: true, trim: true },
-  categoria: { type: String, enum: ['Masculino', 'Femenino', 'Mixto', 'Libre'], required: true, trim: true },
-  fecha: { type: Date, required: true },
+  nombrePartido: { 
+    type: String, 
+    trim: true 
+  },
+  modalidad: { 
+    type: String, 
+    enum: ['Foam', 'Cloth'], 
+    required: true, 
+    trim: true 
+  },
+  categoria: { 
+    type: String, 
+    enum: ['Masculino', 'Femenino', 'Mixto', 'Libre'], 
+    required: true, 
+    trim: true 
+  },
+  fecha: { 
+    type: Date, 
+    required: true 
+  },
   ubicacion: {type: String, trim: true },
   equipoLocal: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
   equipoVisitante: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
