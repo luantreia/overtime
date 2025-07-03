@@ -5,11 +5,11 @@ import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // GET /participaciones - listar todas o filtrar por fase, equipoCompetencia, grupo, etc
-import mongoose from 'mongoose';
 
 // ...
 
