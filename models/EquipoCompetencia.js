@@ -33,6 +33,11 @@ const EquipoCompetenciaSchema = new mongoose.Schema({
     trim: true
   },
 
+  division: {
+    type: String,
+    trim: true,
+  },
+
   seed: {
     type: Number, // Posición o "ranking inicial" para sorteos
     default: null
