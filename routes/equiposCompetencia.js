@@ -26,6 +26,25 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /equipos-competencia?competencia=...&fase=...
+router.get('/', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.competencia) filter.competencia = req.query.competencia;
+    if (req.query.equipo) filter.equipo = req.query.equipo;
+    if (req.query.fase) filter.fase = req.query.fase; // ✅ Nuevo filtro por fase
+
+    const equipos = await EquipoCompetencia.find(filter)
+      .populate('equipo', 'nombre')
+      .populate('competencia', 'nombre')
+      .lean();
+
+    res.json(equipos);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener equipos de competencia' });
+  }
+});
+
 // Obtener equipo competencia por ID
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
