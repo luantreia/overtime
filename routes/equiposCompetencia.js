@@ -83,10 +83,12 @@ router.put(
       const actualizado = await req.equipoCompetencia.save();
       res.json(actualizado);
     } catch (error) {
-      res.status(400).json({ error: 'Error al actualizar equipo competencia' });
+      console.error('Error al actualizar equipo competencia:', error);
+      res.status(400).json({ error: error.message || 'Error al actualizar equipo competencia' });
     }
   }
 );
+
 
 // Eliminar equipo competencia (solo admins o creadores)
 router.delete(
