@@ -17,6 +17,45 @@ router.get('/', async (req, res) => {
     if (req.query.grupo) filter.grupo = req.query.grupo;
     if (req.query.division) filter.division = req.query.division;
 
+    if (req.query.competenciaId) {
+      // Filtramos participaciones que tengan fase con competencia = competenciaId
+      const competenciaObjectId = new mongoose.Types.ObjectId(req.query.competenciaId);
+
+      const participaciones = await ParticipacionFase.aggregate([
+        { $match: filter }, // aplica otros filtros
+        {
+          $lookup: {
+            from: 'fases', // nombre exacto de la colección fases en la DB
+            localField: 'fase',
+            foreignField: '_id',
+            as: 'faseData',
+          }
+        },
+        { $unwind: '$faseData' },
+        {
+          $match: { 'faseData.competencia': competenciaObjectId }
+        },
+        {
+          $sort: { puntos: -1, diferenciaPuntos: -1, partidosGanados: -1 }
+        },
+        {
+          $project: {
+            equipoCompetencia: 1,
+            fase: 1,
+            grupo: 1,
+            division: 1,
+            puntos: 1,
+            diferenciaPuntos: 1,
+            partidosGanados: 1,
+            // incluye campos que necesites
+          }
+        }
+      ]);
+
+      return res.json(participaciones);
+    }
+
+    // Si no hay competenciaId, hacemos la consulta normal con populate
     const participaciones = await ParticipacionFase.find(filter)
       .populate({
         path: 'equipoCompetencia',
@@ -32,6 +71,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener participaciones' });
   }
 });
+
 
 // GET /participaciones/:id - obtener participación por id
 router.get('/:id', validarObjectId, async (req, res) => {
