@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import Equipo from './Equipo.js';
+import Competencia from './Competencia.js';
 
 const EquipoCompetenciaSchema = new mongoose.Schema({
   equipo: {
