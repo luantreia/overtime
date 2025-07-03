@@ -9,6 +9,10 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 const router = express.Router();
 
 // GET /participaciones - listar todas o filtrar por fase, equipoCompetencia, grupo, etc
+import mongoose from 'mongoose';
+
+// ...
+
 router.get('/', async (req, res) => {
   try {
     const filter = {};
@@ -18,23 +22,41 @@ router.get('/', async (req, res) => {
     if (req.query.division) filter.division = req.query.division;
 
     if (req.query.competenciaId) {
-      // Filtramos participaciones que tengan fase con competencia = competenciaId
+      if (!mongoose.Types.ObjectId.isValid(req.query.competenciaId)) {
+        return res.status(400).json({ error: 'competenciaId inválido' });
+      }
       const competenciaObjectId = new mongoose.Types.ObjectId(req.query.competenciaId);
 
       const participaciones = await ParticipacionFase.aggregate([
-        { $match: filter }, // aplica otros filtros
+        { $match: filter },
         {
           $lookup: {
-            from: 'fases', // nombre exacto de la colección fases en la DB
+            from: 'fases',
             localField: 'fase',
             foreignField: '_id',
             as: 'faseData',
           }
         },
         { $unwind: '$faseData' },
+        { $match: { 'faseData.competencia': competenciaObjectId } },
         {
-          $match: { 'faseData.competencia': competenciaObjectId }
+          $lookup: {
+            from: 'equiposcompetencias',
+            localField: 'equipoCompetencia',
+            foreignField: '_id',
+            as: 'equipoCompetenciaData'
+          }
         },
+        { $unwind: '$equipoCompetenciaData' },
+        {
+          $lookup: {
+            from: 'equipos',
+            localField: 'equipoCompetenciaData.equipo',
+            foreignField: '_id',
+            as: 'equipoCompetenciaData.equipoData'
+          }
+        },
+        { $unwind: '$equipoCompetenciaData.equipoData' },
         {
           $sort: { puntos: -1, diferenciaPuntos: -1, partidosGanados: -1 }
         },
@@ -47,7 +69,12 @@ router.get('/', async (req, res) => {
             puntos: 1,
             diferenciaPuntos: 1,
             partidosGanados: 1,
-            // incluye campos que necesites
+            'equipoCompetenciaData._id': 1,
+            'equipoCompetenciaData.equipo': 1,
+            'equipoCompetenciaData.equipoData.nombre': 1,
+            'faseData._id': 1,
+            'faseData.nombre': 1,
+            'faseData.tipo': 1,
           }
         }
       ]);
@@ -55,7 +82,7 @@ router.get('/', async (req, res) => {
       return res.json(participaciones);
     }
 
-    // Si no hay competenciaId, hacemos la consulta normal con populate
+    // Consulta normal sin competenciaId
     const participaciones = await ParticipacionFase.find(filter)
       .populate({
         path: 'equipoCompetencia',
