@@ -9,6 +9,11 @@ const PartidoSchema = new Schema({
     ref: 'Competencia',
     required: false,
   },
+  fase: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Fase',
+    required: false,
+  },
   nombrePartido: { 
     type: String, 
     trim: true 

@@ -1,5 +1,6 @@
 // server/controllers/partidoController.js
 import Partido from '../models/Partido.js';
+import { actualizarParticipacionFase } from '../services/participacionFaseService.js'; // función que debes crear
 
 // Obtener partidos con filtro por tipo y otros filtros opcionales
 export async function obtenerPartidos(req, res) {
@@ -33,7 +34,7 @@ export async function obtenerPartidos(req, res) {
   }
 }
 
-// Obtener partido por ID (sin cambios)
+// Obtener partido por ID 
 export async function obtenerPartidoPorId(req, res) {
   try {
     const { id } = req.params;
@@ -96,13 +97,27 @@ export async function crearPartido(req, res) {
   }
 }
 
-// Actualizar partido (sin cambios)
+// Actualizar partido
 export async function actualizarPartido(req, res) {
   try {
     const partido = req.partido;
-    const { marcadorLocal, marcadorVisitante, ...restoCampos } = req.body;
+    const { marcadorLocal, marcadorVisitante, estado, ...restoCampos } = req.body;
     Object.assign(partido, restoCampos);
+
+    // Si pasan marcadores explícitos los puedes asignar (aunque igual se recalculan al guardar sets)
+    if (marcadorLocal !== undefined) partido.marcadorLocal = marcadorLocal;
+    if (marcadorVisitante !== undefined) partido.marcadorVisitante = marcadorVisitante;
+    if (estado) partido.estado = estado;
+
     await partido.save();
+
+    // Solo actualizamos participacion si el partido está finalizado y tiene fase
+    if (partido.estado === 'finalizado' && partido.fase) {
+      await Promise.all([
+        actualizarParticipacionFase(partido.equipoLocal, partido.fase),
+        actualizarParticipacionFase(partido.equipoVisitante, partido.fase),
+      ]);
+    }
 
     const actualizado = await Partido.findById(partido._id)
       .populate('equipoLocal', 'nombre escudo')
