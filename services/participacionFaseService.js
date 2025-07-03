@@ -1,3 +1,6 @@
+import ParticipacionFase from "../models/ParticipacionFase";
+import Partido from "../models/Partido";
+
 export async function actualizarParticipacionFase(equipoCompetenciaId, faseId) {
   // 1. Buscar partidos finalizados de esa fase donde participe el equipo
   // (Suponiendo que el partido tiene referencia a fase, o a competencia que tiene fases)

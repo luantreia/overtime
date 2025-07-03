@@ -131,14 +131,25 @@ router.post(
         return res.status(400).json({ error: 'Se requieren equipoCompetencia y fase' });
       }
 
-      // Podrías agregar validaciones extra aquí (p. ej. validar que la fase exista)
-
       const nuevaParticipacion = new ParticipacionFase({
-        ...req.body,
+        equipoCompetencia,
+        fase,
+        grupo,
+        division
       });
 
       await nuevaParticipacion.save();
-      res.status(201).json(nuevaParticipacion);
+
+      // 🔥 Re-cargar con populate antes de enviar
+      const poblada = await ParticipacionFase.findById(nuevaParticipacion._id)
+        .populate({
+          path: 'equipoCompetencia',
+          populate: { path: 'equipo', select: 'nombre' }
+        })
+        .populate('fase', 'nombre tipo')
+        .lean();
+
+      res.status(201).json(poblada);
     } catch (error) {
       console.error('Error al crear participación:', error);
       res.status(400).json({ error: error.message || 'Error al crear participación' });
