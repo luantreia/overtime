@@ -51,6 +51,8 @@ const CompetenciaSchema = new mongoose.Schema({
 
   formato: FormatoSchema,
 
+  foto: { type: String },
+
   reglas: { type: String },
 
   fechaInicio: { type: Date, required: true },
