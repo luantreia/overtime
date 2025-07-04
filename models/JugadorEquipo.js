@@ -9,6 +9,7 @@ const jugadorEquipoSchema = new mongoose.Schema({
   hasta: Date,
   activo: { type: Boolean, default: true },
   estado: { type: String, enum: ['pendiente', 'aceptado'], default: 'aceptado' },
+  foto: { type: String },
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
   nombreJugadorEquipo: { type: String, index: true }, // 🔥 persistido
