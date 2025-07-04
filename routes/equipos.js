@@ -70,22 +70,22 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // Actualizar equipo (solo admins de ese equipo)
 router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
-  const { nombre, escudo, foto } = req.body;
+  const datosActualizar = req.body;
 
-  if (!nombre || nombre.trim() === '') {
+  if (!datosActualizar.nombre || datosActualizar.nombre.trim() === '') {
     return res.status(400).json({ message: 'El nombre es obligatorio' });
   }
 
   try {
-    const equipoExistente = await Equipo.findOne({ nombre: nombre.trim(), _id: { $ne: id } });
+    const equipoExistente = await Equipo.findOne({ nombre: datosActualizar.nombre.trim(), _id: { $ne: id } });
     if (equipoExistente) {
       return res.status(400).json({ message: 'Ya existe otro equipo con ese nombre' });
     }
 
     const equipoActualizado = await Equipo.findByIdAndUpdate(
       id,
-      { nombre: nombre.trim(), escudo, foto },
-      { new: true }
+      datosActualizar,
+      { new: true, runValidators: true }
     );
 
     if (!equipoActualizado) {
