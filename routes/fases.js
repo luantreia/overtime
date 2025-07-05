@@ -13,9 +13,6 @@ router.get('/', async (req, res) => {
   try {
     const filter = {};
     if (req.query.competencia) {
-      if (!mongoose.Types.ObjectId.isValid(req.query.competencia)) {
-        return res.status(400).json({ error: 'ID de competencia inválido' });
-      }
       filter.competencia = req.query.competencia;
     }
     const fases = await Fase.find(filter).populate('competencia', 'nombre').lean();
