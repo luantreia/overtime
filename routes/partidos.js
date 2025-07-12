@@ -21,7 +21,7 @@ import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoDePartid
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { cargarPartido } from '../middlewares/cargarPartido.js';
 import { verificarEntidad } from '../middlewares/verificarEntidad.js';
-
+import Partido from '../models/Partido.js';
 
 const router = express.Router();
 
