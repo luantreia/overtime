@@ -281,49 +281,61 @@ export async function eliminarSet(req, res) {
   }
 }
 
+export async function obtenerAdministradores(req, res) {
+  try {
+    await req.partido.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(req.partido.administradores);
+  } catch (error) {
+    console.error('Error al obtener administradores:', error);
+    res.status(500).json({ message: 'Error al obtener administradores' });
+  }
+}
+
 export async function agregarAdministrador(req, res) {
   try {
-    const partido = await Partido.findById(req.params.id);
-    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
-
     const uid = req.user.uid;
-    const esAdmin = partido.creadoPor?.toString() === uid || partido.administradores.includes(uid);
+    const partido = req.partido;
+    const { adminUid } = req.body;
+
+    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+
+    const esAdmin = partido.creadoPor?.toString() === uid || (partido.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
-      return res.status(403).json({ message: 'No autorizado' });
+      return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    const { adminUid } = req.body;
     if (!partido.administradores.includes(adminUid)) {
       partido.administradores.push(adminUid);
       await partido.save();
     }
 
-    res.json({ message: 'Administrador agregado al partido' });
+    await partido.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(partido.administradores);
   } catch (error) {
-    console.error('Error agregando admin al partido:', error);
-    res.status(500).json({ message: 'Error al agregar admin' });
+    console.error('Error al agregar administrador:', error);
+    res.status(500).json({ message: 'Error al agregar administrador' });
   }
 }
 
 export async function quitarAdministrador(req, res) {
   try {
-    const partido = await Partido.findById(req.params.id);
-    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
-
     const uid = req.user.uid;
-    const esAdmin = partido.creadoPor?.toString() === uid || partido.administradores.includes(uid);
+    const partido = req.partido;
+    const { adminUid } = req.params;
+
+    const esAdmin = partido.creadoPor?.toString() === uid || (partido.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
-      return res.status(403).json({ message: 'No autorizado' });
+      return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    const { adminUid } = req.body;
     partido.administradores = partido.administradores.filter(a => a.toString() !== adminUid);
     await partido.save();
 
-    res.json({ message: 'Administrador quitado del partido' });
+    await partido.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(partido.administradores);
   } catch (error) {
-    console.error('Error quitando admin del partido:', error);
-    res.status(500).json({ message: 'Error al quitar admin' });
+    console.error('Error al quitar administrador:', error);
+    res.status(500).json({ message: 'Error al quitar administrador' });
   }
 }
 

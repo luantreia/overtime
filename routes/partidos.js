@@ -9,6 +9,7 @@ import {
   actualizarSet,
   eliminarSet,
   eliminarPartido,
+  obtenerAdministradores,
   agregarAdministrador,
   quitarAdministrador,
   obtenerPartidosAdministrables
@@ -29,9 +30,28 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, obtenerPartidosAdministra
 router.get('/:id', validarObjectId, obtenerPartidoPorId);
 router.post('/', verificarToken, crearPartido);
 router.put('/:id', validarObjectId, verificarToken, esAdminSegunTipoPartido(), actualizarPartido);
-router.post('/:id/agregar-admin', verificarToken, cargarRolDesdeBD, agregarAdministrador);
-router.post('/:id/quitar-admin', verificarToken, cargarRolDesdeBD, quitarAdministrador);
 
+router.get(
+  '/:id/administradores',
+  verificarEntidad(Partido, 'id', 'partido'),
+  obtenerAdministradores
+);
+
+router.post(
+  '/:id/administradores',
+  verificarToken,
+  cargarRolDesdeBD,
+  verificarEntidad(Partido, 'id', 'partido'),
+  agregarAdministrador
+);
+
+router.delete(
+  '/:id/administradores/:adminUid',
+  verificarToken,
+  cargarRolDesdeBD,
+  verificarEntidad(Partido, 'id', 'partido'),
+  quitarAdministrador
+);
 router.post('/:id/sets',
   validarObjectId,
   verificarToken,

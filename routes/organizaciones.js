@@ -4,7 +4,7 @@ import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import Organizacion from '../models/Organizacion.js';
-
+import { verificarEntidad } from '../middlewares/verificarEntidad.js';
 
 const router = express.Router();
 
@@ -107,54 +107,60 @@ router.put(
   }
 );
 
-// Agregar administrador
-router.post('/:id/agregar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.get('/:id/administradores', verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
   try {
-    const entidad = await Organizacion.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
+    await req.organizacion.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(req.organizacion.administradores);
+  } catch (error) {
+    console.error('Error al obtener administradores:', error);
+    res.status(500).json({ message: 'Error al obtener administradores' });
+  }
+});
 
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
+  try {
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const organizacion = req.organizacion;
+    const { adminUid } = req.body;
+
+    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+
+    const esAdmin = organizacion.creadoPor?.toString() === uid || (organizacion.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!entidad.administradores.includes(adminUid)) {
-      entidad.administradores.push(adminUid);
-      await entidad.save();
+    if (!organizacion.administradores.includes(adminUid)) {
+      organizacion.administradores.push(adminUid);
+      await organizacion.save();
     }
 
-    res.json({ message: 'Administrador agregado' });
+    await organizacion.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(organizacion.administradores);
   } catch (error) {
-    console.error('Error al agregar admin:', error);
+    console.error('Error al agregar administrador:', error);
     res.status(500).json({ message: 'Error al agregar administrador' });
   }
 });
 
-// Quitar administrador
-router.post('/:id/quitar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD, verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
   try {
-    const entidad = await Organizacion.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
-
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const organizacion = req.organizacion;
+    const { adminUid } = req.params;
+
+    const esAdmin = organizacion.creadoPor?.toString() === uid || (organizacion.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    entidad.administradores = entidad.administradores.filter(a => a.toString() !== adminUid);
-    await entidad.save();
+    organizacion.administradores = organizacion.administradores.filter(a => a.toString() !== adminUid);
+    await organizacion.save();
 
-    res.json({ message: 'Administrador eliminado' });
+    await organizacion.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(organizacion.administradores);
   } catch (error) {
-    console.error('Error al quitar admin:', error);
+    console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });

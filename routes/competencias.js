@@ -5,6 +5,7 @@ import Organizacion from '../models/Organizacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import { verificarEntidad } from '../middlewares/verificarEntidad.js';
 
 const router = express.Router();
 
@@ -126,58 +127,63 @@ router.put(
   }
 );
 
-// Agregar administrador
-router.post('/:id/agregar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.get('/:id/administradores', verificarEntidad(Competencia, 'id', 'competencia'), async (req, res) => {
   try {
-    const entidad = await Competencia.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
+    await req.competencia.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(req.competencia.administradores);
+  } catch (error) {
+    console.error('Error al obtener administradores:', error);
+    res.status(500).json({ message: 'Error al obtener administradores' });
+  }
+});
 
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Competencia, 'id', 'competencia'), async (req, res) => {
+  try {
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const competencia = req.competencia;
+    const { adminUid } = req.body;
+
+    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+
+    const esAdmin = competencia.creadoPor?.toString() === uid || (competencia.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!entidad.administradores.includes(adminUid)) {
-      entidad.administradores.push(adminUid);
-      await entidad.save();
+    if (!competencia.administradores.includes(adminUid)) {
+      competencia.administradores.push(adminUid);
+      await competencia.save();
     }
 
-    res.json({ message: 'Administrador agregado' });
+    await competencia.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(competencia.administradores);
   } catch (error) {
-    console.error('Error al agregar admin:', error);
+    console.error('Error al agregar administrador:', error);
     res.status(500).json({ message: 'Error al agregar administrador' });
   }
 });
 
-// Quitar administrador
-router.post('/:id/quitar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD, verificarEntidad(Competencia, 'id', 'competencia'), async (req, res) => {
   try {
-    const entidad = await Competencia.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
-
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const competencia = req.competencia;
+    const { adminUid } = req.params;
+
+    const esAdmin = competencia.creadoPor?.toString() === uid || (competencia.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    entidad.administradores = entidad.administradores.filter(a => a.toString() !== adminUid);
-    await entidad.save();
+    competencia.administradores = competencia.administradores.filter(a => a.toString() !== adminUid);
+    await competencia.save();
 
-    res.json({ message: 'Administrador eliminado' });
+    await competencia.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(competencia.administradores);
   } catch (error) {
-    console.error('Error al quitar admin:', error);
+    console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });
-
 
 // Eliminar competencia (solo admins o creadores)
 router.delete(

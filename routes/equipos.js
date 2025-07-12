@@ -6,6 +6,7 @@ import verificarToken from '../middlewares/authMiddleware.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
+import { verificarEntidad } from '../middlewares/verificaeEntidad.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -125,76 +126,64 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
   }
 });
 
-// Agregar administrador
-router.post('/:id/agregar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
-    const entidad = await Equipo.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
+    await req.equipo.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(req.equipo.administradores);
+  } catch (error) {
+    console.error('Error al obtener administradores:', error);
+    res.status(500).json({ message: 'Error al obtener administradores' });
+  }
+});
 
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
+  try {
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const equipo = req.equipo;
+    const { adminUid } = req.body;
+
+    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+
+    const esAdmin = equipo.creadoPor?.toString() === uid || (equipo.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!entidad.administradores.includes(adminUid)) {
-      entidad.administradores.push(adminUid);
-      await entidad.save();
+    if (!equipo.administradores.includes(adminUid)) {
+      equipo.administradores.push(adminUid);
+      await equipo.save();
     }
 
-    res.json({ message: 'Administrador agregado' });
+    await equipo.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(equipo.administradores);
   } catch (error) {
-    console.error('Error al agregar admin:', error);
+    console.error('Error al agregar administrador:', error);
     res.status(500).json({ message: 'Error al agregar administrador' });
   }
 });
 
-// Quitar administrador
-router.post('/:id/quitar-admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  const { id } = req.params;
-  const { adminUid } = req.body;
-
+router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD, verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
-    const entidad = await Equipo.findById(id);
-    if (!entidad) return res.status(404).json({ message: 'Entidad no encontrada' });
-
     const uid = req.user.uid;
-    const esAdmin = entidad.creadoPor?.toString() === uid || (entidad.administradores || []).includes(uid);
+    const equipo = req.equipo;
+    const { adminUid } = req.params;
+
+    const esAdmin = equipo.creadoPor?.toString() === uid || (equipo.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    entidad.administradores = entidad.administradores.filter(a => a.toString() !== adminUid);
-    await entidad.save();
+    equipo.administradores = equipo.administradores.filter(a => a.toString() !== adminUid);
+    await equipo.save();
 
-    res.json({ message: 'Administrador eliminado' });
+    await equipo.populate('administradores', 'email nombre').execPopulate();
+    res.status(200).json(equipo.administradores);
   } catch (error) {
-    console.error('Error al quitar admin:', error);
+    console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });
 
-// Agregar otro administrador (solo admins actuales del equipo)
-router.post('/:id/agregar-admin', verificarToken, validarObjectId, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
-  const { nuevoAdminUid } = req.body;
-  const equipo = req.equipo;
-
-  if (!nuevoAdminUid) {
-    return res.status(400).json({ message: 'Falta el UID del nuevo administrador' });
-  }
-
-  if (equipo.administradores.includes(nuevoAdminUid)) {
-    return res.status(400).json({ message: 'Ese usuario ya es administrador' });
-  }
-
-  equipo.administradores.push(nuevoAdminUid);
-  await equipo.save();
-
-  res.status(200).json({ message: 'Nuevo administrador agregado', equipo });
-});
 
 export default router;
 
