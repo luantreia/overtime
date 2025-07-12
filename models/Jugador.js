@@ -15,7 +15,7 @@ const jugadorSchema = new mongoose.Schema({
 
   administradores: [
     {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: 'Usuario',
     }
   ],
