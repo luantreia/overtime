@@ -145,26 +145,40 @@ router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), a
   }
 });
 
-router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarJugador, async (req, res) => {
   try {
     const uid = req.user.uid;
     const jugador = req.jugador;
-    const { adminUid } = req.body;
+    const { adminUid, email } = req.body;
 
-    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+    if (!adminUid && !email) {
+      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+    }
 
-    const esAdmin = jugador.creadoPor?.toString() === uid || (jugador.administradores || []).some(a => a.toString() === uid);
+    let usuarioAdminId = adminUid;
+
+    // Si mandan un email, buscamos el UID correspondiente
+    if (email && !adminUid) {
+      const usuario = await Usuario.findOne({ email });
+      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+      usuarioAdminId = usuario._id.toString();
+    }
+
+    const esAdmin =
+      jugador.creadoPor?.toString() === uid ||
+      (jugador.administradores || []).some((a) => a.toString() === uid);
+
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!jugador.administradores.includes(adminUid)) {
-      jugador.administradores.push(adminUid);
+    if (!jugador.administradores.includes(usuarioAdminId)) {
+      jugador.administradores.push(usuarioAdminId);
       await jugador.save();
     }
 
-    await jugador.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(jugador.administradores);
+    await jugador.populate('administradores', 'email nombre');
+    res.status(200).json({ administradores: jugador.administradores });
   } catch (error) {
     console.error('Error al agregar administrador:', error);
     res.status(500).json({ message: 'Error al agregar administrador' });
