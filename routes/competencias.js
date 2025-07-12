@@ -6,6 +6,7 @@ import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import { verificarEntidad } from '../middlewares/verificarEntidad.js';
+import Usuario from '../models/Usuario.js';
 
 const router = express.Router();
 
@@ -141,17 +142,28 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
   try {
     const uid = req.user.uid;
     const competencia = req.competencia;
-    const { adminUid } = req.body;
+    const { adminUid, email } = req.body;
 
-    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+    if (!adminUid && !email) {
+      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+    }
+
+    let usuarioAdminId = adminUid;
+
+    // Si mandan un email, buscamos el UID correspondiente
+    if (email && !adminUid) {
+      const usuario = await Usuario.findOne({ email });
+      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+      usuarioAdminId = usuario._id.toString();
+    }
 
     const esAdmin = competencia.creadoPor?.toString() === uid || (competencia.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!competencia.administradores.includes(adminUid)) {
-      competencia.administradores.push(adminUid);
+    if (!competencia.administradores.includes(usuarioAdminId)) {
+      competencia.administradores.push(usuarioAdminId);
       await competencia.save();
     }
 

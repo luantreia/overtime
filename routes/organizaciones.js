@@ -121,17 +121,28 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
   try {
     const uid = req.user.uid;
     const organizacion = req.organizacion;
-    const { adminUid } = req.body;
+    const { adminUid, email } = req.body;
 
-    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+    if (!adminUid && !email) {
+      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+    }
+
+    let usuarioAdminId = adminUid;
+
+    // Si mandan un email, buscamos el UID correspondiente
+    if (email && !adminUid) {
+      const usuario = await Usuario.findOne({ email });
+      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+      usuarioAdminId = usuario._id.toString();
+    }
 
     const esAdmin = organizacion.creadoPor?.toString() === uid || (organizacion.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!organizacion.administradores.includes(adminUid)) {
-      organizacion.administradores.push(adminUid);
+    if (!organizacion.administradores.includes(usuarioAdminId)) {
+      organizacion.administradores.push(usuarioAdminId);
       await organizacion.save();
     }
 
