@@ -20,6 +20,8 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoDePartido.js'; // nuevo
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { cargarPartido } from '../middlewares/cargarPartido.js';
+import { verificarEntidad } from '../middlewares/verificaeEntidad.js';
+
 
 const router = express.Router();
 
