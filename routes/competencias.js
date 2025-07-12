@@ -18,6 +18,35 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /competencias/admin - competencias que el usuario puede administrar
+router.get('/admin', verificarToken, async (req, res) => {
+  try {
+    const uid = req.user?.uid;
+    const rol = req.user?.rol;
+
+    let competencias;
+
+    if (rol === 'admin') {
+      competencias = await Competencia.find({}, 'nombre _id organizacion');
+    } else {
+      competencias = await Competencia.find(
+        {
+          $or: [
+            { creadoPor: uid },
+            { administradores: uid }
+          ]
+        },
+        'nombre _id organizacion'
+      );
+    }
+
+    res.status(200).json(competencias);
+  } catch (error) {
+    console.error('Error al obtener competencias administrables:', error);
+    res.status(500).json({ message: 'Error al obtener competencias administrables' });
+  }
+});
+
 // Obtener competencia por ID (público)
 router.get(
   '/:id',

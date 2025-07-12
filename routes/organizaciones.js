@@ -47,6 +47,32 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Obtener organizaciones que el usuario puede administrar
+router.get('/admin', verificarToken, async (req, res) => {
+  try {
+    const uid = req.user?.uid;
+    const rol = req.user?.rol;
+
+    let organizaciones;
+
+    if (rol === 'admin') {
+      organizaciones = await Organizacion.find().select('nombre _id').sort({ nombre: 1 }).lean();
+    } else {
+      organizaciones = await Organizacion.find({
+        $or: [
+          { creadoPor: uid },
+          { administradores: uid }
+        ]
+      }).select('nombre _id').sort({ nombre: 1 }).lean();
+    }
+
+    res.status(200).json(organizaciones);
+  } catch (error) {
+    console.error('Error al obtener organizaciones administrables:', error);
+    res.status(500).json({ message: 'Error al obtener organizaciones administrables' });
+  }
+});
+
 // Obtener organización por ID (público)
 router.get(
   '/:id',
