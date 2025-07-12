@@ -93,6 +93,25 @@ router.get('/por-equipo/:equipoId', async (req, res) => {
   }
 });
 
+// Obtener jugador por ID
+router.get('/:id', validarObjectId, async (req, res) => {
+  try {
+    const jugador = await Jugador.findById(req.params.id)
+      .populate('administradores', 'email nombre') // opcional: trae info de admins
+      .lean();
+
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+
+    // También podés poblar otras relaciones si lo necesitás
+    res.status(200).json(jugador);
+  } catch (error) {
+    console.error('Error al obtener jugador:', error);
+    res.status(500).json({ message: 'Error al obtener jugador' });
+  }
+});
+
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
     const jugador = req.jugador; // ya validado por middleware
