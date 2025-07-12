@@ -192,21 +192,27 @@ router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD
     const jugador = req.jugador;
     const { adminUid } = req.params;
 
+    // Verificar permisos: debe ser creador, administrador actual o admin global
     const esAdmin = jugador.creadoPor?.toString() === uid || (jugador.administradores || []).some(a => a.toString() === uid);
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    jugador.administradores = jugador.administradores.filter(a => a.toString() !== adminUid);
+    // Filtrar el adminUid para eliminarlo del array
+    jugador.administradores = (jugador.administradores || []).filter(a => a.toString() !== adminUid);
+
     await jugador.save();
 
+    // Populate para devolver datos útiles del administrador
     await jugador.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(jugador.administradores);
+
+    res.status(200).json({ administradores: jugador.administradores });
   } catch (error) {
     console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });
+
 
 // Eliminar jugador por ID
 router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {

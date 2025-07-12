@@ -192,16 +192,17 @@ router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    equipo.administradores = equipo.administradores.filter(a => a.toString() !== adminUid);
+    equipo.administradores = (equipo.administradores || []).filter(a => a.toString() !== adminUid);
     await equipo.save();
 
-    await equipo.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(equipo.administradores);
+    await equipo.populate('administradores', 'email nombre');
+    res.status(200).json({ administradores: equipo.administradores });
   } catch (error) {
     console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });
+
 
 
 export default router;
