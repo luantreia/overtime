@@ -34,6 +34,33 @@ export async function obtenerPartidos(req, res) {
   }
 }
 
+// Obtener partidos administrables por el usuario autenticado
+export async function obtenerPartidosAdministrables(req, res) {
+  try {
+    const uid = req.user.uid;
+    const rol = req.user.rol;
+
+    let partidos;
+
+    if (rol === 'admin') {
+      partidos = await Partido.find({}, 'fecha estado _id').sort({ fecha: -1 }).lean();
+    } else {
+      partidos = await Partido.find({
+        $or: [
+          { creadoPor: uid },
+          { administradores: uid }
+        ]
+      }, 'fecha estado _id').sort({ fecha: -1 }).lean();
+    }
+
+    res.status(200).json(partidos);
+  } catch (error) {
+    console.error('Error al obtener partidos administrables:', error);
+    res.status(500).json({ message: 'Error al obtener partidos administrables' });
+  }
+}
+
+
 // Obtener partido por ID 
 export async function obtenerPartidoPorId(req, res) {
   try {

@@ -8,7 +8,8 @@ import {
   actualizarStatsSet,
   actualizarSet,
   eliminarSet,
-  eliminarPartido
+  eliminarPartido,
+  obtenerPartidosAdministrables
 } from '../controllers/partidoController.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
@@ -21,30 +22,7 @@ const router = express.Router();
 
 router.get('/', obtenerPartidos);
 // Obtener partidos administrables por el usuario autenticado
-router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  try {
-    const uid = req.user.uid;
-    const rol = req.user.rol;
-
-    let partidos;
-
-    if (rol === 'admin') {
-      partidos = await Partido.find({}, 'fecha estado _id').lean();
-    } else {
-      partidos = await Partido.find({
-        $or: [
-          { creadoPor: uid },
-          { administradores: uid }
-        ]
-      }, 'fecha estado _id').lean();
-    }
-
-    res.status(200).json(partidos);
-  } catch (error) {
-    console.error('Error al obtener partidos administrables:', error);
-    res.status(500).json({ message: 'Error al obtener partidos administrables' });
-  }
-});
+router.get('/admin', verificarToken, cargarRolDesdeBD, obtenerPartidosAdministrables);
 
 router.get('/:id', validarObjectId, obtenerPartidoPorId);
 router.post('/', verificarToken, crearPartido);
