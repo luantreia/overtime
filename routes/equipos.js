@@ -83,10 +83,13 @@ router.get('/:id', validarObjectId, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const equipo = await Equipo.findById(id);
+    const equipo = await Equipo.findById(id)
+      .populate('administradores', 'email nombre'); // <--- esta línea es clave
+
     if (!equipo) {
       return res.status(404).json({ message: 'Equipo no encontrado' });
     }
+
     res.status(200).json(equipo);
   } catch (error) {
     console.error('Error al obtener equipo:', error);
@@ -140,22 +143,37 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
   try {
     const uid = req.user.uid;
     const equipo = req.equipo;
-    const { adminUid } = req.body;
+    const { adminUid, email } = req.body;
 
-    if (!adminUid) return res.status(400).json({ message: 'adminUid es requerido' });
+    if (!adminUid && !email) {
+      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+    }
 
-    const esAdmin = equipo.creadoPor?.toString() === uid || (equipo.administradores || []).some(a => a.toString() === uid);
+    let usuarioAdminId = adminUid;
+
+    // Buscar UID a partir del email si no se pasó adminUid
+    if (email && !adminUid) {
+      const usuario = await Usuario.findOne({ email });
+      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+      usuarioAdminId = usuario._id.toString();
+    }
+
+    const esAdmin =
+      equipo.creadoPor?.toString() === uid ||
+      (equipo.administradores || []).some((a) => a.toString() === uid);
+
     if (!esAdmin && req.user.rol !== 'admin') {
       return res.status(403).json({ message: 'No autorizado para modificar administradores' });
     }
 
-    if (!equipo.administradores.includes(adminUid)) {
-      equipo.administradores.push(adminUid);
+    if (!equipo.administradores.includes(usuarioAdminId)) {
+      equipo.administradores.push(usuarioAdminId);
       await equipo.save();
     }
 
-    await equipo.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(equipo.administradores);
+    await equipo.populate('administradores', 'email nombre');
+
+    return res.status(200).json({ administradores: equipo.administradores });
   } catch (error) {
     console.error('Error al agregar administrador:', error);
     res.status(500).json({ message: 'Error al agregar administrador' });
