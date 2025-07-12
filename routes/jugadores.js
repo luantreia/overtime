@@ -145,7 +145,7 @@ router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), a
   }
 });
 
-router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarJugador, async (req, res) => {
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
   try {
     const uid = req.user.uid;
     const jugador = req.jugador;
