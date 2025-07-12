@@ -6,7 +6,7 @@ import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { verificarEntidad } from '../middlewares/verificaeEntidad.js';
+import { verificarEntidad } from '../middlewares/verificarEntidad.js';
 
 const { Types } = mongoose;
 const router = express.Router();
