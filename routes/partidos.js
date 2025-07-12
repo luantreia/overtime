@@ -58,34 +58,30 @@ router.delete(
 router.delete('/:id', verificarToken, esAdminSegunTipoPartido(), eliminarPartido);
 
 // Obtener partidos administrables por el usuario autenticado
-router.get('/admin', verificarToken, async (req, res) => {
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { uid, rol } = req.user;
+    const uid = req.user.uid;
+    const rol = req.user.rol;
 
     let partidos;
 
     if (rol === 'admin') {
-      partidos = await Partido.find({}, 'fecha equipoLocal equipoVisitante estado _id')
-        .populate('equipoLocal', 'nombre')
-        .populate('equipoVisitante', 'nombre')
-        .lean();
+      partidos = await Partido.find({}, 'fecha estado _id').lean();
     } else {
       partidos = await Partido.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'fecha equipoLocal equipoVisitante estado _id')
-        .populate('equipoLocal', 'nombre')
-        .populate('equipoVisitante', 'nombre')
-        .lean();
+      }, 'fecha estado _id').lean();
     }
 
-    res.json(partidos);
+    res.status(200).json(partidos);
   } catch (error) {
     console.error('Error al obtener partidos administrables:', error);
     res.status(500).json({ message: 'Error al obtener partidos administrables' });
   }
 });
+
 
 export default router;

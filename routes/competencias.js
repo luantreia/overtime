@@ -19,33 +19,31 @@ router.get('/', async (req, res) => {
 });
 
 // GET /competencias/admin - competencias que el usuario puede administrar
-router.get('/admin', verificarToken, async (req, res) => {
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { uid, rol } = req.user;
+    const uid = req.user.uid;
+    const rol = req.user.rol;
 
     let competencias;
 
     if (rol === 'admin') {
-      competencias = await Competencia.find({}, 'nombre organizacion _id')
-        .populate('organizacion', 'nombre')
-        .lean();
+      competencias = await Competencia.find({}, 'nombre _id').lean();
     } else {
       competencias = await Competencia.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre organizacion _id')
-        .populate('organizacion', 'nombre')
-        .lean();
+      }, 'nombre _id').lean();
     }
 
-    res.json(competencias);
+    res.status(200).json(competencias);
   } catch (error) {
     console.error('Error al obtener competencias administrables:', error);
     res.status(500).json({ message: 'Error al obtener competencias administrables' });
   }
 });
+
 
 
 // Obtener competencia por ID (público)

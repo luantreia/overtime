@@ -36,17 +36,16 @@ router.post('/', verificarToken, async (req, res) => {
 });
 
 // GET /jugadores/admin - jugadores que el usuario puede administrar
-router.get('/admin', verificarToken, async (req, res) => {
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { uid, rol } = req.user;
+    const uid = req.user.uid;
+    const rol = req.user.rol;
 
     let jugadores;
 
     if (rol === 'admin') {
-      // admin global, trae todos
       jugadores = await Jugador.find({}, 'nombre _id').lean();
     } else {
-      // solo los que administra
       jugadores = await Jugador.find({
         $or: [
           { creadoPor: uid },
@@ -55,7 +54,7 @@ router.get('/admin', verificarToken, async (req, res) => {
       }, 'nombre _id').lean();
     }
 
-    res.json(jugadores);
+    res.status(200).json(jugadores);
   } catch (error) {
     console.error('Error al obtener jugadores administrables:', error);
     res.status(500).json({ message: 'Error al obtener jugadores administrables' });

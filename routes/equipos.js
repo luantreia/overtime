@@ -42,9 +42,10 @@ router.post('/', verificarToken, async (req, res) => {
 
 // GET /equipos/admin - equipos que el usuario puede administrar
 
-router.get('/admin', verificarToken, async (req, res) => {
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { uid, rol } = req.user;
+    const uid = req.user.uid;
+    const rol = req.user.rol;
 
     let equipos;
 
@@ -59,12 +60,13 @@ router.get('/admin', verificarToken, async (req, res) => {
       }, 'nombre _id').lean();
     }
 
-    res.json(equipos);
+    res.status(200).json(equipos);
   } catch (error) {
     console.error('Error al obtener equipos administrables:', error);
     res.status(500).json({ message: 'Error al obtener equipos administrables' });
   }
 });
+
 
 
 // Obtener todos los equipos

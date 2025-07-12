@@ -48,9 +48,10 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener organizaciones que el usuario puede administrar
-router.get('/admin', verificarToken, async (req, res) => {
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { uid, rol } = req.user;
+    const uid = req.user.uid;
+    const rol = req.user.rol;
 
     let organizaciones;
 
@@ -65,12 +66,13 @@ router.get('/admin', verificarToken, async (req, res) => {
       }, 'nombre _id').lean();
     }
 
-    res.json(organizaciones);
+    res.status(200).json(organizaciones);
   } catch (error) {
     console.error('Error al obtener organizaciones administrables:', error);
     res.status(500).json({ message: 'Error al obtener organizaciones administrables' });
   }
 });
+
 
 // Obtener organización por ID (público)
 router.get(
