@@ -60,7 +60,6 @@ export async function obtenerPartidosAdministrables(req, res) {
   }
 }
 
-
 // Obtener partido por ID 
 export async function obtenerPartidoPorId(req, res) {
   try {
@@ -279,6 +278,52 @@ export async function eliminarSet(req, res) {
   } catch (error) {
     console.error('Error al eliminar set:', error);
     res.status(500).json({ error: error.message || 'Error al eliminar el set.' });
+  }
+}
+
+export async function agregarAdministrador(req, res) {
+  try {
+    const partido = await Partido.findById(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
+
+    const uid = req.user.uid;
+    const esAdmin = partido.creadoPor?.toString() === uid || partido.administradores.includes(uid);
+    if (!esAdmin && req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No autorizado' });
+    }
+
+    const { adminUid } = req.body;
+    if (!partido.administradores.includes(adminUid)) {
+      partido.administradores.push(adminUid);
+      await partido.save();
+    }
+
+    res.json({ message: 'Administrador agregado al partido' });
+  } catch (error) {
+    console.error('Error agregando admin al partido:', error);
+    res.status(500).json({ message: 'Error al agregar admin' });
+  }
+}
+
+export async function quitarAdministrador(req, res) {
+  try {
+    const partido = await Partido.findById(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
+
+    const uid = req.user.uid;
+    const esAdmin = partido.creadoPor?.toString() === uid || partido.administradores.includes(uid);
+    if (!esAdmin && req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No autorizado' });
+    }
+
+    const { adminUid } = req.body;
+    partido.administradores = partido.administradores.filter(a => a.toString() !== adminUid);
+    await partido.save();
+
+    res.json({ message: 'Administrador quitado del partido' });
+  } catch (error) {
+    console.error('Error quitando admin del partido:', error);
+    res.status(500).json({ message: 'Error al quitar admin' });
   }
 }
 

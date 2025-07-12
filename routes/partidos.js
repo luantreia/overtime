@@ -9,6 +9,8 @@ import {
   actualizarSet,
   eliminarSet,
   eliminarPartido,
+  agregarAdministrador,
+  quitarAdministrador,
   obtenerPartidosAdministrables
 } from '../controllers/partidoController.js';
 import verificarToken from '../middlewares/authMiddleware.js';
@@ -27,6 +29,8 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, obtenerPartidosAdministra
 router.get('/:id', validarObjectId, obtenerPartidoPorId);
 router.post('/', verificarToken, crearPartido);
 router.put('/:id', validarObjectId, verificarToken, esAdminSegunTipoPartido(), actualizarPartido);
+router.post('/:id/agregar-admin', verificarToken, cargarRolDesdeBD, agregarAdministrador);
+router.post('/:id/quitar-admin', verificarToken, cargarRolDesdeBD, quitarAdministrador);
 
 router.post('/:id/sets',
   validarObjectId,
