@@ -2,20 +2,39 @@
 
 import mongoose from 'mongoose';
 
-const jugadorEquipoSchema = new mongoose.Schema({
-  jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
-  equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
+const { Schema, model } = mongoose;
+
+const jugadorEquipoSchema = new Schema({
+  jugador: { type: Schema.Types.ObjectId, ref: 'Jugador', required: true },
+  equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
+
   desde: Date,
   hasta: Date,
-  activo: { type: Boolean, default: true },
-  estado: { type: String, enum: ['pendiente', 'aceptado'], default: 'aceptado' },
+  activo: { type: Boolean, default: false }, // Cambiado: solo se activa cuando se acepta
+
+  estado: {
+    type: String,
+    enum: ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'],
+    default: 'pendiente',
+    index: true,
+  },
+
+  solicitadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario' },
+  fechaSolicitud: { type: Date, default: Date.now },
+  fechaAceptacion: { type: Date },
+  motivoRechazo: { type: String },
+
   foto: { type: String },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
-  nombreJugadorEquipo: { type: String, index: true }, // 🔥 persistido
+
+  nombreJugadorEquipo: { type: String, index: true }, // persistido
+
 }, { timestamps: true });
 
-// Virtual opcionalmente lo podés mantener
+
+// Virtual solo si están poblados ambos
 jugadorEquipoSchema.virtual('nombreJugadorEquipoVirtual').get(function () {
   if (this.populated('jugador') && this.populated('equipo')) {
     return `${this.jugador.nombre} - ${this.equipo.nombre}`;
@@ -26,7 +45,8 @@ jugadorEquipoSchema.virtual('nombreJugadorEquipoVirtual').get(function () {
 jugadorEquipoSchema.set('toObject', { virtuals: true });
 jugadorEquipoSchema.set('toJSON', { virtuals: true });
 
-// Pre-save que persiste el nombre
+
+// Pre-save para persistir nombreJugadorEquipo
 jugadorEquipoSchema.pre('save', async function (next) {
   if (!this.isModified('jugador') && !this.isModified('equipo')) return next();
   try {
@@ -41,4 +61,4 @@ jugadorEquipoSchema.pre('save', async function (next) {
   }
 });
 
-export default mongoose.model('JugadorEquipo', jugadorEquipoSchema);
+export default model('JugadorEquipo', jugadorEquipoSchema);
