@@ -4,6 +4,7 @@ import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import Organizacion from '../models/Organizacion.js';
+import Usuario from '../models/Usuario.js';
 import { verificarEntidad } from '../middlewares/verificarEntidad.js';
 
 const router = express.Router();
@@ -107,74 +108,104 @@ router.put(
   }
 );
 
-router.get('/:id/administradores', verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
-  try {
-    await req.organizacion.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(req.organizacion.administradores);
-  } catch (error) {
-    console.error('Error al obtener administradores:', error);
-    res.status(500).json({ message: 'Error al obtener administradores' });
+router.get(
+  '/:id/administradores',
+  verificarEntidad(Organizacion, 'id', 'organizacion'),
+  async (req, res) => {
+    try {
+      await req.organizacion.populate('administradores', 'email nombre');
+      res.status(200).json({ administradores: req.organizacion.administradores || [] });
+    } catch (error) {
+      console.error('Error al obtener administradores:', error);
+      res.status(500).json({ message: 'Error al obtener administradores' });
+    }
   }
-});
+);
 
-router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
-  try {
-    const uid = req.user.uid;
-    const organizacion = req.organizacion;
-    const { adminUid, email } = req.body;
+router.post(
+  '/:id/administradores',
+  verificarToken,
+  cargarRolDesdeBD,
+  verificarEntidad(Organizacion, 'id', 'organizacion'),
+  async (req, res) => {
+    try {
+      const uid = req.user.uid;
+      const organizacion = req.organizacion;
+      const { adminUid, email } = req.body;
 
-    if (!adminUid && !email) {
-      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+      if (!adminUid && !email) {
+        return res.status(400).json({ message: 'Se requiere adminUid o email' });
+      }
+
+      let usuarioAdminId = adminUid;
+
+      if (email && !adminUid) {
+        const usuario = await Usuario.findOne({ email });
+        if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+        usuarioAdminId = usuario._id.toString();
+      }
+
+      const esAdmin =
+        organizacion.creadoPor?.toString() === uid ||
+        (organizacion.administradores || []).some((a) => a.toString() === uid);
+
+      if (!esAdmin && req.user.rol !== 'admin') {
+        return res.status(403).json({ message: 'No autorizado para modificar administradores' });
+      }
+
+      if (!organizacion.administradores) {
+        organizacion.administradores = [];
+      }
+
+      if (!organizacion.administradores.some((a) => a.toString() === usuarioAdminId)) {
+        organizacion.administradores.push(usuarioAdminId);
+        await organizacion.save();
+      }
+
+      await organizacion.populate('administradores', 'email nombre');
+
+      res.status(200).json({ administradores: organizacion.administradores });
+    } catch (error) {
+      console.error('Error al agregar administrador:', error);
+      res.status(500).json({ message: 'Error al agregar administrador' });
     }
-
-    let usuarioAdminId = adminUid;
-
-    // Si mandan un email, buscamos el UID correspondiente
-    if (email && !adminUid) {
-      const usuario = await Usuario.findOne({ email });
-      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
-      usuarioAdminId = usuario._id.toString();
-    }
-
-    const esAdmin = organizacion.creadoPor?.toString() === uid || (organizacion.administradores || []).some(a => a.toString() === uid);
-    if (!esAdmin && req.user.rol !== 'admin') {
-      return res.status(403).json({ message: 'No autorizado para modificar administradores' });
-    }
-
-    if (!organizacion.administradores.includes(usuarioAdminId)) {
-      organizacion.administradores.push(usuarioAdminId);
-      await organizacion.save();
-    }
-
-    await organizacion.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(organizacion.administradores);
-  } catch (error) {
-    console.error('Error al agregar administrador:', error);
-    res.status(500).json({ message: 'Error al agregar administrador' });
   }
-});
+);
 
-router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD, verificarEntidad(Organizacion, 'id', 'organizacion'), async (req, res) => {
-  try {
-    const uid = req.user.uid;
-    const organizacion = req.organizacion;
-    const { adminUid } = req.params;
+router.delete(
+  '/:id/administradores/:adminUid',
+  verificarToken,
+  cargarRolDesdeBD,
+  verificarEntidad(Organizacion, 'id', 'organizacion'),
+  async (req, res) => {
+    try {
+      const uid = req.user.uid;
+      const organizacion = req.organizacion;
+      const { adminUid } = req.params;
 
-    const esAdmin = organizacion.creadoPor?.toString() === uid || (organizacion.administradores || []).some(a => a.toString() === uid);
-    if (!esAdmin && req.user.rol !== 'admin') {
-      return res.status(403).json({ message: 'No autorizado para modificar administradores' });
+      const esAdmin =
+        organizacion.creadoPor?.toString() === uid ||
+        (organizacion.administradores || []).some((a) => a.toString() === uid);
+
+      if (!esAdmin && req.user.rol !== 'admin') {
+        return res.status(403).json({ message: 'No autorizado para modificar administradores' });
+      }
+
+      if (organizacion.administradores && organizacion.administradores.length > 0) {
+        organizacion.administradores = organizacion.administradores.filter(
+          (a) => a.toString() !== adminUid
+        );
+        await organizacion.save();
+      }
+
+      await organizacion.populate('administradores', 'email nombre');
+      res.status(200).json({ administradores: organizacion.administradores || [] });
+    } catch (error) {
+      console.error('Error al quitar administrador:', error);
+      res.status(500).json({ message: 'Error al quitar administrador' });
     }
-
-    organizacion.administradores = organizacion.administradores.filter(a => a.toString() !== adminUid);
-    await organizacion.save();
-
-    await organizacion.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(organizacion.administradores);
-  } catch (error) {
-    console.error('Error al quitar administrador:', error);
-    res.status(500).json({ message: 'Error al quitar administrador' });
   }
-});
+);
 
 // Eliminar organización (solo admins o creador)
 router.delete(
