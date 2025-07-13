@@ -13,7 +13,6 @@ const router = express.Router();
 const { Types } = mongoose;
 
 // --- Middleware para verificar permisos ---
-// Admin de equipo en la relación o jugador solicitante puede modificar
 async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   const { id } = req.params;
   const usuarioId = req.user.uid;
@@ -24,49 +23,45 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   const relacion = await JugadorEquipo.findById(id);
   if (!relacion) return res.status(404).json({ message: 'Relación no encontrada' });
 
-  // Cargar equipo y jugador para verificar admin y dueño
   const equipo = await Equipo.findById(relacion.equipo);
   if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado' });
 
-  // Verifico si usuario es admin equipo
   const esAdminEquipo =
     equipo.creadoPor.toString() === usuarioId ||
     equipo.administradores.some(adminId => adminId.toString() === usuarioId) ||
     usuarioRol === 'admin';
 
-  // Verifico si usuario es el que solicitó la relación
-  const esSolicitante = relacion.solicitadoPor === usuarioId;
+  const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId;
 
   if (!esAdminEquipo && !esSolicitante) {
     return res.status(403).json({ message: 'No tienes permisos para modificar esta relación' });
   }
 
-  // Puedo pasar la relacion para no buscarla otra vez
   req.relacion = relacion;
   next();
 }
 
 async function fueSolicitudHechaPorEquipo(relacion) {
-    const equipo = await Equipo.findById(relacion.equipo);
-    const jugador = await Jugador.findById(relacion.jugador);
+  const equipo = await Equipo.findById(relacion.equipo);
+  const jugador = await Jugador.findById(relacion.jugador);
 
-    const esAdminEquipoSolicitante =
-      equipo?.creadoPor.toString() === relacion.solicitadoPor ||
-      (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+  const esAdminEquipoSolicitante =
+    equipo?.creadoPor.toString() === relacion.solicitadoPor?.toString() ||
+    (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor?.toString());
 
-    const esAdminJugadorSolicitante =
-      jugador?.creadoPor.toString() === relacion.solicitadoPor ||
-      (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+  const esAdminJugadorSolicitante =
+    jugador?.creadoPor.toString() === relacion.solicitadoPor?.toString() ||
+    (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor?.toString());
 
-    if (esAdminEquipoSolicitante) return true;
-    if (esAdminJugadorSolicitante) return false;
-    return true; // por defecto asumimos equipo
+  if (esAdminEquipoSolicitante) return true;
+  if (esAdminJugadorSolicitante) return false;
+  return true;
 }
+
 // --- Obtener contratos por jugador o equipo ---
 router.get('/', verificarToken, async (req, res) => {
   try {
     const { jugador, equipo } = req.query;
-
     if (!jugador && !equipo) {
       return res.status(400).json({ message: 'Debe indicar jugador o equipo' });
     }
@@ -87,42 +82,33 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
-// --- Crear solicitud desde equipo (requiere admin equipo) ---
+// --- Crear solicitud desde equipo ---
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { jugador, equipo } = req.body;
     const usuarioId = req.user.uid;
 
-    if (!jugador || !equipo) return res.status(400).json({ message: 'Jugador y equipo requeridos' });
-
-    if (!Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
-      return res.status(400).json({ message: 'IDs inválidos' });
+    if (!jugador || !equipo || !Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
+      return res.status(400).json({ message: 'Jugador y equipo válidos requeridos' });
     }
 
     const equipoDB = await Equipo.findById(equipo);
     if (!equipoDB) return res.status(404).json({ message: 'Equipo no encontrado' });
 
-    // Verifico permisos admin equipo
     const esAdminEquipo =
       equipoDB.creadoPor.toString() === usuarioId ||
       equipoDB.administradores.some(aid => aid.toString() === usuarioId) ||
       req.user.rol === 'admin';
 
-    if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado para solicitar por este equipo' });
+    if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
 
     const jugadorDB = await Jugador.findById(jugador);
     if (!jugadorDB) return res.status(404).json({ message: 'Jugador no encontrado' });
 
-    // Crear solicitud pendiente
-    const solicitud = new JugadorEquipo({
-      jugador,
-      equipo,
-      estado: 'pendiente',
-      activo: false,
-      creadoPor: usuarioId,
-      solicitadoPor: usuarioId,
-    });
+    const existente = await JugadorEquipo.findOne({ jugador, equipo, estado: { $in: ['pendiente', 'aceptado'] } });
+    if (existente) return res.status(409).json({ message: 'Ya existe una relación o solicitud activa' });
 
+    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId });
     await solicitud.save();
 
     res.status(201).json(solicitud);
@@ -132,42 +118,33 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
   }
 });
 
-// --- Crear solicitud desde jugador (requiere admin jugador) ---
+// --- Crear solicitud desde jugador ---
 router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { jugador, equipo } = req.body;
     const usuarioId = req.user.uid;
 
-    if (!jugador || !equipo) return res.status(400).json({ message: 'Jugador y equipo requeridos' });
-
-    if (!Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
-      return res.status(400).json({ message: 'IDs inválidos' });
+    if (!jugador || !equipo || !Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
+      return res.status(400).json({ message: 'Jugador y equipo válidos requeridos' });
     }
 
     const jugadorDB = await Jugador.findById(jugador);
     if (!jugadorDB) return res.status(404).json({ message: 'Jugador no encontrado' });
 
-    // Verifico que usuario sea admin jugador
     const esAdminJugador =
       jugadorDB.creadoPor.toString() === usuarioId ||
       jugadorDB.administradores.some(aid => aid.toString() === usuarioId) ||
       req.user.rol === 'admin';
 
-    if (!esAdminJugador) return res.status(403).json({ message: 'No autorizado para solicitar por este jugador' });
+    if (!esAdminJugador) return res.status(403).json({ message: 'No autorizado' });
 
     const equipoDB = await Equipo.findById(equipo);
     if (!equipoDB) return res.status(404).json({ message: 'Equipo no encontrado' });
 
-    // Crear solicitud pendiente
-    const solicitud = new JugadorEquipo({
-      jugador,
-      equipo,
-      estado: 'pendiente',
-      activo: false,
-      creadoPor: usuarioId,
-      solicitadoPor: usuarioId,
-    });
+    const existente = await JugadorEquipo.findOne({ jugador, equipo, estado: { $in: ['pendiente', 'aceptado'] } });
+    if (existente) return res.status(409).json({ message: 'Ya existe una relación o solicitud activa' });
 
+    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId });
     await solicitud.save();
 
     res.status(201).json(solicitud);
@@ -177,33 +154,24 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
   }
 });
 
-// --- Listar solicitudes (pendientes o filtradas) donde usuario es parte --- 
+// --- Ver solicitudes pendientes del usuario ---
 router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
-    const { estado } = req.query; // opcional
+    const { estado } = req.query;
 
     const filtroEstado = estado ? { estado } : { estado: 'pendiente' };
-
-    // Busco solicitudes donde usuario es admin de equipo o admin jugador o solicitante
-    // Para simplificar, busco relaciones donde:
-    //  - jugador.administradores o jugador.creadoPor = usuarioId
-    //  - o equipo.administradores o equipo.creadoPor = usuarioId
-    //  - o solicitadoPor = usuarioId
-
-    // Pero como son referencias ObjectId, usaremos populate y filtro en JS (o con agregación si se quiere optimizar)
 
     const solicitudes = await JugadorEquipo.find(filtroEstado)
       .populate('jugador', 'nombre alias creadoPor administradores')
       .populate('equipo', 'nombre creadoPor administradores')
       .lean();
 
-    // Filtrar solo las que el usuario puede ver/gestionar:
     const solicitudesFiltradas = solicitudes.filter(s => {
       const esAdminJugador = s.jugador.creadoPor === usuarioId || (s.jugador.administradores || []).some(aid => aid.toString() === usuarioId);
       const esAdminEquipo = s.equipo.creadoPor === usuarioId || (s.equipo.administradores || []).some(aid => aid.toString() === usuarioId);
-      const esSolicitante = s.solicitadoPor === usuarioId;
+      const esSolicitante = s.solicitadoPor?.toString() === usuarioId;
       return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
     });
 
@@ -214,51 +182,32 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
   }
 });
 
-// --- Actualizar solicitud: aceptar, rechazar, cancelar --- 
+// --- Actualizar estado de la solicitud ---
 router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
-    const { id } = req.params;
     const { estado, motivoRechazo } = req.body;
     const relacion = req.relacion;
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
 
     const estadosValidos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
-    if (!estadosValidos.includes(estado)) {
-      return res.status(400).json({ message: 'Estado inválido' });
-    }
-
-    if (relacion.estado !== 'pendiente') {
-      return res.status(400).json({ message: 'Sólo se puede modificar solicitudes pendientes' });
-    }
+    if (!estadosValidos.includes(estado)) return res.status(400).json({ message: 'Estado inválido' });
+    if (relacion.estado !== 'pendiente') return res.status(400).json({ message: 'Solo solicitudes pendientes pueden modificarse' });
 
     const equipo = await Equipo.findById(relacion.equipo);
     const jugador = await Jugador.findById(relacion.jugador);
 
-    const esAdminEquipoUsuario =
-      equipo.creadoPor.toString() === usuarioId ||
-      equipo.administradores.some(aid => aid.toString() === usuarioId) ||
-      rol === 'admin';
+    const esAdminEquipo = equipo.creadoPor.toString() === usuarioId || equipo.administradores.some(a => a.toString() === usuarioId) || rol === 'admin';
+    const esAdminJugador = jugador.creadoPor.toString() === usuarioId || jugador.administradores.some(a => a.toString() === usuarioId) || rol === 'admin';
 
-    const esAdminJugadorUsuario =
-      jugador.creadoPor.toString() === usuarioId ||
-      jugador.administradores.some(aid => aid.toString() === usuarioId) ||
-      rol === 'admin';
+    const fuePorEquipo = await fueSolicitudHechaPorEquipo(relacion);
 
-    const fueSolicitadoPorEquipo = await fueSolicitudHechaPorEquipo(relacion);
-
-    if (fueSolicitadoPorEquipo && !esAdminJugadorUsuario) {
-      return res.status(403).json({ message: 'Solo el jugador (o admin jugador) puede aceptar o rechazar esta solicitud' });
-    }
-
-    if (!fueSolicitadoPorEquipo && !esAdminEquipoUsuario) {
-      return res.status(403).json({ message: 'Solo el equipo (o admin equipo) puede aceptar o rechazar esta solicitud' });
-    }
-
-    // Aplicar cambios
-    relacion.estado = estado;
+    if (fuePorEquipo && !esAdminJugador) return res.status(403).json({ message: 'Solo el jugador puede aceptar/rechazar' });
+    if (!fuePorEquipo && !esAdminEquipo) return res.status(403).json({ message: 'Solo el equipo puede aceptar/rechazar' });
 
     if (estado === 'aceptado') {
+      const yaActivo = await JugadorEquipo.findOne({ jugador: relacion.jugador, equipo: relacion.equipo, estado: 'aceptado', _id: { $ne: relacion._id } });
+      if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre este jugador y equipo' });
       relacion.activo = true;
       relacion.fechaAceptacion = new Date();
     }
@@ -268,6 +217,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
       if (motivoRechazo) relacion.motivoRechazo = motivoRechazo;
     }
 
+    relacion.estado = estado;
     await relacion.save();
 
     res.status(200).json(relacion);
@@ -277,16 +227,15 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
   }
 });
 
-// --- Eliminar relación (sólo admins equipo o solicitante pueden eliminar) ---
+// --- Eliminar solicitud ---
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const eliminada = await JugadorEquipo.findByIdAndDelete(id);
-    if (!eliminada) {
-      return res.status(404).json({ message: 'Relación no encontrada' });
+    const relacion = req.relacion;
+    if (relacion.estado === 'aceptado') {
+      return res.status(403).json({ message: 'No se puede eliminar un contrato aceptado. Marcar como finalizado en su lugar.' });
     }
 
+    await JugadorEquipo.findByIdAndDelete(relacion._id);
     res.status(200).json({ message: 'Relación eliminada correctamente' });
   } catch (error) {
     console.error(error);
