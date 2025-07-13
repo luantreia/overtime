@@ -5,7 +5,7 @@ const equipoSchema = new mongoose.Schema({
   escudo: { type: String },
   foto: { type: String },
 
-  colores: [String], // Ej: ['#75AADB', '#FFFFFF']
+  colores: { type: [String], default: [] }, // Ej: ['#75AADB', '#FFFFFF']
   
   // 🔀 CLAVE: tipo de equipo
   tipo: {
@@ -16,15 +16,15 @@ const equipoSchema = new mongoose.Schema({
 
   // 🌍 Si es una selección
   esSeleccionNacional: { type: Boolean, default: false },
-  pais: { type: String }, // ISO code: "ARG", "BRA", etc.
+  pais: { type: String, default: '' }, // ISO code: "ARG", "BRA", etc.
 
   // 🧑‍💼 Relación opcional con federación u organización
   federacion: { type: mongoose.Schema.Types.ObjectId, ref: 'Federacion' },
 
   // 🧾 Info adicional
-  descripcion: { type: String },
+  descripcion: { type: String, default: '' },
   
-  sitioWeb: { type: String },
+  sitioWeb: { type: String, default: ''  },
 
   creadoPor: { 
     type: String,

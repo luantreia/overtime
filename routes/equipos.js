@@ -101,7 +101,33 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // Actualizar equipo (solo admins de ese equipo)
 router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
-  const datosActualizar = req.body;
+  const datosActualizar = { ...req.body };
+
+  // Limpieza de campos vacíos y tipos
+  if ('colores' in datosActualizar && Array.isArray(datosActualizar.colores)) {
+    datosActualizar.colores = datosActualizar.colores.filter(c => c);
+  }
+  if ('federacion' in datosActualizar && (!datosActualizar.federacion || datosActualizar.federacion === '')) {
+    datosActualizar.federacion = null;
+  }
+  if ('pais' in datosActualizar && datosActualizar.pais === undefined) {
+    datosActualizar.pais = '';
+  }
+  if ('escudo' in datosActualizar && typeof datosActualizar.escudo !== 'string') {
+    datosActualizar.escudo = '';
+  }
+  if ('tipo' in datosActualizar && !datosActualizar.tipo) {
+    datosActualizar.tipo = 'club';
+  }
+  if ('descripcion' in datosActualizar && !datosActualizar.descripcion) {
+    datosActualizar.descripcion = '';
+  }
+  if ('sitioWeb' in datosActualizar && !datosActualizar.sitioWeb) {
+    datosActualizar.sitioWeb = '';
+  }
+  if ('esSeleccionNacional' in datosActualizar) {
+    datosActualizar.esSeleccionNacional = !!datosActualizar.esSeleccionNacional;
+  }
 
   if (!datosActualizar.nombre || datosActualizar.nombre.trim() === '') {
     return res.status(400).json({ message: 'El nombre es obligatorio' });
