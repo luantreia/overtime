@@ -46,6 +46,31 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   next();
 }
 
+// --- Obtener contratos por jugador o equipo ---
+router.get('/', verificarToken, async (req, res) => {
+  try {
+    const { jugador, equipo } = req.query;
+
+    if (!jugador && !equipo) {
+      return res.status(400).json({ message: 'Debe indicar jugador o equipo' });
+    }
+
+    const filtro = {};
+    if (jugador) filtro.jugador = jugador;
+    if (equipo) filtro.equipo = equipo;
+
+    const relaciones = await JugadorEquipo.find(filtro)
+      .populate('jugador', 'nombre alias')
+      .populate('equipo', 'nombre escudo')
+      .lean();
+
+    res.status(200).json(relaciones);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener contratos', error: error.message });
+  }
+});
+
 // --- Crear solicitud desde equipo (requiere admin equipo) ---
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
