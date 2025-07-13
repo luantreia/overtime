@@ -32,7 +32,7 @@ const jugadorEquipoSchema = new Schema({
   },
 
   solicitadoPor: {
-    type: Schema.Types.ObjectId,
+    type: String,
     ref: 'Usuario',
   },
 
