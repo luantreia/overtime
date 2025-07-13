@@ -6,7 +6,8 @@ const jugadorSchema = new mongoose.Schema({
   fechaNacimiento: { type: Date, required: true },
   genero: { type: String, enum: ['masculino', 'femenino', 'otro'], default: 'otro' },
   foto: { type: String },
-  
+  nacionalidad: { type: String, default: '' },
+
   creadoPor: {
     type: String,
     ref: 'Usuario', // o 'Usuario', como tengas tu modelo de usuario
