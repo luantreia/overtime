@@ -171,14 +171,15 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
       .populate('equipo', 'nombre creadoPor administradores')
       .lean();
 
-    const solicitudesFiltradas = solicitudes.filter(s => {
-      const uid = usuarioId.toString();
-      const esAdminJugador = s.jugador.creadoPor === uid || s.jugador.administradores?.includes(uid);
-      const esAdminEquipo = s.equipo.creadoPor === uid || s.equipo.administradores?.includes(uid);
-      const esSolicitante = s.solicitadoPor?.toString() === uid;
-      return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
-    });
-
+  const solicitudesFiltradas = solicitudes.filter(s => {
+    const uid = usuarioId.toString();
+    const adminsJugador = (s.jugador.administradores || []).map(id => id.toString?.());
+    const adminsEquipo = (s.equipo.administradores || []).map(id => id.toString?.());
+    const esAdminJugador = s.jugador.creadoPor?.toString?.() === uid || adminsJugador.includes(uid);
+    const esAdminEquipo = s.equipo.creadoPor?.toString?.() === uid || adminsEquipo.includes(uid);
+    const esSolicitante = s.solicitadoPor?.toString?.() === uid;
+    return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
+  });
     res.status(200).json(solicitudesFiltradas);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
