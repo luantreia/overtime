@@ -13,27 +13,44 @@ const router = express.Router();
 const { Types } = mongoose;
 
 // --- Middleware para verificar permisos ---
+// Permite si el usuario es admin del equipo, admin del jugador o solicitante de la solicitud.
 async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   const { id } = req.params;
   const usuarioId = req.user.uid;
   const usuarioRol = req.user.rol;
 
-  if (!Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'ID inválido' });
+  if (!Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID inválido' });
+  }
 
   const relacion = await JugadorEquipo.findById(id);
-  if (!relacion) return res.status(404).json({ message: 'Relación no encontrada' });
+  if (!relacion) {
+    return res.status(404).json({ message: 'Relación no encontrada' });
+  }
 
   const equipo = await Equipo.findById(relacion.equipo);
-  if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado' });
+  if (!equipo) {
+    return res.status(404).json({ message: 'Equipo no encontrado' });
+  }
+
+  const jugador = await Jugador.findById(relacion.jugador);
+  if (!jugador) {
+    return res.status(404).json({ message: 'Jugador no encontrado' });
+  }
 
   const esAdminEquipo =
     equipo.creadoPor.toString() === usuarioId ||
-    equipo.administradores.some(adminId => adminId.toString() === usuarioId) ||
+    (equipo.administradores || []).some(adminId => adminId.toString() === usuarioId) ||
+    usuarioRol === 'admin';
+
+  const esAdminJugador =
+    jugador.creadoPor.toString() === usuarioId ||
+    (jugador.administradores || []).some(adminId => adminId.toString() === usuarioId) ||
     usuarioRol === 'admin';
 
   const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId;
 
-  if (!esAdminEquipo && !esSolicitante) {
+  if (!esAdminEquipo && !esAdminJugador && !esSolicitante) {
     return res.status(403).json({ message: 'No tienes permisos para modificar esta relación' });
   }
 
@@ -41,20 +58,24 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   next();
 }
 
+// --- Determina si la solicitud fue iniciada por el equipo ---
 async function fueSolicitudHechaPorEquipo(relacion) {
   const equipo = await Equipo.findById(relacion.equipo);
   const jugador = await Jugador.findById(relacion.jugador);
 
+  const solicitadoPorId = relacion.solicitadoPor?.toString();
+
   const esAdminEquipoSolicitante =
-    equipo?.creadoPor.toString() === relacion.solicitadoPor?.toString() ||
-    (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor?.toString());
+    equipo?.creadoPor.toString() === solicitadoPorId ||
+    (equipo?.administradores || []).some(aid => aid.toString() === solicitadoPorId);
 
   const esAdminJugadorSolicitante =
-    jugador?.creadoPor.toString() === relacion.solicitadoPor?.toString() ||
-    (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor?.toString());
+    jugador?.creadoPor.toString() === solicitadoPorId ||
+    (jugador?.administradores || []).some(aid => aid.toString() === solicitadoPorId);
 
   if (esAdminEquipoSolicitante) return true;
   if (esAdminJugadorSolicitante) return false;
+  // Por defecto, si no se puede determinar, asumimos que fue por equipo
   return true;
 }
 
@@ -180,9 +201,20 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
       .lean();
 
     const solicitudesFiltradas = solicitudes.filter(s => {
-      const esAdminJugador = s.jugador.creadoPor === usuarioId || (s.jugador.administradores || []).some(aid => aid.toString() === usuarioId);
-      const esAdminEquipo = s.equipo.creadoPor === usuarioId || (s.equipo.administradores || []).some(aid => aid.toString() === usuarioId);
-      const esSolicitante = s.solicitadoPor?.toString() === usuarioId;
+      const jugadorIdStr = s.jugador.creadoPor.toString();
+      const equipoIdStr = s.equipo.creadoPor.toString();
+      const usuarioIdStr = usuarioId.toString();
+
+      const esAdminJugador =
+        jugadorIdStr === usuarioIdStr ||
+        (s.jugador.administradores || []).some(aid => aid.toString() === usuarioIdStr);
+
+      const esAdminEquipo =
+        equipoIdStr === usuarioIdStr ||
+        (s.equipo.administradores || []).some(aid => aid.toString() === usuarioIdStr);
+
+      const esSolicitante = s.solicitadoPor?.toString() === usuarioIdStr;
+
       return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
     });
 
