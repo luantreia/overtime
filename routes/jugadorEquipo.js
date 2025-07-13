@@ -123,6 +123,12 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
   try {
     const { jugador, equipo } = req.body;
     const usuarioId = req.user.uid;
+  
+    console.log('➡️ Recibido jugador:', jugador);
+    console.log('➡️ Recibido equipo:', equipo);
+    console.log('➡️ Usuario ID:', usuarioId);
+    console.log('➡️ Recibido body:', req.body);
+    console.log('➡️ Usuario ID:', usuarioId);
 
     if (!jugador || !equipo || !Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
       return res.status(400).json({ message: 'Jugador y equipo válidos requeridos' });
@@ -149,7 +155,12 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
 
     res.status(201).json(solicitud);
   } catch (error) {
+
+    console.log('Error al crear solicitud desde jugador:', error);  
+    console.error('Error al crear solicitud desde jugador:', error);
+    console.error('➡️ Error completo:', error);
     console.error(error);
+
     res.status(500).json({ message: 'Error al crear solicitud', error: error.message });
   }
 });
