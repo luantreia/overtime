@@ -35,6 +35,12 @@ const jugadorEquipoSchema = new Schema({
     type: String,
     ref: 'Usuario',
   },
+    // Nuevo campo para indicar origen de la solicitud
+  origen: {
+    type: String,
+    enum: ['equipo', 'jugador'],
+    required: true,
+  },
 
   fechaSolicitud: {
     type: Date,

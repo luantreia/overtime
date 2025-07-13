@@ -129,7 +129,7 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
     const existente = await JugadorEquipo.findOne({ jugador, equipo, estado: { $in: ['pendiente', 'aceptado'] } });
     if (existente) return res.status(409).json({ message: 'Ya existe una relación o solicitud activa' });
 
-    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId });
+    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId, origen: 'equipo', });
     await solicitud.save();
 
     res.status(201).json(solicitud);
@@ -171,7 +171,7 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
     const existente = await JugadorEquipo.findOne({ jugador, equipo, estado: { $in: ['pendiente', 'aceptado'] } });
     if (existente) return res.status(409).json({ message: 'Ya existe una relación o solicitud activa' });
 
-    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId });
+    const solicitud = new JugadorEquipo({ jugador, equipo, estado: 'pendiente', activo: false, creadoPor: usuarioId, solicitadoPor: usuarioId, origen: 'jugador',});
     await solicitud.save();
 
     res.status(201).json(solicitud);
@@ -253,13 +253,23 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
       if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre este jugador y equipo' });
       relacion.activo = true;
       relacion.fechaAceptacion = new Date();
+      relacion.estado = estado;
+      await relacion.save();
+      return res.status(200).json(relacion);
     }
 
     if (estado === 'rechazado' || estado === 'cancelado') {
-      relacion.activo = false;
-      if (motivoRechazo) relacion.motivoRechazo = motivoRechazo;
+      // Podés guardar motivoRechazo si existe antes de eliminar
+      if (motivoRechazo) {
+        relacion.motivoRechazo = motivoRechazo;
+        await relacion.save();
+      }
+      // Eliminar la relación
+      await JugadorEquipo.findByIdAndDelete(relacion._id);
+      return res.status(200).json({ message: 'Solicitud eliminada por rechazo o cancelación' });
     }
 
+    // Para otros estados, si los manejás
     relacion.estado = estado;
     await relacion.save();
 
@@ -269,6 +279,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
     res.status(500).json({ message: 'Error al actualizar solicitud', error: error.message });
   }
 });
+
 
 // --- Eliminar solicitud ---
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
