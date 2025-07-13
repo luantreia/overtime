@@ -185,58 +185,76 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
   }
 });
 
-// --- PUT /:id (actualizar estado)
 router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
-    const { estado, motivoRechazo } = req.body;
+    const { estado, motivoRechazo, numero, rol: nuevoRol, foto, desde, hasta } = req.body;
     const relacion = req.relacion;
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
 
-    const validos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
-    if (!validos.includes(estado)) return res.status(400).json({ message: 'Estado inválido' });
+    const estadoPrevio = relacion.estado;
 
-    if (relacion.estado !== 'pendiente') {
-      return res.status(400).json({ message: 'Solo solicitudes pendientes pueden modificarse' });
+    const validos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
+    if (estado && !validos.includes(estado)) {
+      return res.status(400).json({ message: 'Estado inválido' });
     }
 
     const fueEquipo = fueHechaPorEquipo(relacion, req.equipo);
-    const esAdminEquipo = req.equipo.creadoPor.toString() === usuarioId || req.equipo.administradores.includes(usuarioId) || rol === 'admin';
-    const esAdminJugador = req.jugador.creadoPor.toString() === usuarioId || req.jugador.administradores.includes(usuarioId) || rol === 'admin';
+    const esAdminEquipo = req.equipo?.creadoPor?.toString() === usuarioId || req.equipo?.administradores?.includes(usuarioId) || rol === 'admin';
+    const esAdminJugador = req.jugador?.creadoPor?.toString() === usuarioId || req.jugador?.administradores?.includes(usuarioId) || rol === 'admin';
 
-    if (estado === 'aceptado') {
-      if ((fueEquipo && !esAdminJugador) || (!fueEquipo && !esAdminEquipo)) {
-        return res.status(403).json({ message: 'No autorizado para aceptar solicitud' });
+    // --- Cambios de estado si está pendiente
+    if (estadoPrevio === 'pendiente') {
+      if (estado === 'aceptado') {
+        if ((fueEquipo && !esAdminJugador) || (!fueEquipo && !esAdminEquipo)) {
+          return res.status(403).json({ message: 'No autorizado para aceptar solicitud' });
+        }
+
+        const yaActivo = await JugadorEquipo.findOne({
+          jugador: relacion.jugador,
+          equipo: relacion.equipo,
+          estado: 'aceptado',
+          _id: { $ne: relacion._id },
+        });
+
+        if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre jugador y equipo' });
+
+        relacion.estado = 'aceptado';
+        relacion.activo = true;
+        relacion.fechaAceptacion = new Date();
+        await relacion.save();
+        return res.status(200).json(relacion);
       }
 
-      const yaActivo = await JugadorEquipo.findOne({
-        jugador: relacion.jugador,
-        equipo: relacion.equipo,
-        estado: 'aceptado',
-        _id: { $ne: relacion._id },
-      });
+      if (['rechazado', 'cancelado'].includes(estado)) {
+        if (motivoRechazo) relacion.motivoRechazo = motivoRechazo;
+        await relacion.save();
+        await JugadorEquipo.findByIdAndDelete(relacion._id);
+        return res.status(200).json({ message: 'Solicitud eliminada por rechazo o cancelación' });
+      }
+    }
 
-      if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo' });
+    // --- Edición de contrato aceptado o finalizado
+    if (['aceptado', 'finalizado'].includes(estadoPrevio)) {
+      if (!esAdminEquipo && !esAdminJugador) {
+        return res.status(403).json({ message: 'No autorizado para editar contrato' });
+      }
 
-      relacion.estado = 'aceptado';
-      relacion.activo = true;
-      relacion.fechaAceptacion = new Date();
+      if (numero !== undefined) relacion.numero = numero;
+      if (nuevoRol !== undefined) relacion.rol = nuevoRol;
+      if (foto !== undefined) relacion.foto = foto;
+      if (desde !== undefined) relacion.desde = desde;
+      if (hasta !== undefined) relacion.hasta = hasta;
+
       await relacion.save();
       return res.status(200).json(relacion);
     }
 
-    if (['rechazado', 'cancelado'].includes(estado)) {
-      if (motivoRechazo) relacion.motivoRechazo = motivoRechazo;
-      await relacion.save();
-      await JugadorEquipo.findByIdAndDelete(relacion._id);
-      return res.status(200).json({ message: 'Solicitud eliminada por rechazo o cancelación' });
-    }
+    // --- Otros estados no editables
+    return res.status(400).json({ message: 'No se puede editar esta relación en su estado actual' });
 
-    relacion.estado = estado;
-    await relacion.save();
-    res.status(200).json(relacion);
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar solicitud', error: error.message });
+    res.status(500).json({ message: 'Error al actualizar solicitud o contrato', error: error.message });
   }
 });
 
