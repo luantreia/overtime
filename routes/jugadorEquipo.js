@@ -173,6 +173,23 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
   }
 });
 
+  async function fueSolicitudHechaPorEquipo(relacion) {
+    const equipo = await Equipo.findById(relacion.equipo);
+    const jugador = await Jugador.findById(relacion.jugador);
+
+    const esAdminEquipoSolicitante =
+      equipo?.creadoPor.toString() === relacion.solicitadoPor ||
+      (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+
+    const esAdminJugadorSolicitante =
+      jugador?.creadoPor.toString() === relacion.solicitadoPor ||
+      (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+
+    if (esAdminEquipoSolicitante) return true;
+    if (esAdminJugadorSolicitante) return false;
+    return true; // por defecto asumimos equipo
+  }
+
 // --- Actualizar solicitud: aceptar, rechazar, cancelar --- 
 router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
@@ -182,68 +199,14 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
 
-    // Validar estado nuevo
     const estadosValidos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({ message: 'Estado inválido' });
     }
 
-    // Sólo se puede cambiar de pendiente a aceptado/rechazado/cancelado
     if (relacion.estado !== 'pendiente') {
       return res.status(400).json({ message: 'Sólo se puede modificar solicitudes pendientes' });
     }
-
-    // Reglas de permisos y lógica:
-
-    // Quien puede aceptar/rechazar:
-    // - Si la solicitud fue hecha por equipo, la acepta/rechaza el jugador (admin)
-    // - Si fue hecha por jugador, la acepta/rechaza el equipo (admin)
-
-    const fueSolicitadoPorEquipo = (() => {
-      // Para esto debemos saber si el usuario que creó la solicitud es admin equipo o admin jugador
-      // Simplificamos:
-      // Si el solicitante es admin equipo -> solicitado por equipo
-      // Si solicitante es admin jugador -> solicitado por jugador
-      // Si no, lo consideramos equipo por defecto
-
-      // Mejor consultar equipos y jugadores admins:
-
-      // Esta info la tenemos parcialmente en relacion.solicitadoPor
-
-      // Verificamos en DB:
-
-      return await (() => {
-        return new Promise(async (resolve) => {
-          const equipo = await Equipo.findById(relacion.equipo);
-          const jugador = await Jugador.findById(relacion.jugador);
-          const esAdminEquipoSolicitante = equipo.creadoPor.toString() === relacion.solicitadoPor ||
-            equipo.administradores.some(aid => aid.toString() === relacion.solicitadoPor);
-          const esAdminJugadorSolicitante = jugador.creadoPor.toString() === relacion.solicitadoPor ||
-            jugador.administradores.some(aid => aid.toString() === relacion.solicitadoPor);
-
-          if (esAdminEquipoSolicitante) resolve(true);
-          else if (esAdminJugadorSolicitante) resolve(false);
-          else resolve(true); // default equipo
-        });
-      })();
-    })();
-
-    // Como es async no podemos tenerlo así. Mejor hacer función auxiliar fuera del controlador.
-
-    // Mientras tanto para el ejemplo, hacemos así:
-    // Nota: para producción separar lógica en funciones helper.
-
-    // Aquí es mejor simplificar para el ejemplo:
-
-    // Reglas:
-    // - Si usuario actual no es el "contraparte" para aceptar/rechazar, error 403
-
-    // Entonces:
-
-    // 1) Si fue solicitado por equipo, sólo jugador puede aceptar/rechazar
-    // 2) Si fue solicitado por jugador, sólo equipo puede aceptar/rechazar
-
-    // Para esto verificamos si usuario es admin equipo o admin jugador:
 
     const equipo = await Equipo.findById(relacion.equipo);
     const jugador = await Jugador.findById(relacion.jugador);
@@ -258,28 +221,17 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
       jugador.administradores.some(aid => aid.toString() === usuarioId) ||
       rol === 'admin';
 
-    // Verificar quien es solicitante: admin equipo o admin jugador
-    const esSolicitanteAdminEquipo =
-      equipo.creadoPor.toString() === relacion.solicitadoPor ||
-      equipo.administradores.some(aid => aid.toString() === relacion.solicitadoPor);
+    const fueSolicitadoPorEquipo = await fueSolicitudHechaPorEquipo(relacion);
 
-    const esSolicitanteAdminJugador =
-      jugador.creadoPor.toString() === relacion.solicitadoPor ||
-      jugador.administradores.some(aid => aid.toString() === relacion.solicitadoPor);
-
-    // Validar permisos:
-
-    // Si fue solicitado por admin equipo -> sólo admin jugador puede aceptar/rechazar
-    if (esSolicitanteAdminEquipo && !(esAdminJugadorUsuario)) {
+    if (fueSolicitadoPorEquipo && !esAdminJugadorUsuario) {
       return res.status(403).json({ message: 'Solo el jugador (o admin jugador) puede aceptar o rechazar esta solicitud' });
     }
 
-    // Si fue solicitado por admin jugador -> sólo admin equipo puede aceptar/rechazar
-    if (esSolicitanteAdminJugador && !(esAdminEquipoUsuario)) {
+    if (!fueSolicitadoPorEquipo && !esAdminEquipoUsuario) {
       return res.status(403).json({ message: 'Solo el equipo (o admin equipo) puede aceptar o rechazar esta solicitud' });
     }
 
-    // Cambiar estado
+    // Aplicar cambios
     relacion.estado = estado;
 
     if (estado === 'aceptado') {
