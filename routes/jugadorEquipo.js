@@ -46,6 +46,22 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   next();
 }
 
+async function fueSolicitudHechaPorEquipo(relacion) {
+    const equipo = await Equipo.findById(relacion.equipo);
+    const jugador = await Jugador.findById(relacion.jugador);
+
+    const esAdminEquipoSolicitante =
+      equipo?.creadoPor.toString() === relacion.solicitadoPor ||
+      (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+
+    const esAdminJugadorSolicitante =
+      jugador?.creadoPor.toString() === relacion.solicitadoPor ||
+      (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
+
+    if (esAdminEquipoSolicitante) return true;
+    if (esAdminJugadorSolicitante) return false;
+    return true; // por defecto asumimos equipo
+}
 // --- Obtener contratos por jugador o equipo ---
 router.get('/', verificarToken, async (req, res) => {
   try {
@@ -197,23 +213,6 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
   }
 });
-
-  async function fueSolicitudHechaPorEquipo(relacion) {
-    const equipo = await Equipo.findById(relacion.equipo);
-    const jugador = await Jugador.findById(relacion.jugador);
-
-    const esAdminEquipoSolicitante =
-      equipo?.creadoPor.toString() === relacion.solicitadoPor ||
-      (equipo?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
-
-    const esAdminJugadorSolicitante =
-      jugador?.creadoPor.toString() === relacion.solicitadoPor ||
-      (jugador?.administradores || []).some(aid => aid.toString() === relacion.solicitadoPor);
-
-    if (esAdminEquipoSolicitante) return true;
-    if (esAdminJugadorSolicitante) return false;
-    return true; // por defecto asumimos equipo
-  }
 
 // --- Actualizar solicitud: aceptar, rechazar, cancelar --- 
 router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
