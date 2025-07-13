@@ -119,22 +119,31 @@ router.get('/:id', validarObjectId, async (req, res) => {
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
   try {
     const jugador = req.jugador; // ya validado por middleware
-    const { nombre, alias, fechaNacimiento, genero, foto } = req.body;  // sin administradores
+    const {
+      nombre,
+      alias,
+      fechaNacimiento,
+      genero,
+      foto,
+      nacionalidad,
+      administradores // opcional, si quieres permitir actualizar admins
+    } = req.body;
 
     if (nombre !== undefined) jugador.nombre = nombre;
     if (alias !== undefined) jugador.alias = alias;
     if (fechaNacimiento !== undefined) jugador.fechaNacimiento = fechaNacimiento;
     if (genero !== undefined) jugador.genero = genero;
     if (foto !== undefined) jugador.foto = foto;
+    if (nacionalidad !== undefined) jugador.nacionalidad = nacionalidad;
+    if (administradores !== undefined && Array.isArray(administradores)) jugador.administradores = administradores;
 
     await jugador.save();
     res.status(200).json(jugador);
   } catch (error) {
     console.error('Error al actualizar jugador:', error);
-    res.status(500).json({ message: 'Error al actualizar jugador' });
+    res.status(500).json({ message: 'Error al actualizar jugador', error: error.message });
   }
 });
-
 
 router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
   try {
