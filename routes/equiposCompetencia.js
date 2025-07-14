@@ -4,7 +4,6 @@ import Equipo from '../models/Equipo.js';
 import Competencia from '../models/Competencia.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
 
@@ -30,12 +29,12 @@ async function esAdminEquipoOCompetenciaSolicitante(req, res, next) {
   if (!equipo || !competencia) return res.status(404).json({ message: 'Equipo o competencia no encontrados' });
 
   const esAdminEquipo =
-    equipo.creadoPor?.toString() === usuarioId || (equipo.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
+    equipo.creadoPor?.toString() === usuarioId.toString() || (equipo.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
 
   const esAdminCompetencia =
-    competencia.creadoPor?.toString() === usuarioId || (competencia.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
+    competencia.creadoPor?.toString() === usuarioId.toString() || (competencia.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
 
-  const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId;
+  const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId.toString();
 
   if (!esAdminEquipo && !esAdminCompetencia && !esSolicitante) {
     return res.status(403).json({ message: 'No tienes permisos para modificar esta relación' });
