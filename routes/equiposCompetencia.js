@@ -192,7 +192,8 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
       .populate('equipo', 'nombre creadoPor administradores')
       .populate('competencia', 'nombre creadoPor administradores')
       .lean();
-
+      
+    console.log('Solicitudes recibidas:', solicitudes);
     const solicitudesFiltradas = solicitudes.filter(s => {
       const uid = usuarioId.toString();
       const adminsEquipo = (s.equipo?.administradores || []).map(id => id?.toString?.());
