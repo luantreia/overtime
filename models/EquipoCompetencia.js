@@ -37,6 +37,39 @@ const EquipoCompetenciaSchema = new Schema({
       ref: 'Usuario',
     }
   ],
+
+  estado: {
+    type: String,
+    enum: ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'],
+    default: 'pendiente',
+    index: true,
+  },
+
+  solicitadoPor: {
+    type: String,
+    ref: 'Usuario',
+  },
+
+  origen: {
+    type: String,
+    enum: ['equipo', 'competencia'],
+    required: true,
+  },
+
+  fechaSolicitud: {
+    type: Date,
+    default: Date.now,
+  },
+
+  fechaAceptacion: Date,
+  motivoRechazo: String,
+  desde: Date,
+  hasta: Date,
+  activo: {
+    type: Boolean,
+    default: false,
+  },
+  
 }, { timestamps: true });
 
 // Middleware para generar el nombre antes de guardar
