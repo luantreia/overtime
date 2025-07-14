@@ -73,26 +73,6 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
-// --- GET /api/jugador-equipo/:id (obtener una relación por ID)
-router.get('/:id', validarObjectId, verificarToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const relacion = await JugadorEquipo.findById(id)
-      .populate('jugador', 'nombre alias creadoPor administradores')
-      .populate('equipo', 'nombre escudo creadoPor administradores')
-      .lean();
-
-    if (!relacion) {
-      return res.status(404).json({ message: 'Relación no encontrada' });
-    }
-
-    res.status(200).json(relacion);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al obtener relación', error: error.message });
-  }
-});
-
 // --- POST /solicitar-equipo
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -203,6 +183,26 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
     res.status(200).json(solicitudesFiltradas);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
+  }
+});
+
+// --- GET /api/jugador-equipo/:id (obtener una relación por ID)
+router.get('/:id', validarObjectId, verificarToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const relacion = await JugadorEquipo.findById(id)
+      .populate('jugador', 'nombre alias creadoPor administradores')
+      .populate('equipo', 'nombre escudo creadoPor administradores')
+      .lean();
+
+    if (!relacion) {
+      return res.status(404).json({ message: 'Relación no encontrada' });
+    }
+
+    res.status(200).json(relacion);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener relación', error: error.message });
   }
 });
 
