@@ -169,16 +169,23 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
   try {
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
-    const { estado } = req.query;
+    const { estado, equipo, competencia } = req.query;
 
-    const filtro = estado ? { estado } : { estado: 'pendiente' };
+    // Construir filtro base
+    const filtro = {
+      ...(estado ? { estado } : { estado: 'pendiente' }),
+      ...(equipo ? { equipo } : {}),
+      ...(competencia ? { competencia } : {}),
+    };
 
     const solicitudes = await EquipoCompetencia.find(filtro)
       .populate('equipo', 'nombre creadoPor administradores')
       .populate('competencia', 'nombre creadoPor administradores')
       .lean();
 
-    console.log('Solicitudes recibidas:', solicitudes);
+    console.log('Solicitudes recibidas:', solicitudes.length);
+
+    // Filtrar por permisos (opcional si ya limitás por equipo/competencia)
     const solicitudesFiltradas = solicitudes.filter(s => {
       const uid = usuarioId.toString();
       const adminsEquipo = (s.equipo?.administradores || []).map(id => id?.toString?.());
@@ -193,9 +200,11 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
 
     res.status(200).json(solicitudesFiltradas);
   } catch (error) {
+    console.error('Error en GET /solicitudes:', error);
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
   }
 });
+
 
 // Obtener equipo competencia por ID
 router.get('/:id', validarObjectId, async (req, res) => {
