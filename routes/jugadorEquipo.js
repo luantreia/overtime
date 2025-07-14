@@ -157,31 +157,40 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
   }
 });
 
-// --- GET /solicitudes (filtrado por admin/solicitante)
+// --- GET /solicitudes (filtrado por admin/solicitante, y por jugador/equipo opcional)
 router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
-    const { estado } = req.query;
+    const { estado, jugador, equipo } = req.query;
 
-    const filtro = estado ? { estado } : { estado: 'pendiente' };
+    // Filtro base
+    const filtro = {
+      ...(estado ? { estado } : { estado: 'pendiente' }),
+      ...(jugador ? { jugador } : {}),
+      ...(equipo ? { equipo } : {}),
+    };
 
     const solicitudes = await JugadorEquipo.find(filtro)
       .populate('jugador', 'nombre alias creadoPor administradores')
       .populate('equipo', 'nombre creadoPor administradores')
       .lean();
 
-  const solicitudesFiltradas = solicitudes.filter(s => {
-    const uid = usuarioId.toString();
-    const adminsJugador = (s.jugador.administradores || []).map(id => id.toString?.());
-    const adminsEquipo = (s.equipo.administradores || []).map(id => id.toString?.());
-    const esAdminJugador = s.jugador.creadoPor?.toString?.() === uid || adminsJugador.includes(uid);
-    const esAdminEquipo = s.equipo.creadoPor?.toString?.() === uid || adminsEquipo.includes(uid);
-    const esSolicitante = s.solicitadoPor?.toString?.() === uid;
-    return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
-  });
+    const solicitudesFiltradas = solicitudes.filter(s => {
+      const uid = usuarioId.toString();
+      const adminsJugador = (s.jugador.administradores || []).map(id => id?.toString?.());
+      const adminsEquipo = (s.equipo.administradores || []).map(id => id?.toString?.());
+
+      const esAdminJugador = s.jugador.creadoPor?.toString?.() === uid || adminsJugador.includes(uid);
+      const esAdminEquipo = s.equipo.creadoPor?.toString?.() === uid || adminsEquipo.includes(uid);
+      const esSolicitante = s.solicitadoPor?.toString?.() === uid;
+
+      return esAdminJugador || esAdminEquipo || esSolicitante || rol === 'admin';
+    });
+
     res.status(200).json(solicitudesFiltradas);
   } catch (error) {
+    console.error('Error en GET /solicitudes jugador-equipo:', error);
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
   }
 });
