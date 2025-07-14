@@ -29,12 +29,12 @@ async function esAdminEquipoOCompetenciaSolicitante(req, res, next) {
   if (!equipo || !competencia) return res.status(404).json({ message: 'Equipo o competencia no encontrados' });
 
   const esAdminEquipo =
-    equipo.creadoPor?.toString() === usuarioId.toString() || (equipo.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
+    equipo.creadoPor?.toString() === usuarioId || (equipo.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
 
   const esAdminCompetencia =
-    competencia.creadoPor?.toString() === usuarioId.toString() || (competencia.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
+    competencia.creadoPor?.toString() === usuarioId || (competencia.administradores || []).map(String).includes(usuarioId) || rol === 'admin';
 
-  const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId.toString();
+  const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId;
 
   if (!esAdminEquipo && !esAdminCompetencia && !esSolicitante) {
     return res.status(403).json({ message: 'No tienes permisos para modificar esta relación' });
@@ -71,26 +71,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Obtener equipo competencia por ID
-router.get('/:id', validarObjectId, async (req, res) => {
-  try {
-    const equipoCompetencia = await EquipoCompetencia.findById(req.params.id)
-      .populate('equipo', 'nombre')
-      .populate('competencia', 'nombre')
-      .lean();
-
-    if (!equipoCompetencia) return res.status(404).json({ error: 'Equipo de competencia no encontrado' });
-    res.json(equipoCompetencia);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener equipo de competencia' });
-  }
-});
-
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { equipo, competencia } = req.body;
     const usuarioId = req.user.uid;
-
+    
     if (!equipo || !competencia || !mongoose.Types.ObjectId.isValid(equipo) || !mongoose.Types.ObjectId.isValid(competencia)) {
       return res.status(400).json({ message: 'Equipo y competencia válidos requeridos' });
     }
@@ -146,9 +131,9 @@ router.post('/solicitar-competencia', verificarToken, cargarRolDesdeBD, async (r
       Equipo.findById(equipo),
       Competencia.findById(competencia),
     ]);
-
+    
     if (!equipoDB || !competenciaDB) return res.status(404).json({ message: 'Equipo o competencia no encontrados' });
-
+    
     const esAdminCompetencia =
       competenciaDB.creadoPor?.toString() === usuarioId || (competenciaDB.administradores || []).includes(usuarioId) || req.user.rol === 'admin';
 
@@ -192,7 +177,7 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
       .populate('equipo', 'nombre creadoPor administradores')
       .populate('competencia', 'nombre creadoPor administradores')
       .lean();
-      
+
     console.log('Solicitudes recibidas:', solicitudes);
     const solicitudesFiltradas = solicitudes.filter(s => {
       const uid = usuarioId.toString();
@@ -212,6 +197,21 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
   }
 });
 
+// Obtener equipo competencia por ID
+router.get('/:id', validarObjectId, async (req, res) => {
+  try {
+    const equipoCompetencia = await EquipoCompetencia.findById(req.params.id)
+      .populate('equipo', 'nombre')
+      .populate('competencia', 'nombre')
+      .lean();
+
+    if (!equipoCompetencia) return res.status(404).json({ error: 'Equipo de competencia no encontrado' });
+    res.json(equipoCompetencia);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener equipo de competencia' });
+  }
+});
+
 // Actualizar equipo competencia (solo admins o creadores)
 router.put(
   '/:id',
@@ -228,7 +228,7 @@ router.put(
 
       const estadoPrevio = relacion.estado;
       const estadosValidos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
-
+      
       if (estado && !estadosValidos.includes(estado)) {
         return res.status(400).json({ message: 'Estado inválido' });
       }
