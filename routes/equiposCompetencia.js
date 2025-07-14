@@ -297,15 +297,21 @@ router.delete(
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
-  esAdminDeEntidad(EquipoCompetencia, 'equipoCompetencia'),
+  esAdminEquipoOCompetenciaSolicitante,
   async (req, res) => {
     try {
-      await req.equipoCompetencia.deleteOne();
-      res.json({ mensaje: 'Equipo competencia eliminado correctamente' });
+      if (req.relacion.estado === 'aceptado') {
+        return res.status(403).json({ message: 'No se puede eliminar un contrato activo. Marcar como finalizado.' });
+      }
+
+      await EquipoCompetencia.findByIdAndDelete(req.relacion._id);
+      res.status(200).json({ message: 'Relación eliminada correctamente' });
     } catch (error) {
-      res.status(400).json({ error: 'Error al eliminar equipo competencia' });
+      console.error('Error al eliminar relación:', error);
+      res.status(500).json({ message: 'Error al eliminar relación', error: error.message });
     }
   }
 );
+
 
 export default router;
