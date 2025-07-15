@@ -15,14 +15,17 @@ const FaseSchema = new mongoose.Schema({
   orden: { type: Number, required: true, default: 0 },
   descripcion: String,
 
+  fechaInicio: { type: Date },
+  fechaFin: { type: Date },
+
   // Solo para tipo 'grupo'
   numeroClasificados: {
     type: Number,
     validate: {
       validator: function (val) {
-        return this.tipo !== 'grupo' || (val !== null && val !== undefined);
+        return this.tipo !== 'grupo' || (typeof val === 'number' && val >= 0);
       },
-      message: 'numeroClasificados es obligatorio para fases tipo grupo.'
+      message: 'numeroClasificados es obligatorio y debe ser >= 0 para fases tipo grupo.'
     }
   },
 
@@ -30,7 +33,7 @@ const FaseSchema = new mongoose.Schema({
   division: {
     type: String,
     enum: ['A', 'B', 'C'],
-    default: undefined,
+    default: null,
     validate: {
       validator: function (val) {
         return this.tipo !== 'liga' || !!val;
@@ -41,41 +44,31 @@ const FaseSchema = new mongoose.Schema({
   superiorDirecta: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Fase',
-    validate: {
-      validator: function (val) {
-        return this.tipo !== 'liga' || true; // opcional en liga, no obligatorio
-      }
-    }
   },
   inferiorDirecta: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Fase',
-    validate: {
-      validator: function (val) {
-        return this.tipo !== 'liga' || true;
-      }
-    }
   },
   numeroAscensos: {
     type: Number,
     validate: {
       validator: function (val) {
-        return this.tipo !== 'liga' || val !== null;
+        return this.tipo !== 'liga' || (typeof val === 'number' && val >= 0);
       },
-      message: 'numeroAscensos es obligatorio para fases tipo liga.'
+      message: 'numeroAscensos es obligatorio y debe ser >= 0 para fases tipo liga.'
     }
   },
   numeroDescensos: {
     type: Number,
     validate: {
       validator: function (val) {
-        return this.tipo !== 'liga' || val !== null;
+        return this.tipo !== 'liga' || (typeof val === 'number' && val >= 0);
       },
-      message: 'numeroDescensos es obligatorio para fases tipo liga.'
+      message: 'numeroDescensos es obligatorio y debe ser >= 0 para fases tipo liga.'
     }
   },
 
-  // ----------- PROMOCIÓN / PLAYOFF ----------
+  // Para 'promocion' y 'playoff'
   faseOrigenA: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Fase',
