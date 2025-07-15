@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
   if (!competencia) return res.status(400).json({ error: 'Falta el parámetro competencia' });
 
   try {
-    const temporadas = await Temporada.find({ competencia }).sort('año').lean();
+    const temporadas = await Temporada.find({ competencia }).lean();
     res.json(temporadas);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener temporadas' });
@@ -58,7 +58,6 @@ router.post('/',
       const nuevaTemporada = new Temporada({
         competencia,
         nombre,
-        año,
         descripcion,
         fechaInicio,
         fechaFin,
