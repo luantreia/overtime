@@ -22,7 +22,7 @@ import estadisticasRoutes from './routes/estadisticas.js';
 
 import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/Competencias/competencias.js';
-import temporadasRoutes from './routes/Competencias/Temporadas.js';
+import temporadasRoutes from './routes/Competencias/temporadas.js';
 import fasesRoutes from "./routes/Competencias/fases.js";
 
 
