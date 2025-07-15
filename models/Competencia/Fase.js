@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
 
 const FaseSchema = new mongoose.Schema({
-  temporada: { type: ObjectId, ref: 'Temporada', required: true },
   
+  temporada: { type: mongoose.Schema.Types.ObjectId, ref: 'Temporada', required: true },
+
   nombre: { type: String, required: true, trim: true },
   tipo: { 
     type: String, 
@@ -26,44 +27,6 @@ const FaseSchema = new mongoose.Schema({
     }
   },
 
-  // Solo para tipo 'liga'
-  division: {
-    type: String,
-    enum: ['A', 'B', 'C'],
-    default: null,
-    validate: {
-      validator: function (val) {
-        return this.tipo !== 'liga' || !!val;
-      },
-      message: 'division es obligatoria para fases tipo liga.'
-    }
-  },
-  superiorDirecta: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Fase',
-  },
-  inferiorDirecta: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Fase',
-  },
-  numeroAscensos: {
-    type: Number,
-    validate: {
-      validator: function (val) {
-        return this.tipo !== 'liga' || (typeof val === 'number' && val >= 0);
-      },
-      message: 'numeroAscensos es obligatorio y debe ser >= 0 para fases tipo liga.'
-    }
-  },
-  numeroDescensos: {
-    type: Number,
-    validate: {
-      validator: function (val) {
-        return this.tipo !== 'liga' || (typeof val === 'number' && val >= 0);
-      },
-      message: 'numeroDescensos es obligatorio y debe ser >= 0 para fases tipo liga.'
-    }
-  },
 
   // Para 'promocion' y 'playoff'
   faseOrigenA: {
