@@ -22,8 +22,8 @@ import estadisticasRoutes from './routes/estadisticas.js';
 
 import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/Competencias/competencias.js';
-import temporadasRoutes from './routes/Competencias/temporadas.js';
 import fasesRoutes from "./routes/Competencias/fases.js";
+import temporadasRoutes from './routes/Competencias/temporadas.js';
 
 
 
@@ -80,7 +80,7 @@ app.use('/api/jugador-temporada', jugadorTemporadaRoutes);
 app.use('/api/jugador-fase', jugadorFaseRoutes);
 
 app.use('/api/partidos', partidosRoutes);
-app.use('/api/set-partido', );
+app.use('/api/set-partido', setPartidoRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
 
 app.use('/api/organizaciones', organizacionesRoutes);
