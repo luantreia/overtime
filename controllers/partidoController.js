@@ -1,5 +1,5 @@
 // server/controllers/partidoController.js
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 import { actualizarParticipacionFase } from '../services/participacionFaseService.js'; // función que debes crear
 
 // Obtener partidos con filtro por tipo y otros filtros opcionales
