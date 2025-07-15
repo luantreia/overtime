@@ -1,5 +1,5 @@
 // server/controllers/estadisticasController.js
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 
 export const obtenerResumenEstadisticasJugador = async (req, res) => {
   const { jugadorId } = req.params;
