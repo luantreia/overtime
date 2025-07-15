@@ -1,5 +1,5 @@
 import express from 'express';
-import ParticipacionTemporada from '../../models/ParticipacionTemporada.js';
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
