@@ -1,7 +1,7 @@
 import express from 'express';
-import ParticipacionTemporada from '../models/ParticipacionTemporada.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import ParticipacionTemporada from '../../models/ParticipacionTemporada.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 

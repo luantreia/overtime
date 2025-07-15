@@ -80,7 +80,7 @@ app.use('/api/jugador-temporada', jugadorTemporadaRoutes);
 app.use('/api/jugador-fase', jugadorFaseRoutes);
 
 app.use('/api/partidos', partidosRoutes);
-app.use('/api/set-partido', setPartidoRoutes);
+app.use('/api/set-partido', );
 app.use('/api/estadisticas', estadisticasRoutes);
 
 app.use('/api/organizaciones', organizacionesRoutes);

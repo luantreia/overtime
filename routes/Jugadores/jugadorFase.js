@@ -1,8 +1,8 @@
 import express from 'express';
-import { JugadorFase } from '../models/JugadorFase.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import { JugadorFase } from '../../models/Jugador/JugadorFase.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 

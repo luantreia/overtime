@@ -1,7 +1,7 @@
 // routes/equipo.js
 import express from 'express';
 import mongoose from 'mongoose';
-import Equipo from '../models/Equipo.js';
+import Equipo from '../../models/Equipo/Equipo.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';

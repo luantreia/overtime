@@ -1,12 +1,12 @@
 import express from 'express';
-import Competencia from '../models/Competencia/Competencia.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import Organizacion from '../models/Organizacion.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
-import { verificarEntidad } from '../middlewares/verificarEntidad.js';
-import Usuario from '../models/Usuario.js';
+import Competencia from '../../models/Competencia/Competencia.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import Organizacion from '../../models/Organizacion.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
+import { verificarEntidad } from '../../middlewares/verificarEntidad.js';
+import Usuario from '../../models/Usuario.js';
 
 const router = express.Router();
 

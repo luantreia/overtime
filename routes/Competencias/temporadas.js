@@ -1,6 +1,6 @@
 import express from 'express';
-import Temporada from '../models/Temporada.js';
-import Competencia from '../models/Competencia.js';
+import Temporada from '../../models/Competencia/Temporada.js';
+import Competencia from '../../models/Competencia/Competencia.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';

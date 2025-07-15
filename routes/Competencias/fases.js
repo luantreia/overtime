@@ -1,9 +1,9 @@
 import express from 'express';
-import Fase from '../models/Fase.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import Fase from '../../models/Competencia/Fase.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
