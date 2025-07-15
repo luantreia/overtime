@@ -1,5 +1,5 @@
 import express from 'express';
-import Competencia from '../models/Competencia.js';
+import Competencia from '../models/Competencia/Competencia.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Organizacion from '../models/Organizacion.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
@@ -11,7 +11,8 @@ import Usuario from '../models/Usuario.js';
 const router = express.Router();
 
 // Obtener todas las competencias (público)
-router.get('/', async (req, res) => {
+router.get('/', 
+  async (req, res) => {
   try {
     const competencias = await Competencia.find().populate('organizacion', 'nombre').lean();
     res.json(competencias);
@@ -21,7 +22,8 @@ router.get('/', async (req, res) => {
 });
 
 // GET /competencias/admin - competencias que el usuario puede administrar
-router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.get('/admin', 
+  verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const uid = req.user.uid;
     const rol = req.user.rol;
@@ -47,8 +49,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 });
 
 // Obtener competencia por ID (público)
-router.get(
-  '/:id',
+router.get( '/:id',
   validarObjectId,
   async (req, res, next) => {
     try {
@@ -75,8 +76,7 @@ router.get(
 );
 
 // Crear competencia (solo usuario autenticado)
-router.post(
-  '/',
+router.post( '/',
   verificarToken,
   cargarRolDesdeBD,
   async (req, res) => {
@@ -111,8 +111,7 @@ router.post(
 );
 
 // Actualizar competencia (solo admins o creadores)
-router.put(
-  '/:id',
+router.put( '/:id',
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,

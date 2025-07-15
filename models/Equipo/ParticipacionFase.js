@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 
 const ParticipacionFaseSchema = new mongoose.Schema({
-  equipoCompetencia: {
+  participacionTemporada: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'EquipoCompetencia',
+    ref: 'ParticipacionTemporada',
     required: true,
   },
   fase: {

@@ -1,11 +1,8 @@
 import mongoose from 'mongoose';
 
 const FaseSchema = new mongoose.Schema({
-  competencia: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Competencia', 
-    required: true 
-  },
+  temporada: { type: ObjectId, ref: 'Temporada', required: true },
+  
   nombre: { type: String, required: true, trim: true },
   tipo: { 
     type: String, 

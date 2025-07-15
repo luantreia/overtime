@@ -1,17 +1,5 @@
 import mongoose from 'mongoose';
 
-const FormatoSchema = new mongoose.Schema({
-  tipo: {
-    type: String,
-    enum: ['liga', 'grupos', 'playoffs', 'grupos_playoffs', 'otro'],
-    required: true,
-  },
-  cantidadGrupos: Number,
-  equiposPorGrupo: Number,
-  clasificadosPorGrupo: Number,
-  partidosIdaVuelta: { type: Boolean, default: false },
-}, { _id: false });
-
 const CompetenciaSchema = new mongoose.Schema({
   nombre: { type: String, required: true, trim: true },
   descripcion: { type: String },
@@ -36,32 +24,22 @@ const CompetenciaSchema = new mongoose.Schema({
     trim: true,
   },
 
-  temporada: {
-    type: String,
-    default: '2025',
-    trim: true,
-  },
-
   tipo: {
     type: String,
     enum: ['liga', 'torneo', 'otro'],
-    default: 'torneo',
+    default: 'otro',
     trim: true,
   },
 
-  formato: FormatoSchema,
-
   foto: { type: String },
-
-  reglas: { type: String },
 
   fechaInicio: { type: Date, required: true },
   fechaFin: { type: Date },
 
   estado: {
     type: String,
-    enum: ['programada', 'en_curso', 'finalizada', 'cancelada'],
-    default: 'programada',
+    enum: ['programada', 'en_curso', 'finalizada', 'cancelada', 'en_creacion'],
+    default: 'en_creacion',
   },
 
   creadoPor: {

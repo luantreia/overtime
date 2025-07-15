@@ -1,8 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import JugadorEquipo from '../models/JugadorEquipo.js';
-import Jugador from '../models/Jugador.js';
-import Equipo from '../models/Equipo.js';
+import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
+import Jugador from '../models/Jugador/Jugador.js';
+import Equipo from '../models/Equipo/Equipo.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
