@@ -38,8 +38,8 @@ router.post('/',
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { competencia, nombre, año, descripcion, fechaInicio, fechaFin } = req.body;
-      if (!competencia || !nombre || !año) {
+      const { competencia, nombre, descripcion, fechaInicio, fechaFin } = req.body;
+      if (!competencia || !nombre ) {
         return res.status(400).json({ error: 'Faltan datos obligatorios' });
       }
 
