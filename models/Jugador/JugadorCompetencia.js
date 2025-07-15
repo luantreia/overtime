@@ -27,4 +27,4 @@ jugadorCompetenciaSchema.pre('save', async function(next) {
   next();
 });
 
-export const JugadorCompetencia = model('JugadorCompetencia', jugadorCompetenciaSchema);
+export default model('JugadorCompetencia', jugadorCompetenciaSchema);

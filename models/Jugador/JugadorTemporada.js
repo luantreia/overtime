@@ -27,4 +27,4 @@ jugadorTemporadaSchema.pre('save', async function(next) {
   next();
 });
 
-export const JugadorTemporada = model('JugadorTemporada', jugadorTemporadaSchema);
+export default model('JugadorTemporada', jugadorTemporadaSchema);

@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
-import Jugador from '../../models/Jugador/Jugador.js';
+import  Jugador from '../../models/Jugador/Jugador.js';
 import Equipo from '../../models/Equipo/Equipo.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';

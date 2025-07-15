@@ -18,4 +18,4 @@ const estadisticasJugadorSetSchema = new Schema({
 
 estadisticasJugadorSetSchema.index({ set: 1, jugadorPartido: 1 }, { unique: true });
 
-export const EstadisticasJugadorSet = model('EstadisticasJugadorSet', estadisticasJugadorSetSchema);
+export default model('EstadisticasJugadorSet', estadisticasJugadorSetSchema);

@@ -59,5 +59,5 @@ jugadorEquipoSchema.pre('save', async function(next) {
   }
 });
 
-export const JugadorEquipo = model('JugadorEquipo', jugadorEquipoSchema);
+export default model('JugadorEquipo', jugadorEquipoSchema);
 

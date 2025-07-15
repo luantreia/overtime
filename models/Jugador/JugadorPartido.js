@@ -26,5 +26,5 @@ const jugadorPartidoSchema = new Schema({
 
 jugadorPartidoSchema.index({ partido: 1, jugador: 1 }, { unique: true });
 
-export const JugadorPartido = model('JugadorPartido', jugadorPartidoSchema);
+export default model('JugadorPartido', jugadorPartidoSchema);
 

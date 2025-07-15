@@ -33,4 +33,4 @@ jugadorSchema.pre('remove', async function(next) {
 jugadorSchema.set('toJSON', { virtuals: true });
 jugadorSchema.set('toObject', { virtuals: true });
 
-export const Jugador = model('Jugador', jugadorSchema);
+export default model('Jugador', jugadorSchema);

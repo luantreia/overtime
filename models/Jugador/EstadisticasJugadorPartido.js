@@ -13,4 +13,4 @@ const estadisticasJugadorPartidoSchema = new Schema({
   creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
-export const EstadisticasJugadorPartido = model('EstadisticasJugadorPartido', estadisticasJugadorPartidoSchema);
+export default model('EstadisticasJugadorPartido', estadisticasJugadorPartidoSchema);

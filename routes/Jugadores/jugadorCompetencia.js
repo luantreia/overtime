@@ -1,5 +1,5 @@
 import express from 'express';
-import { JugadorCompetencia } from '../../models/Jugador/JugadorCompetencia.js';
+import  JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';

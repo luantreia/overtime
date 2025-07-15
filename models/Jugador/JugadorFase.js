@@ -18,5 +18,5 @@ const jugadorFaseSchema = new Schema({
 
 jugadorFaseSchema.index({ jugadorTemporada: 1, participacionFase: 1 }, { unique: true });
 
-export const JugadorFase = model('JugadorFase', jugadorFaseSchema);
+export default model('JugadorFase', jugadorFaseSchema);
 

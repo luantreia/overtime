@@ -1,5 +1,5 @@
 import express from 'express';
-import { Jugador } from '../../models/Jugador/Jugador.js';
+import  Jugador  from '../../models/Jugador/Jugador.js';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import mongoose from 'mongoose';
 import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
