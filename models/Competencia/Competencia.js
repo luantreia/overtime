@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const CompetenciaSchema = new mongoose.Schema({
-  nombre: { type: String, required: true, trim: true },
+  nombre: { type: String, required: false, trim: true },
   descripcion: { type: String },
 
   organizacion: {
