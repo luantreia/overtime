@@ -1,11 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
-import Jugador from '../models/Jugador/Jugador.js';
-import Equipo from '../models/Equipo/Equipo.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
+import Jugador from '../../models/Jugador/Jugador.js';
+import Equipo from '../../models/Equipo/Equipo.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 const { Types } = mongoose;

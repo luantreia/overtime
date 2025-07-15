@@ -1,10 +1,10 @@
 // routes/participacionFase.js
 import express from 'express';
-import ParticipacionFase from '../models/Equipo/ParticipacionFase.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
@@ -119,7 +119,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // POST /participaciones - crear nueva participación (autenticado)
-import Fase from '../models/Competencia/Fase.js'; // asegúrate de importar
+import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
 
 router.post(
   '/',

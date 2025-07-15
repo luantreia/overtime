@@ -1,10 +1,10 @@
 import express from 'express';
-import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
-import Equipo from '../models/Equipo/Equipo.js';
-import Competencia from '../models/Competencia/Competencia.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
+import Equipo from '../../models/Equipo/Equipo.js';
+import Competencia from '../../models/Competencia/Competencia.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();

@@ -3,17 +3,29 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
-import usuariosRouter from './routes/usuarios.js';
-import equiposRouter from './routes/equipos.js';
-import jugadoresRouter from './routes/jugadores.js';
-import partidosRouter from './routes/partidos.js';
-import jugadorEquipoRouter from './routes/jugadorEquipo.js';
+import usuariosRoutes from './routes/usuarios.js';
+
+import equiposRoutes from './routes/equipos.js';
+import equiposCompetenciaRoutes from './routes/equiposCompetencia.js';
+import participacionTemporadaRoutes from './routes/participacionTemporada.js';
+import participacionFaseRoutes from './routes/participacionFase.js';
+
+import jugadoresRoutes from './routes/jugadores.js';
+import jugadorEquipoRoutes from './routes/jugadorEquipo.js';
+import jugadorCompetenciaRoutes from './routes/jugadorCompetencia.js';
+import jugadorTemporadaRoutes from './routes/jugadorTemporada.js';
+import jugadorFaseRoutes from './routes/jugadorFase.js';     
+
+import partidosRoutes from './routes/partidos.js';
+import setPartidoRoutes from './routes/setPartido.js';
 import estadisticasRoutes from './routes/estadisticas.js';
+
 import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/competencias.js';
-import equiposCompetenciaRoutes from './routes/equiposCompetencia.js';
+import temporadasRoutes from './routes/temporadas.js';
 import fasesRoutes from "./routes/fases.js"
-import participacionFaseRoutes from './routes/participacionFase.js';
+
+
 
 dotenv.config(); // inicializar dotenv
 
@@ -54,17 +66,27 @@ app.use(cors({
 app.use(express.json());
 
   // Rutas
-app.use('/api/equipos', equiposRouter);
-app.use('/api/jugadores', jugadoresRouter);
-app.use('/api/usuarios', usuariosRouter);
-app.use('/api/partidos', partidosRouter);
-app.use('/api/jugador-equipo', jugadorEquipoRouter);
+app.use('/api/usuarios', usuariosRoutes);
+
+app.use('/api/equipos', equiposRoutes);
+app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
+app.use('/api/participacion-temporada', participacionTemporadaRoutes);
+app.use('/api/participacion-fase', participacionFaseRoutes);
+
+app.use('/api/jugadores', jugadoresRoutes);
+app.use('/api/jugador-equipo', jugadorEquipoRoutes);
+app.use('/api/jugador-competencia', jugadorCompetenciaRoutes);
+app.use('/api/jugador-temporada', jugadorTemporadaRoutes);
+app.use('/api/jugador-fase', jugadorFaseRoutes);
+
+app.use('/api/partidos', partidosRoutes);
+app.use('/api/set-partido', setPartidoRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
+
 app.use('/api/organizaciones', organizacionesRoutes);
 app.use('/api/competencias', competenciasRoutes);
-app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
+app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);
-app.use('/api/participaciones', participacionFaseRoutes);
 
 
 app.get('/api/ping', (req, res) => {
