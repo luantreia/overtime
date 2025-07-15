@@ -119,6 +119,8 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // POST /participaciones - crear nueva participación (autenticado)
+import Fase from '../models/Fase.js'; // asegúrate de importar
+
 router.post(
   '/',
   verificarToken,
@@ -131,16 +133,32 @@ router.post(
         return res.status(400).json({ error: 'Se requieren equipoCompetencia y fase' });
       }
 
+      // Validar fase
+      const faseObj = await Fase.findById(fase);
+      if (!faseObj) return res.status(400).json({ error: 'Fase no existe' });
+
+      if (faseObj.tipo === 'grupo' && !grupo) {
+        return res.status(400).json({ error: 'Debe especificar grupo para fase tipo grupo' });
+      }
+      if (faseObj.tipo === 'liga' && !division) {
+        return res.status(400).json({ error: 'Debe especificar división para fase tipo liga' });
+      }
+
+      // Validar duplicados
+      const existe = await ParticipacionFase.findOne({ equipoCompetencia, fase });
+      if (existe) {
+        return res.status(400).json({ error: 'El equipo ya está registrado en esta fase' });
+      }
+
       const nuevaParticipacion = new ParticipacionFase({
         equipoCompetencia,
         fase,
         grupo,
-        division
+        division,
       });
 
       await nuevaParticipacion.save();
 
-      // 🔥 Re-cargar con populate antes de enviar
       const poblada = await ParticipacionFase.findById(nuevaParticipacion._id)
         .populate({
           path: 'equipoCompetencia',
@@ -156,6 +174,7 @@ router.post(
     }
   }
 );
+
 
 // PUT /participaciones/:id - actualizar participación (solo admin o creador)
 router.put(
