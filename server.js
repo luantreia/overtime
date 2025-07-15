@@ -5,25 +5,25 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import usuariosRoutes from './routes/usuarios.js';
 
-import equiposRoutes from './routes/equipos.js';
-import equiposCompetenciaRoutes from './routes/equiposCompetencia.js';
-import participacionTemporadaRoutes from './routes/participacionTemporada.js';
-import participacionFaseRoutes from './routes/participacionFase.js';
+import equiposRoutes from './routes/Equipos/equipos.js';
+import equiposCompetenciaRoutes from './routes/Equipos/equiposCompetencia.js';
+import participacionTemporadaRoutes from './routes/Equipos/participacionTemporada.js';
+import participacionFaseRoutes from './routes/Equipos/participacionFase.js';
 
-import jugadoresRoutes from './routes/jugadores.js';
-import jugadorEquipoRoutes from './routes/jugadorEquipo.js';
-import jugadorCompetenciaRoutes from './routes/jugadorCompetencia.js';
-import jugadorTemporadaRoutes from './routes/jugadorTemporada.js';
-import jugadorFaseRoutes from './routes/jugadorFase.js';     
+import jugadoresRoutes from './routes/Jugadores/jugadores.js';
+import jugadorEquipoRoutes from './routes/Jugadores/jugadorEquipo.js';  
+import jugadorCompetenciaRoutes from './routes/Jugadores/jugadorCompetencia.js';
+import jugadorTemporadaRoutes from './routes/Jugadores/jugadorTemporada.js';
+import jugadorFaseRoutes from './routes/Jugadores/jugadorFase.js';
 
 import partidosRoutes from './routes/partidos.js';
 import setPartidoRoutes from './routes/setPartido.js';
 import estadisticasRoutes from './routes/estadisticas.js';
 
 import organizacionesRoutes from './routes/organizaciones.js';
-import competenciasRoutes from './routes/competencias.js';
-import temporadasRoutes from './routes/temporadas.js';
-import fasesRoutes from "./routes/fases.js"
+import competenciasRoutes from './routes/Competencias/competencias.js';
+import temporadasRoutes from './routes/Competencias/Temporadas.js';
+import fasesRoutes from "./routes/Competencias/fases.js";
 
 
 
