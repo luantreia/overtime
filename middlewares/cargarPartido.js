@@ -1,5 +1,5 @@
 // middlewares/cargarPartido.js
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 
 export const cargarPartido = async (req, res, next) => {
   try {

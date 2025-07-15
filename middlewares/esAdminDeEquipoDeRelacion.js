@@ -1,7 +1,7 @@
 // middlewares/esAdminDeEquipoDeRelacion.js
 import mongoose from 'mongoose';
-import JugadorEquipo from '../models/JugadorEquipo.js';
-import Equipo from '../models/Equipo.js';
+import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
+import Equipo from '../models/Equipo/Equipo.js';
 
 export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
   try {

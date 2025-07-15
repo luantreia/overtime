@@ -1,4 +1,4 @@
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 
 export async function obtenerResumenAnalisisPartido(req, res) {
   try {

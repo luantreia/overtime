@@ -1,6 +1,6 @@
 // middlewares/esAdminSegunTipoPartido.js
 import mongoose from 'mongoose';
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 
 export function esAdminSegunTipoPartido() {
   return async (req, res, next) => {
