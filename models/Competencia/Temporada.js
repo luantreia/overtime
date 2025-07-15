@@ -11,10 +11,6 @@ const TemporadaSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  año: {
-    type: Number,
-    required: true,
-  },
   descripcion: String,
 
   fechaInicio: Date,
@@ -30,7 +26,5 @@ const TemporadaSchema = new mongoose.Schema({
     ref: 'Usuario',
   }]
 }, { timestamps: true });
-
-TemporadaSchema.index({ competencia: 1, año: 1 }, { unique: true });
 
 export default mongoose.model('Temporada', TemporadaSchema);
