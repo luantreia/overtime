@@ -9,7 +9,7 @@ const FaseSchema = new mongoose.Schema({
   nombre: { type: String, required: true, trim: true },
   tipo: { 
     type: String, 
-    enum: ['grupo', 'liga', 'playoff', 'otro'], 
+    enum: ['grupo', 'liga', 'playoff', 'promocion', 'otro'], 
     required: true 
   },
   orden: { type: Number, required: true, default: 0 },
@@ -72,6 +72,29 @@ const FaseSchema = new mongoose.Schema({
         return this.tipo !== 'liga' || val !== null;
       },
       message: 'numeroDescensos es obligatorio para fases tipo liga.'
+    }
+  },
+
+  // ----------- PROMOCIÓN / PLAYOFF ----------
+  faseOrigenA: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Fase',
+    validate: {
+      validator: function (val) {
+        return ['promocion', 'playoff'].includes(this.tipo) || !val;
+      },
+      message: 'faseOrigenA solo debe usarse en fases de promoción o playoff'
+    }
+  }, 
+
+  faseOrigenB: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Fase',
+    validate: {
+      validator: function (val) {
+        return ['promocion', 'playoff'].includes(this.tipo) || !val;
+      },
+      message: 'faseOrigenB solo debe usarse en fases de promoción o playoff'
     }
   },
 
