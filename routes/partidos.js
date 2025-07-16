@@ -59,7 +59,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const { participacionFaseLocal, participacionFaseVisitante } = req.body;
     const data = {
       ...req.body,
-      creadoPor: req.user.uid
+      creadoPor: req.user.uid,
     };
     const ParticipacionFase = (await import('../models/Equipo/ParticipacionFase.js')).default;
     const Fase = (await import('../models/Competencia/Fase.js')).default;
@@ -122,7 +122,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       equipo: nuevoPartido.equipoLocal,
       participacionFase: nuevoPartido.participacionFaseLocal,
       esLocal: true,
-      creadoPor: req.usuario.id,
+      creadoPor: req.user.uid,  
     });
 
     // Crear equipo visitante
@@ -131,7 +131,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       equipo: nuevoPartido.equipoVisitante,
       participacionFase: nuevoPartido.participacionFaseVisitante,
       esLocal: false,
-      creadoPor: req.usuario.id,
+      creadoPor: req.user.uid,
     });
 
     res.status(201).json(nuevoPartido);
@@ -149,8 +149,8 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
     // Permite editar solo si es creador, admin del partido o rol admin global
     if (
-      partido.creadoPor !== req.usuarioId &&
-      !partido.administradores.includes(req.usuarioId) &&
+      partido.creadoPor !== req.user.uid &&
+      !partido.administradores.includes(req.user.uid) &&
       req.rol !== 'admin'
     ) {
       return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
@@ -173,8 +173,8 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
 
     if (
-      partido.creadoPor !== req.usuarioId &&
-      !partido.administradores.includes(req.usuarioId) &&
+      partido.creadoPor !== req.user.uid &&
+      !partido.administradores.includes(req.user.uid) &&
       req.rol !== 'admin'
     ) {
       return res.status(403).json({ message: 'No tiene permiso para eliminar este partido' });
