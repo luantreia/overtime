@@ -111,8 +111,8 @@ PartidoSchema.pre('save', async function (next) {
         path: 'temporada',
         populate: { path: 'competencia' }
       });
-      if (fase?.competencia?._id) {
-        this.competencia = fase.competencia._id;
+      if (fase?.temporada?.competencia?._id) {
+        this.competencia = fase.temporada.competencia._id;
       }
     }
 

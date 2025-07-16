@@ -92,8 +92,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
         path: 'temporada',
         populate: { path: 'competencia' }
       });
-      if (fase?.competencia?._id) {
-        data.competencia = fase.competencia._id;
+      if (fase?.temporada?.competencia?._id) {
+        data.competencia = fase.temporada.competencia._id;
       }
     }
   console.log('Datos para crear partido:', data);
