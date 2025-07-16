@@ -51,13 +51,39 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   }
 });
 
-// POST /api/partidos - Crear partido
+// POST /api/partidos
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
+    const { participacionFaseLocal, participacionFaseVisitante } = req.body;
     const data = {
       ...req.body,
-      creadoPor: req.usuarioId,  // Asigna creador automáticamente
+      creadoPor: req.usuarioId,
     };
+
+    // Resolver equipoLocal y equipoVisitante si no vienen
+    const ParticipacionFase = (await import('../models/ParticipacionFase.js')).default;
+
+    if (participacionFaseLocal) {
+      const pfLocal = await ParticipacionFase.findById(participacionFaseLocal).populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: 'equipo',
+        },
+      });
+      data.equipoLocal = pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+    }
+
+    if (participacionFaseVisitante) {
+      const pfVisitante = await ParticipacionFase.findById(participacionFaseVisitante).populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: 'equipo',
+        },
+      });
+      data.equipoVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+    }
 
     const nuevoPartido = new Partido(data);
     await nuevoPartido.save();
