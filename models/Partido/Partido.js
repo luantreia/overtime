@@ -151,6 +151,43 @@ PartidoSchema.pre('save', async function (next) {
   }
 });
 
+PartidoSchema.pre('save', async function(next) {
+  try {
+    if (this.participacionFaseLocal && !this.equipoLocal) {
+      const ParticipacionFase = mongoose.model('ParticipacionFase');
+      const pfLocal = await ParticipacionFase.findById(this.participacionFaseLocal).populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: 'equipo'
+        }
+      });
+      if (pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?._id) {
+        this.equipoLocal = pfLocal.participacionTemporada.equipoCompetencia.equipo._id;
+      }
+    }
+
+    if (this.participacionFaseVisitante && !this.equipoVisitante) {
+      const ParticipacionFase = mongoose.model('ParticipacionFase');
+      const pfVisitante = await ParticipacionFase.findById(this.participacionFaseVisitante).populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: 'equipo'
+        }
+      });
+      if (pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id) {
+        this.equipoVisitante = pfVisitante.participacionTemporada.equipoCompetencia.equipo._id;
+      }
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+
 // Generación automática del nombre
 PartidoSchema.pre('save', async function (next) {
   try {
