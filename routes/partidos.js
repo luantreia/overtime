@@ -65,23 +65,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const Fase = (await import('../models/Competencia/Fase.js')).default;
     const Competencia = (await import('../models/Competencia/Competencia.js')).default;
 
-    // Crear equipo local
-    await EquipoPartido.create({
-      partido: nuevoPartido._id,
-      equipo: nuevoPartido.equipoLocal,
-      participacionFase: nuevoPartido.participacionFaseLocal,
-      esLocal: true,
-      creadoPor: req.usuario.id,
-    });
-
-    // Crear equipo visitante
-    await EquipoPartido.create({
-      partido: nuevoPartido._id,
-      equipo: nuevoPartido.equipoVisitante,
-      participacionFase: nuevoPartido.participacionFaseVisitante,
-      esLocal: false,
-      creadoPor: req.usuario.id,
-    });
 
     // Resolver equipoLocal y equipoVisitante si no vienen
     if (participacionFaseLocal) {
@@ -131,6 +114,26 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   console.log('Datos para crear partido:', data);
     const nuevoPartido = new Partido(data);
     await nuevoPartido.save();
+
+
+    // Crear equipo local
+    await EquipoPartido.create({
+      partido: nuevoPartido._id,
+      equipo: nuevoPartido.equipoLocal,
+      participacionFase: nuevoPartido.participacionFaseLocal,
+      esLocal: true,
+      creadoPor: req.usuario.id,
+    });
+
+    // Crear equipo visitante
+    await EquipoPartido.create({
+      partido: nuevoPartido._id,
+      equipo: nuevoPartido.equipoVisitante,
+      participacionFase: nuevoPartido.participacionFaseVisitante,
+      esLocal: false,
+      creadoPor: req.usuario.id,
+    });
+
     res.status(201).json(nuevoPartido);
   } catch (err) {
     console.error('Error creando partido:', err);
