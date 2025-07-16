@@ -87,8 +87,14 @@ router.get('/', async (req, res) => {
     // Consulta normal sin competenciaId
     const participaciones = await ParticipacionFase.find(filter)
       .populate({
-        path: 'equipoCompetencia',
-        populate: { path: 'equipo', select: 'nombre' }
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: {
+            path: 'equipo',
+            select: 'nombre escudo',
+          }
+        }
       })
       .populate('fase', 'nombre tipo')
       .sort({ puntos: -1, diferenciaPuntos: -1, partidosGanados: -1 })
