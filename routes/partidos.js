@@ -59,8 +59,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       ...req.body,
       creadoPor: req.usuarioId,
     };
-    const ParticipacionFase = (await import('../models/ParticipacionFase.js')).default;
-    const Fase = (await import('../models/Fase.js')).default;
+    const ParticipacionFase = (await import('../models/Equipo/ParticipacionFase.js')).default;
+    const Fase = (await import('../models/Competencia/Fase.js')).default;
 
     // Resolver equipoLocal y equipoVisitante si no vienen
     if (participacionFaseLocal) {
