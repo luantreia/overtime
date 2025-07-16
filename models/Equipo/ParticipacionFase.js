@@ -4,7 +4,6 @@ const { Schema, model } = mongoose;
 const participacionFaseSchema = new Schema({
   participacionTemporada: { type: Schema.Types.ObjectId, ref: 'ParticipacionTemporada', required: true },
   fase: { type: Schema.Types.ObjectId, ref: 'Fase', required: true },
-  equipoCompetencia: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia', required: true },
   
   grupo: { type: String, default: null },
   division: { type: String, default: null },
@@ -23,4 +22,5 @@ const participacionFaseSchema = new Schema({
 }, { timestamps: true });
 
 participacionFaseSchema.index({ fase: 1, participacionTemporada: 1 }, { unique: true });
+
 export default model('ParticipacionFase', participacionFaseSchema);
