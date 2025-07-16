@@ -61,6 +61,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     };
     const ParticipacionFase = (await import('../models/Equipo/ParticipacionFase.js')).default;
     const Fase = (await import('../models/Competencia/Fase.js')).default;
+    const Competencia = (await import('../models/Competencia/Competencia.js')).default;
 
     // Resolver equipoLocal y equipoVisitante si no vienen
     if (participacionFaseLocal) {
@@ -85,17 +86,28 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       data.equipoVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id;
     }
 
-    // Resolver competencia si no viene y sí hay fase
-    if (!data.competencia && data.fase) {
-      const fase = await Fase.findById(data.fase)
+  // --- Completar competencia desde fase ---
+  if (!data.competencia && data.fase) {
+    const fase = await Fase.findById(data.fase)
       .populate({
         path: 'temporada',
         populate: { path: 'competencia' }
       });
-      if (fase?.temporada?.competencia?._id) {
-        data.competencia = fase.temporada.competencia._id;
-      }
+
+    if (fase?.temporada?.competencia?._id) {
+      data.competencia = fase.temporada.competencia._id;
     }
+  }
+
+  // --- Completar modalidad y categoría desde competencia ---
+  if (data.competencia && (!data.modalidad || !data.categoria)) {
+    const comp = await Competencia.findById(data.competencia);
+    if (comp) {
+      if (!data.modalidad) data.modalidad = comp.modalidad;
+      if (!data.categoria) data.categoria = comp.categoria;
+    }
+  }
+
   console.log('Datos para crear partido:', data);
     const nuevoPartido = new Partido(data);
     await nuevoPartido.save();
