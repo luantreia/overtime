@@ -5,6 +5,15 @@ const PartidoSchema = new Schema({
   competencia: { type: Schema.Types.ObjectId, ref: 'Competencia' },
   fase: { type: Schema.Types.ObjectId, ref: 'Fase' },
 
+  etapa: {
+    type: String,
+    enum: ['octavos', 'cuartos', 'semifinal', 'final', 'tercer_puesto', 'repechaje', 'otro'],
+    default: null
+  },
+
+  grupo: { type: String, default: null },
+  division: { type: String, default: null },
+
   nombrePartido: { type: String, trim: true },
 
   modalidad: {
@@ -93,6 +102,35 @@ PartidoSchema.pre('validate', async function (next) {
       if (!this.modalidad) this.modalidad = this.competencia.modalidad;
       if (!this.categoria) this.categoria = this.competencia.categoria;
     }
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+// Hook para autocompletar grupo/división si ambos equipos están en la misma fase y coinciden
+PartidoSchema.pre('save', async function (next) {
+  try {
+    if (!this.fase || !this.equipoCompetenciaLocal || !this.equipoCompetenciaVisitante) return next();
+
+    const EquipoCompetencia = mongoose.model('EquipoCompetencia');
+
+    const [local, visitante] = await Promise.all([
+      EquipoCompetencia.findById(this.equipoCompetenciaLocal),
+      EquipoCompetencia.findById(this.equipoCompetenciaVisitante)
+    ]);
+
+    if (!local || !visitante) return next();
+
+    // Si ambos tienen mismo grupo
+    if (local.grupo && visitante.grupo && local.grupo === visitante.grupo) {
+      this.grupo = local.grupo;
+    }
+
+    // Si ambos tienen misma división
+    if (local.division && visitante.division && local.division === visitante.division) {
+      this.division = local.division;
+    }
+
     next();
   } catch (err) {
     next(err);

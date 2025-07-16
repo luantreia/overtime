@@ -1,92 +1,100 @@
 import express from 'express';
-import {
-  obtenerPartidos,
-  obtenerPartidoPorId,
-  crearPartido,
-  actualizarPartido,
-  agregarSet,
-  actualizarStatsSet,
-  actualizarSet,
-  eliminarSet,
-  eliminarPartido,
-  obtenerAdministradores,
-  agregarAdministrador,
-  quitarAdministrador,
-  obtenerPartidosAdministrables
-} from '../controllers/partidoController.js';
+import Partido from '../models/Partido.js';
 import verificarToken from '../middlewares/authMiddleware.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
-// import { esAdminDeEntidad } from '../middlewares/esAdminDeEntidad.js';
-import { esAdminSegunTipoPartido } from '../middlewares/esAdminSegunTipoDePartido.js'; // nuevo
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
-import { cargarPartido } from '../middlewares/cargarPartido.js';
-import { verificarEntidad } from '../middlewares/verificarEntidad.js';
-import Partido from '../models/Partido/Partido.js';
+import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
-router.get('/', obtenerPartidos);
-// Obtener partidos administrables por el usuario autenticado
-router.get('/admin', verificarToken, cargarRolDesdeBD, obtenerPartidosAdministrables);
+// GET /api/partidos - Listar partidos (opcionalmente filtrados por fase o competencia)
+router.get('/', verificarToken, async (req, res) => {
+  try {
+    const { fase, competencia } = req.query;
+    const filtro = {};
+    if (fase) filtro.fase = fase;
+    if (competencia) filtro.competencia = competencia;
 
-router.get('/:id', validarObjectId, obtenerPartidoPorId);
-router.post('/', verificarToken, crearPartido);
-router.put('/:id', validarObjectId, verificarToken, esAdminSegunTipoPartido(), actualizarPartido);
+    const partidos = await Partido.find(filtro)
+      .populate('competencia fase equipoLocal equipoVisitante equipoCompetenciaLocal equipoCompetenciaVisitante')
+      .sort({ fecha: 1 });
 
-router.get(
-  '/:id/administradores',
-  verificarEntidad(Partido, 'id', 'partido'),
-  obtenerAdministradores
-);
+    res.json(partidos);
+  } catch (err) {
+    res.status(500).json({ message: 'Error al obtener partidos', error: err.message });
+  }
+});
 
-router.post(
-  '/:id/administradores',
-  verificarToken,
-  cargarRolDesdeBD,
-  verificarEntidad(Partido, 'id', 'partido'),
-  agregarAdministrador
-);
+// GET /api/partidos/:id - Obtener un partido
+router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const partido = await Partido.findById(req.params.id)
+      .populate('competencia fase equipoLocal equipoVisitante equipoCompetenciaLocal equipoCompetenciaVisitante');
 
-router.delete(
-  '/:id/administradores/:adminUid',
-  verificarToken,
-  cargarRolDesdeBD,
-  verificarEntidad(Partido, 'id', 'partido'),
-  quitarAdministrador
-);
-router.post('/:id/sets',
-  validarObjectId,
-  verificarToken,
-  cargarRolDesdeBD,
-  esAdminSegunTipoPartido(),
-  cargarPartido,
-  agregarSet
-);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
+    res.json(partido);
+  } catch (err) {
+    res.status(500).json({ message: 'Error al obtener el partido', error: err.message });
+  }
+});
 
-router.put('/:id/sets/:numeroSet/stats', verificarToken, esAdminSegunTipoPartido(), actualizarStatsSet);
+// POST /api/partidos - Crear partido
+router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const data = {
+      ...req.body,
+      creadoPor: req.usuarioId,
+    };
 
-router.put(
-  '/:id/sets/:numeroSet',
-  validarObjectId,
-  verificarToken,
-  cargarRolDesdeBD,
-  esAdminSegunTipoPartido(),
-  cargarPartido,
-  actualizarSet
-);
+    const nuevoPartido = new Partido(data);
+    await nuevoPartido.save();
+    res.status(201).json(nuevoPartido);
+  } catch (err) {
+    res.status(400).json({ message: 'Error al crear el partido', error: err.message });
+  }
+});
 
-router.delete(
-  '/:id/sets/:numeroSet',
-  validarObjectId,
-  verificarToken,
-  cargarRolDesdeBD,
-  esAdminSegunTipoPartido(),
-  cargarPartido,
-  eliminarSet
-);
+// PUT /api/partidos/:id - Editar partido
+router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
+  try {
+    const partido = await Partido.findById(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
 
-router.delete('/:id', verificarToken, esAdminSegunTipoPartido(), eliminarPartido);
+    // Validar si el usuario es admin del partido o global
+    if (
+      partido.creadoPor !== req.usuarioId &&
+      !partido.administradores.includes(req.usuarioId) &&
+      req.rol !== 'admin'
+    ) {
+      return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
+    }
 
+    Object.assign(partido, req.body);
+    await partido.save();
+    res.json(partido);
+  } catch (err) {
+    res.status(400).json({ message: 'Error al actualizar el partido', error: err.message });
+  }
+});
 
+// DELETE /api/partidos/:id - Eliminar partido
+router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
+  try {
+    const partido = await Partido.findById(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
+
+    if (
+      partido.creadoPor !== req.usuarioId &&
+      !partido.administradores.includes(req.usuarioId) &&
+      req.rol !== 'admin'
+    ) {
+      return res.status(403).json({ message: 'No tiene permiso para eliminar este partido' });
+    }
+
+    await partido.deleteOne();
+    res.json({ message: 'Partido eliminado correctamente' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error al eliminar el partido', error: err.message });
+  }
+});
 
 export default router;
