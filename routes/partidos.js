@@ -151,7 +151,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     if (
       partido.creadoPor !== req.user.uid &&
       !partido.administradores.includes(req.user.uid) &&
-      req.rol !== 'admin'
+      req.user.rol !== 'admin'
     ) {
       return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
     }
@@ -175,7 +175,7 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
     if (
       partido.creadoPor !== req.user.uid &&
       !partido.administradores.includes(req.user.uid) &&
-      req.rol !== 'admin'
+      req.user.rol !== 'admin'
     ) {
       return res.status(403).json({ message: 'No tiene permiso para eliminar este partido' });
     }
