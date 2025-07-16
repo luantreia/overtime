@@ -72,7 +72,7 @@ app.use('/api/equipos', equiposRoutes);
 app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
 app.use('/api/participacion-temporada', participacionTemporadaRoutes);
 app.use('/api/participacion-fase', participacionFaseRoutes);
-app.use('/api/equipo-partido', EquipoPartido); // Asegúrate de que este modelo esté correctamente definido
+app.use('/api/equipo-partido', equipoPartidoRoutes); // Asegúrate de que este modelo esté correctamente definido
 
 app.use('/api/jugadores', jugadoresRoutes);
 app.use('/api/jugador-equipo', jugadorEquipoRoutes);
