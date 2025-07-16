@@ -127,9 +127,9 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { equipoTemporada, fase, grupo, division } = req.body;
+      const { participacionTemporada, fase, grupo, division } = req.body;
 
-      if (!equipoTemporada || !fase) {
+      if (!participacionTemporada || !fase) {
         return res.status(400).json({ error: 'Se requieren equipoTemporada y fase' });
       }
 
