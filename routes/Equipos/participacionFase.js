@@ -153,7 +153,7 @@ router.post(
 
       // Crear nueva participación
       const nuevaParticipacion = new ParticipacionFase({
-        equipoTemporada,
+        participacionTemporada,
         fase,
         grupo,
         division,
