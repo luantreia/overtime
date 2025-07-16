@@ -57,7 +57,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const { participacionFaseLocal, participacionFaseVisitante } = req.body;
     const data = {
       ...req.body,
-      creadoPor: req.usuarioId,
+      creadoPor: req.user,
     };
     const ParticipacionFase = (await import('../models/Equipo/ParticipacionFase.js')).default;
     const Fase = (await import('../models/Competencia/Fase.js')).default;
