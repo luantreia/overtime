@@ -1,7 +1,7 @@
 import express from 'express';
-import EquipoPartido from '../models/Equipo/EquipoPartido.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
