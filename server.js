@@ -9,7 +9,7 @@ import equiposRoutes from './routes/Equipos/equipos.js';
 import equiposCompetenciaRoutes from './routes/Equipos/equiposCompetencia.js';
 import participacionTemporadaRoutes from './routes/Equipos/participacionTemporada.js';
 import participacionFaseRoutes from './routes/Equipos/participacionFase.js';
-import EquipoPartido from './models/Equipo/EquipoPartido.js'; // asegurate de importar el modelo
+import equipoPartidoRoutes from './routes/Equipos/equipoPartido.js'; // asegurate de importar el modelo
 
 import jugadoresRoutes from './routes/Jugadores/jugadores.js';
 import jugadorEquipoRoutes from './routes/Jugadores/jugadorEquipo.js';  
