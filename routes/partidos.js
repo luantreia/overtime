@@ -3,6 +3,8 @@ import Partido from '../models/Partido/Partido.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de importar el modelo
+
 
 const router = express.Router();
 
@@ -62,6 +64,24 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const ParticipacionFase = (await import('../models/Equipo/ParticipacionFase.js')).default;
     const Fase = (await import('../models/Competencia/Fase.js')).default;
     const Competencia = (await import('../models/Competencia/Competencia.js')).default;
+
+    // Crear equipo local
+    await EquipoPartido.create({
+      partido: nuevoPartido._id,
+      equipo: nuevoPartido.equipoLocal,
+      participacionFase: nuevoPartido.participacionFaseLocal,
+      esLocal: true,
+      creadoPor: req.usuario.id,
+    });
+
+    // Crear equipo visitante
+    await EquipoPartido.create({
+      partido: nuevoPartido._id,
+      equipo: nuevoPartido.equipoVisitante,
+      participacionFase: nuevoPartido.participacionFaseVisitante,
+      esLocal: false,
+      creadoPor: req.usuario.id,
+    });
 
     // Resolver equipoLocal y equipoVisitante si no vienen
     if (participacionFaseLocal) {
