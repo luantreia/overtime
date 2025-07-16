@@ -1,5 +1,5 @@
 import express from 'express';
-import Partido from '../models/Partido.js';
+import Partido from '../models/Partido/Partido.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
