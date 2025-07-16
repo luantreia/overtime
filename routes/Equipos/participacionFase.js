@@ -146,7 +146,7 @@ router.post(
       }
 
       // Validar duplicados (mismo equipo-temporada en la misma fase)
-      const existe = await ParticipacionFase.findOne({ equipoTemporada, fase });
+      const existe = await ParticipacionFase.findOne({ participacionTemporada, fase });
       if (existe) {
         return res.status(400).json({ error: 'El equipo ya está registrado en esta fase' });
       }
