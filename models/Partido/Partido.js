@@ -99,20 +99,23 @@ PartidoSchema.methods.recalcularMarcador = async function () {
 };
 
 // Hook para completar modalidad/categoría y nombre
-PartidoSchema.pre('validate', async function (next) {
+PartidoSchema.pre('save', async function (next) {
   try {
+    // --- 1. Completar competencia desde fase ---
     if (!this.competencia && this.fase) {
       const Fase = mongoose.model('Fase');
       const fase = await Fase.findById(this.fase).populate('competencia');
-      if (fase && fase.competencia) {
+      if (fase?.competencia?._id) {
         this.competencia = fase.competencia._id;
       }
     }
 
-    if (this.competencia) {
-      await this.populate('competencia');
-      if (!this.modalidad) this.modalidad = this.competencia.modalidad;
-      if (!this.categoria) this.categoria = this.competencia.categoria;
+    // --- 2. Completar modalidad y categoría desde competencia ---
+    if (this.competencia && (!this.modalidad || !this.categoria)) {
+      const Competencia = mongoose.model('Competencia');
+      const comp = await Competencia.findById(this.competencia);
+      if (!this.modalidad && comp?.modalidad) this.modalidad = comp.modalidad;
+      if (!this.categoria && comp?.categoria) this.categoria = comp.categoria;
     }
 
     next();
@@ -120,6 +123,7 @@ PartidoSchema.pre('validate', async function (next) {
     next(err);
   }
 });
+
 
 // Hook para autocompletar grupo/división si ambos equipos están en la misma fase y coinciden
 PartidoSchema.pre('save', async function (next) {
@@ -151,6 +155,7 @@ PartidoSchema.pre('save', async function (next) {
   }
 });
 
+// Generación automática del nombre del partido
 PartidoSchema.pre('save', async function(next) {
   try {
     if (this.participacionFaseLocal && !this.equipoLocal) {
@@ -187,8 +192,7 @@ PartidoSchema.pre('save', async function(next) {
   }
 });
 
-
-// Generación automática del nombre
+// Hook para completar nombre del partido si no está definido
 PartidoSchema.pre('save', async function (next) {
   try {
     await this.populate([
