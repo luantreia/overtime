@@ -164,7 +164,7 @@ router.post(
       // Poblar para devolver con datos relacionados
       const poblada = await ParticipacionFase.findById(nuevaParticipacion._id)
         .populate({
-          path: 'equipoTemporada',
+          path: 'participacionTemporada',
           populate: { path: 'equipo', select: 'nombre' },
         })
         .populate('fase', 'nombre tipo')
