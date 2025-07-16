@@ -106,7 +106,11 @@ PartidoSchema.pre('save', async function (next) {
 
     // --- 1. Completar competencia desde fase ---
     if (!this.competencia && this.fase) {
-      const fase = await Fase.findById(this.fase).populate('competencia');
+      const fase = await Fase.findById(this.fase)
+      .populate({
+        path: 'temporada',
+        populate: { path: 'competencia' }
+      });
       if (fase?.competencia?._id) {
         this.competencia = fase.competencia._id;
       }

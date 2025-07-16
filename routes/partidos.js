@@ -87,7 +87,11 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     // Resolver competencia si no viene y sí hay fase
     if (!data.competencia && data.fase) {
-      const fase = await Fase.findById(data.fase).populate('competencia');
+      const fase = await Fase.findById(data.fase)
+      .populate({
+        path: 'temporada',
+        populate: { path: 'competencia' }
+      });
       if (fase?.competencia?._id) {
         data.competencia = fase.competencia._id;
       }
