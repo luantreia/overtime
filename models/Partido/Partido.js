@@ -33,8 +33,8 @@ const PartidoSchema = new Schema({
 
   equipoLocal: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   equipoVisitante: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
-  equipoCompetenciaLocal: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia' },
-  equipoCompetenciaVisitante: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia' },
+  participacionFaseLocal: { type: Schema.Types.ObjectId, ref: 'ParticipacionFase' },
+  participacionFaseVisitante: { type: Schema.Types.ObjectId, ref: 'ParticipacionFase' },
 
   marcadorLocal: { type: Number, default: 0 },
   marcadorVisitante: { type: Number, default: 0 },
@@ -53,10 +53,14 @@ const PartidoSchema = new Schema({
 
 // Virtuales para equipos reales
 PartidoSchema.virtual('equipoLocalReal').get(function () {
-  return this.equipoCompetenciaLocal?.equipo || this.equipoLocal;
+  return this.participacionFaseLocal?.participacionTemporada?.equipoCompetencia?.equipo || this.equipoLocal;
 });
 PartidoSchema.virtual('equipoVisitanteReal').get(function () {
-  return this.equipoCompetenciaVisitante?.equipo || this.equipoVisitante;
+  return this.participacionFaseVisitante?.participacionTemporada?.equipoCompetencia?.equipo || this.equipoVisitante;
+});
+
+PartidoSchema.virtual('nombreResumido').get(function () {
+  return `${this.nombrePartido || 'Partido'} (${this.fecha?.toLocaleDateString()})`;
 });
 
 // Método para recalcular marcador a partir de sets
@@ -110,13 +114,13 @@ PartidoSchema.pre('validate', async function (next) {
 // Hook para autocompletar grupo/división si ambos equipos están en la misma fase y coinciden
 PartidoSchema.pre('save', async function (next) {
   try {
-    if (!this.fase || !this.equipoCompetenciaLocal || !this.equipoCompetenciaVisitante) return next();
+    if (!this.fase || !this.participacionFaseLocal || !this.participacionFaseVisitante) return next();
 
-    const EquipoCompetencia = mongoose.model('EquipoCompetencia');
+    const ParticipacionFase = mongoose.model('ParticipacionFase');
 
     const [local, visitante] = await Promise.all([
-      EquipoCompetencia.findById(this.equipoCompetenciaLocal),
-      EquipoCompetencia.findById(this.equipoCompetenciaVisitante)
+      ParticipacionFase.findById(this.participacionFaseLocal),
+      ParticipacionFase.findById(this.participacionFaseVisitante)
     ]);
 
     if (!local || !visitante) return next();
@@ -140,10 +144,10 @@ PartidoSchema.pre('save', async function (next) {
 // Generación automática del nombre
 PartidoSchema.pre('save', async function (next) {
   try {
-    await this.populate('competencia equipoLocal equipoVisitante equipoCompetenciaLocal equipoCompetenciaVisitante');
+    await this.populate('competencia equipoLocal equipoVisitante participacionFaseLocal participacionFaseVisitante');
 
-    const nombreLocal = this.equipoCompetenciaLocal?.nombre || this.equipoLocal?.nombre || 'Local';
-    const nombreVisitante = this.equipoCompetenciaVisitante?.nombre || this.equipoVisitante?.nombre || 'Visitante';
+    const nombreLocal = this.participacionFaseLocal?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoLocal?.nombre || 'Local';
+    const nombreVisitante = this.participacionFaseVisitante?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoVisitante?.nombre || 'Visitante';
 
     if (!this.nombrePartido) {
       if (this.competencia) {

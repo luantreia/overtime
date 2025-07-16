@@ -6,7 +6,7 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
-// GET /api/partidos - Listar partidos (opcionalmente filtrados por fase o competencia)
+// GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
 router.get('/', verificarToken, async (req, res) => {
   try {
     const { fase, competencia } = req.query;
@@ -15,7 +15,14 @@ router.get('/', verificarToken, async (req, res) => {
     if (competencia) filtro.competencia = competencia;
 
     const partidos = await Partido.find(filtro)
-      .populate('competencia fase equipoLocal equipoVisitante equipoCompetenciaLocal equipoCompetenciaVisitante')
+      .populate([
+        'competencia',
+        'fase',
+        'equipoLocal',
+        'equipoVisitante',
+        'participacionFaseLocal',
+        'participacionFaseVisitante'
+      ])
       .sort({ fecha: 1 });
 
     res.json(partidos);
@@ -24,11 +31,18 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
-// GET /api/partidos/:id - Obtener un partido
+// GET /api/partidos/:id - Obtener partido por ID
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id)
-      .populate('competencia fase equipoLocal equipoVisitante equipoCompetenciaLocal equipoCompetenciaVisitante');
+      .populate([
+        'competencia',
+        'fase',
+        'equipoLocal',
+        'equipoVisitante',
+        'participacionFaseLocal',
+        'participacionFaseVisitante'
+      ]);
 
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
     res.json(partido);
@@ -42,7 +56,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const data = {
       ...req.body,
-      creadoPor: req.usuarioId,
+      creadoPor: req.usuarioId,  // Asigna creador automáticamente
     };
 
     const nuevoPartido = new Partido(data);
@@ -53,13 +67,13 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   }
 });
 
-// PUT /api/partidos/:id - Editar partido
+// PUT /api/partidos/:id - Actualizar partido
 router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
 
-    // Validar si el usuario es admin del partido o global
+    // Permite editar solo si es creador, admin del partido o rol admin global
     if (
       partido.creadoPor !== req.usuarioId &&
       !partido.administradores.includes(req.usuarioId) &&
@@ -68,7 +82,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
     }
 
+    // Opcional: Podés filtrar campos que sí pueden editarse, para mayor seguridad
     Object.assign(partido, req.body);
+
     await partido.save();
     res.json(partido);
   } catch (err) {
