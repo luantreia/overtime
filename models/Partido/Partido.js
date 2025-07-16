@@ -176,6 +176,28 @@ PartidoSchema.pre('save', async function (next) {
   }
 });
 
+// En el modelo Partido
+PartidoSchema.post('save', async function () {
+  if (this.estado !== 'finalizado') return; // Solo si está terminado
+
+  const EquipoPartido = mongoose.model('EquipoPartido');
+  const equipos = await EquipoPartido.find({ partido: this._id });
+
+  for (const ep of equipos) {
+    if (this.marcadorLocal === this.marcadorVisitante) {
+      ep.resultado = 'empate';
+    } else if (
+      (ep.esLocal && this.marcadorLocal > this.marcadorVisitante) ||
+      (!ep.esLocal && this.marcadorVisitante > this.marcadorLocal)
+    ) {
+      ep.resultado = 'ganado';
+    } else {
+      ep.resultado = 'perdido';
+    }
+
+    await ep.save();
+  }
+});
 
 PartidoSchema.set('toJSON', { virtuals: true });
 PartidoSchema.set('toObject', { virtuals: true });
