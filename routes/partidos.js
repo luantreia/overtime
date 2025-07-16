@@ -134,6 +134,12 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       creadoPor: req.user.uid,
     });
 
+    // Después de crear EquipoPartido local y visitante
+    if (nuevoPartido.estado === 'finalizado') {
+      await nuevoPartido.recalcularMarcador(); // Opcional, si querés calcular por sets
+      await nuevoPartido.save(); // Esto dispara el post('save') y asigna resultado a los equipos
+    }
+
     res.status(201).json(nuevoPartido);
   } catch (err) {
     console.error('Error creando partido:', err);
