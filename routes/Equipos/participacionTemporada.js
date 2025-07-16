@@ -12,7 +12,13 @@ router.get('/', verificarToken, async (req, res) => {
     if (req.query.equipoCompetencia) filtro.equipoCompetencia = req.query.equipoCompetencia;
     if (req.query.temporada) filtro.temporada = req.query.temporada;
     const resultados = await ParticipacionTemporada.find(filtro)
-      .populate('equipoCompetencia')
+        .populate({
+            path: 'equipoCompetencia',
+            populate: {
+            path: 'equipo',
+            select: 'nombre',
+            },
+        })
       .populate('temporada')
       .populate('creadoPor');
     res.json(resultados);
@@ -25,7 +31,13 @@ router.get('/', verificarToken, async (req, res) => {
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const participacion = await ParticipacionTemporada.findById(req.params.id)
-      .populate('equipoCompetencia')
+        .populate({
+            path: 'equipoCompetencia',
+            populate: {
+            path: 'equipo',
+            select: 'nombre',
+            },
+        })
       .populate('temporada')
       .populate('creadoPor');
     if (!participacion) return res.status(404).json({ message: 'No encontrada' });
