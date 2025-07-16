@@ -22,6 +22,5 @@ const participacionFaseSchema = new Schema({
   posicion: { type: Number, default: null },
 }, { timestamps: true });
 
-participacionFaseSchema.index({ fase: 1, equipoCompetencia: 1 }, { unique: true });
-
+participacionFaseSchema.index({ fase: 1, participacionTemporada: 1 }, { unique: true });
 export default model('ParticipacionFase', participacionFaseSchema);
