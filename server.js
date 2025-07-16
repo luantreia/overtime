@@ -26,7 +26,6 @@ import fasesRoutes from "./routes/Competencias/fases.js";
 import temporadasRoutes from './routes/Competencias/temporadas.js';
 
 
-
 dotenv.config(); // inicializar dotenv
 
 const app = express();

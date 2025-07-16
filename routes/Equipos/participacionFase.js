@@ -7,6 +7,8 @@ import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
 
+import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
+
 const router = express.Router();
 
 // GET /participaciones - listar todas o filtrar por fase, equipoCompetencia, grupo, etc
@@ -119,24 +121,23 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // POST /participaciones - crear nueva participación (autenticado)
-import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
-
 router.post(
   '/',
   verificarToken,
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { equipoCompetencia, fase, grupo, division } = req.body;
+      const { equipoTemporada, fase, grupo, division } = req.body;
 
-      if (!equipoCompetencia || !fase) {
-        return res.status(400).json({ error: 'Se requieren equipoCompetencia y fase' });
+      if (!equipoTemporada || !fase) {
+        return res.status(400).json({ error: 'Se requieren equipoTemporada y fase' });
       }
 
-      // Validar fase
+      // Validar que la fase exista
       const faseObj = await Fase.findById(fase);
       if (!faseObj) return res.status(400).json({ error: 'Fase no existe' });
 
+      // Validar que si es fase grupo o liga se especifique grupo o división
       if (faseObj.tipo === 'grupo' && !grupo) {
         return res.status(400).json({ error: 'Debe especificar grupo para fase tipo grupo' });
       }
@@ -144,14 +145,15 @@ router.post(
         return res.status(400).json({ error: 'Debe especificar división para fase tipo liga' });
       }
 
-      // Validar duplicados
-      const existe = await ParticipacionFase.findOne({ equipoCompetencia, fase });
+      // Validar duplicados (mismo equipo-temporada en la misma fase)
+      const existe = await ParticipacionFase.findOne({ equipoTemporada, fase });
       if (existe) {
         return res.status(400).json({ error: 'El equipo ya está registrado en esta fase' });
       }
 
+      // Crear nueva participación
       const nuevaParticipacion = new ParticipacionFase({
-        equipoCompetencia,
+        equipoTemporada,
         fase,
         grupo,
         division,
@@ -159,10 +161,11 @@ router.post(
 
       await nuevaParticipacion.save();
 
+      // Poblar para devolver con datos relacionados
       const poblada = await ParticipacionFase.findById(nuevaParticipacion._id)
         .populate({
-          path: 'equipoCompetencia',
-          populate: { path: 'equipo', select: 'nombre' }
+          path: 'equipoTemporada',
+          populate: { path: 'equipo', select: 'nombre' },
         })
         .populate('fase', 'nombre tipo')
         .lean();
