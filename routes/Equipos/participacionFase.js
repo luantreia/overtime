@@ -107,9 +107,16 @@ router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const participacion = await ParticipacionFase.findById(req.params.id)
       .populate({
-        path: 'equipoCompetencia',
-        populate: { path: 'equipo', select: 'nombre' }
+        path: 'participacionTemporada',
+        populate: {
+          path: 'equipoCompetencia',
+          populate: {
+            path: 'equipo',
+            select: 'nombre escudo',
+          }
+        }
       })
+
       .populate('fase', 'nombre tipo')
       .lean();
 

@@ -4,7 +4,8 @@ const { Schema, model } = mongoose;
 const participacionFaseSchema = new Schema({
   participacionTemporada: { type: Schema.Types.ObjectId, ref: 'ParticipacionTemporada', required: true },
   fase: { type: Schema.Types.ObjectId, ref: 'Fase', required: true },
-
+  equipoCompetencia: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia', required: true },
+  
   grupo: { type: String, default: null },
   division: { type: String, default: null },
 
