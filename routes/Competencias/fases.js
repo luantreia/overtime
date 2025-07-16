@@ -7,17 +7,18 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
-// Obtener todas las fases (opcionalmente filtrar por competencia)
-// GET /fases?competencia=competenciaId
+// Obtener todas las fases (opcionalmente filtrar por temporada)
 router.get('/', async (req, res) => {
   try {
     const filter = {};
-    if (req.query.competencia) {
-      filter.competencia = req.query.competencia;
+    if (req.query.temporada) {
+      filter.temporada = req.query.temporada;
     }
-    const fases = await Fase.find(filter).populate('competencia', 'nombre').lean();
+
+    const fases = await Fase.find(filter).populate('temporada', 'nombre').lean();
     res.json(fases);
   } catch (error) {
+    console.error('Error al obtener fases:', error);
     res.status(500).json({ error: 'Error al obtener fases' });
   }
 });
@@ -41,9 +42,10 @@ router.post(
   async (req, res) => {
     try {
       // Validar que competencia exista
-      if (!req.body.competencia) {
-        return res.status(400).json({ error: 'Se requiere competencia para crear fase' });
+      if (!req.body.temporada) {
+        return res.status(400).json({ error: 'Se requiere temporada para crear fase' });
       }
+
 
       // Idealmente verificar que el usuario tenga permiso en la competencia
       // O usar un middleware que valide admin de competencia aquí
