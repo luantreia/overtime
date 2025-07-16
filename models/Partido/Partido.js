@@ -101,16 +101,26 @@ PartidoSchema.methods.recalcularMarcador = async function () {
 // Hook para completar modalidad/categoría y nombre
 PartidoSchema.pre('validate', async function (next) {
   try {
+    if (!this.competencia && this.fase) {
+      const Fase = mongoose.model('Fase');
+      const fase = await Fase.findById(this.fase).populate('competencia');
+      if (fase && fase.competencia) {
+        this.competencia = fase.competencia._id;
+      }
+    }
+
     if (this.competencia) {
       await this.populate('competencia');
       if (!this.modalidad) this.modalidad = this.competencia.modalidad;
       if (!this.categoria) this.categoria = this.competencia.categoria;
     }
+
     next();
   } catch (err) {
     next(err);
   }
 });
+
 // Hook para autocompletar grupo/división si ambos equipos están en la misma fase y coinciden
 PartidoSchema.pre('save', async function (next) {
   try {
@@ -144,7 +154,31 @@ PartidoSchema.pre('save', async function (next) {
 // Generación automática del nombre
 PartidoSchema.pre('save', async function (next) {
   try {
-    await this.populate('competencia equipoLocal equipoVisitante participacionFaseLocal participacionFaseVisitante');
+    await this.populate([
+      { path: 'competencia' },
+      { path: 'equipoLocal' },
+      { path: 'equipoVisitante' },
+      {
+        path: 'participacionFaseLocal',
+        populate: {
+          path: 'participacionTemporada',
+          populate: {
+            path: 'equipoCompetencia',
+            populate: { path: 'equipo' }
+          }
+        }
+      },
+      {
+        path: 'participacionFaseVisitante',
+        populate: {
+          path: 'participacionTemporada',
+          populate: {
+            path: 'equipoCompetencia',
+            populate: { path: 'equipo' }
+          }
+        }
+      }
+    ]);
 
     const nombreLocal = this.participacionFaseLocal?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoLocal?.nombre || 'Local';
     const nombreVisitante = this.participacionFaseVisitante?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoVisitante?.nombre || 'Visitante';
