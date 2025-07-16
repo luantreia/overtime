@@ -92,11 +92,12 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
         data.competencia = fase.competencia._id;
       }
     }
-
+  console.log('Datos para crear partido:', data);
     const nuevoPartido = new Partido(data);
     await nuevoPartido.save();
     res.status(201).json(nuevoPartido);
   } catch (err) {
+    console.error('Error creando partido:', err);
     res.status(400).json({ message: 'Error al crear el partido', error: err.message });
   }
 });
