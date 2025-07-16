@@ -59,10 +59,10 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       ...req.body,
       creadoPor: req.usuarioId,
     };
+    const ParticipacionFase = (await import('../models/ParticipacionFase.js')).default;
+    const Fase = (await import('../models/Fase.js')).default;
 
     // Resolver equipoLocal y equipoVisitante si no vienen
-    const ParticipacionFase = (await import('../models/ParticipacionFase.js')).default;
-
     if (participacionFaseLocal) {
       const pfLocal = await ParticipacionFase.findById(participacionFaseLocal).populate({
         path: 'participacionTemporada',
@@ -83,6 +83,14 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
         },
       });
       data.equipoVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+    }
+
+    // Resolver competencia si no viene y sí hay fase
+    if (!data.competencia && data.fase) {
+      const fase = await Fase.findById(data.fase).populate('competencia');
+      if (fase?.competencia?._id) {
+        data.competencia = fase.competencia._id;
+      }
     }
 
     const nuevoPartido = new Partido(data);
