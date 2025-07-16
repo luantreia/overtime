@@ -98,134 +98,68 @@ PartidoSchema.methods.recalcularMarcador = async function () {
   await this.save();
 };
 
-// Hook para completar modalidad/categoría y nombre
 PartidoSchema.pre('save', async function (next) {
   try {
+    const Fase = mongoose.model('Fase');
+    const ParticipacionFase = mongoose.model('ParticipacionFase');
+    const Competencia = mongoose.model('Competencia');
+
     // --- 1. Completar competencia desde fase ---
     if (!this.competencia && this.fase) {
-      const Fase = mongoose.model('Fase');
       const fase = await Fase.findById(this.fase).populate('competencia');
       if (fase?.competencia?._id) {
         this.competencia = fase.competencia._id;
       }
     }
 
-    // --- 2. Completar modalidad y categoría desde competencia ---
+    // --- 2. Completar modalidad/categoría desde competencia ---
     if (this.competencia && (!this.modalidad || !this.categoria)) {
-      const Competencia = mongoose.model('Competencia');
       const comp = await Competencia.findById(this.competencia);
       if (!this.modalidad && comp?.modalidad) this.modalidad = comp.modalidad;
       if (!this.categoria && comp?.categoria) this.categoria = comp.categoria;
     }
 
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
+    // --- 3. Completar equipoLocal/equipoVisitante si vienen participaciones ---
+    let pfLocal, pfVisitante;
 
-
-// Hook para autocompletar grupo/división si ambos equipos están en la misma fase y coinciden
-PartidoSchema.pre('save', async function (next) {
-  try {
-    if (!this.fase || !this.participacionFaseLocal || !this.participacionFaseVisitante) return next();
-
-    const ParticipacionFase = mongoose.model('ParticipacionFase');
-
-    const [local, visitante] = await Promise.all([
-      ParticipacionFase.findById(this.participacionFaseLocal),
-      ParticipacionFase.findById(this.participacionFaseVisitante)
-    ]);
-
-    if (!local || !visitante) return next();
-
-    // Si ambos tienen mismo grupo
-    if (local.grupo && visitante.grupo && local.grupo === visitante.grupo) {
-      this.grupo = local.grupo;
-    }
-
-    // Si ambos tienen misma división
-    if (local.division && visitante.division && local.division === visitante.division) {
-      this.division = local.division;
-    }
-
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Generación automática del nombre del partido
-PartidoSchema.pre('save', async function(next) {
-  try {
     if (this.participacionFaseLocal && !this.equipoLocal) {
-      const ParticipacionFase = mongoose.model('ParticipacionFase');
-      const pfLocal = await ParticipacionFase.findById(this.participacionFaseLocal).populate({
+      pfLocal = await ParticipacionFase.findById(this.participacionFaseLocal).populate({
         path: 'participacionTemporada',
         populate: {
           path: 'equipoCompetencia',
           populate: 'equipo'
         }
       });
-      if (pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?._id) {
-        this.equipoLocal = pfLocal.participacionTemporada.equipoCompetencia.equipo._id;
-      }
+      this.equipoLocal = pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?._id;
     }
 
     if (this.participacionFaseVisitante && !this.equipoVisitante) {
-      const ParticipacionFase = mongoose.model('ParticipacionFase');
-      const pfVisitante = await ParticipacionFase.findById(this.participacionFaseVisitante).populate({
+      pfVisitante = await ParticipacionFase.findById(this.participacionFaseVisitante).populate({
         path: 'participacionTemporada',
         populate: {
           path: 'equipoCompetencia',
           populate: 'equipo'
         }
       });
-      if (pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id) {
-        this.equipoVisitante = pfVisitante.participacionTemporada.equipoCompetencia.equipo._id;
+      this.equipoVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+    }
+
+    // --- 4. Completar grupo/división si coinciden ---
+    if (pfLocal && pfVisitante) {
+      if (pfLocal.grupo && pfVisitante.grupo && pfLocal.grupo === pfVisitante.grupo) {
+        this.grupo = pfLocal.grupo;
+      }
+      if (pfLocal.division && pfVisitante.division && pfLocal.division === pfVisitante.division) {
+        this.division = pfLocal.division;
       }
     }
 
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Hook para completar nombre del partido si no está definido
-PartidoSchema.pre('save', async function (next) {
-  try {
-    await this.populate([
-      { path: 'competencia' },
-      { path: 'equipoLocal' },
-      { path: 'equipoVisitante' },
-      {
-        path: 'participacionFaseLocal',
-        populate: {
-          path: 'participacionTemporada',
-          populate: {
-            path: 'equipoCompetencia',
-            populate: { path: 'equipo' }
-          }
-        }
-      },
-      {
-        path: 'participacionFaseVisitante',
-        populate: {
-          path: 'participacionTemporada',
-          populate: {
-            path: 'equipoCompetencia',
-            populate: { path: 'equipo' }
-          }
-        }
-      }
-    ]);
-
-    const nombreLocal = this.participacionFaseLocal?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoLocal?.nombre || 'Local';
-    const nombreVisitante = this.participacionFaseVisitante?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoVisitante?.nombre || 'Visitante';
+    // --- 5. Generar nombre si no está ---
+    const nombreLocal = pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoLocal?.nombre || 'Local';
+    const nombreVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?.nombre || this.equipoVisitante?.nombre || 'Visitante';
 
     if (!this.nombrePartido) {
-      if (this.competencia) {
+      if (this.competencia && this.competencia.nombre) {
         this.nombrePartido = `${this.competencia.nombre} - ${nombreLocal} vs ${nombreVisitante}`;
       } else {
         this.nombrePartido = `${nombreLocal} vs ${nombreVisitante} - ${this.categoria} - ${this.modalidad}`;
@@ -237,6 +171,7 @@ PartidoSchema.pre('save', async function (next) {
     next(err);
   }
 });
+
 
 PartidoSchema.set('toJSON', { virtuals: true });
 PartidoSchema.set('toObject', { virtuals: true });
