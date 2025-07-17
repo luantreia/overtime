@@ -88,13 +88,11 @@ router.get('/', async (req, res) => {
     const participaciones = await ParticipacionFase.find(filter)
       .populate({
         path: 'participacionTemporada',
-        populate: {
-          path: 'equipoCompetencia',
           populate: {
             path: 'equipo',
             select: 'nombre escudo',
           }
-        }
+        
       })
       .populate('fase', 'nombre tipo')
       .sort({ puntos: -1, diferenciaPuntos: -1, partidosGanados: -1 })
@@ -114,13 +112,10 @@ router.get('/:id', validarObjectId, async (req, res) => {
     const participacion = await ParticipacionFase.findById(req.params.id)
       .populate({
         path: 'participacionTemporada',
-        populate: {
-          path: 'equipoCompetencia',
           populate: {
             path: 'equipo',
             select: 'nombre escudo',
           }
-        }
       })
 
       .populate('fase', 'nombre tipo')

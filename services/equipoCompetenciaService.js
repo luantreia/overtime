@@ -22,9 +22,7 @@ export async function crearEquipoCompetenciaAuto({ equipo, competencia, creadoPo
   const nuevo = new EquipoCompetencia({
     equipo,
     competencia,
-    estado: 'pendiente',
-    origen,
-    solicitadoPor: creadoPor,
+    estado: 'aceptado',
     creadoPor,
   });
 

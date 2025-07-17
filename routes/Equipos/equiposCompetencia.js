@@ -95,7 +95,7 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
     const existe = await EquipoCompetencia.findOne({
       equipo,
       competencia,
-      estado: { $in: ['pendiente', 'aceptado'] },
+      estado: { $in: ['baja', 'aceptado'] },
     });
 
     if (existe) return res.status(409).json({ message: 'Ya existe una solicitud o vínculo activo' });
@@ -103,7 +103,7 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
     const solicitud = new EquipoCompetencia({
       equipo,
       competencia,
-      estado: 'pendiente',
+      estado: 'aceptado',
       activo: false,
       creadoPor: usuarioId,
       solicitadoPor: usuarioId,
