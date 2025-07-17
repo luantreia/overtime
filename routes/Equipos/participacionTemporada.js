@@ -9,37 +9,39 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 const router = express.Router();
 const { Types } = mongoose;
 
-export function validarCamposManual(req, res, next) {
+function validarCamposManual(req, res, next) {
+  const { temporada, equipo } = req.query;
+
   // Validar ObjectId en query params si están presentes
-  if (req.query.temporada && !Types.ObjectId.isValid(req.query.temporada)) {
+  if (temporada && !Types.ObjectId.isValid(temporada)) {
     return res.status(400).json({ message: 'temporada inválida' });
   }
-  if (req.query.equipo && !Types.ObjectId.isValid(req.query.equipo)) {
+  if (equipo && !Types.ObjectId.isValid(equipo)) {
     return res.status(400).json({ message: 'equipo inválido' });
   }
-  // Validar ObjectId en body si están presentes
-  if (req.body.equipo && !Types.ObjectId.isValid(req.body.equipo)) {
-    return res.status(400).json({ message: 'equipo inválido' });
-  }
-  if (req.body.temporada && !Types.ObjectId.isValid(req.body.temporada)) {
-    return res.status(400).json({ message: 'temporada inválida' });
-  }
-  // Validar estado
-  const estadosValidos = ['activo', 'baja', 'expulsado'];
-  if (req.body.estado && !estadosValidos.includes(req.body.estado)) {
-    return res.status(400).json({ message: 'estado inválido' });
-  }
-  // Validar observaciones
-  if (req.body.observaciones && typeof req.body.observaciones !== 'string') {
-    return res.status(400).json({ message: 'observaciones debe ser texto' });
-  }
-  if (req.body.observaciones && req.body.observaciones.length > 500) {
-    return res.status(400).json({ message: 'observaciones demasiado largo' });
+
+  // Solo validar body si existe (en POST/PUT)
+  if (req.body) {
+    if (req.body.equipo && !Types.ObjectId.isValid(req.body.equipo)) {
+      return res.status(400).json({ message: 'equipo inválido' });
+    }
+    if (req.body.temporada && !Types.ObjectId.isValid(req.body.temporada)) {
+      return res.status(400).json({ message: 'temporada inválida' });
+    }
+    const estadosValidos = ['activo', 'baja', 'expulsado'];
+    if (req.body.estado && !estadosValidos.includes(req.body.estado)) {
+      return res.status(400).json({ message: 'estado inválido' });
+    }
+    if (req.body.observaciones && typeof req.body.observaciones !== 'string') {
+      return res.status(400).json({ message: 'observaciones debe ser texto' });
+    }
+    if (req.body.observaciones && req.body.observaciones.length > 500) {
+      return res.status(400).json({ message: 'observaciones demasiado largo' });
+    }
   }
 
   next();
 }
-
 // GET /api/participacion-temporada?temporada=&equipo=
 router.get('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
