@@ -10,18 +10,15 @@ const equipoCompetenciaSchema = new Schema({
 
   estado: {
     type: String,
-    enum: ['pendiente', 'aceptado'],
-    default: 'pendiente',
+    enum: ['suspendido', 'aceptado', 'baja'],
+    default: 'aceptado',
     index: true,
   },
 
   solicitadoPor: { type: String, ref: 'Usuario' },
-  origen: { type: String, enum: ['equipo', 'competencia'], required: true },
-  fechaSolicitud: { type: Date, default: Date.now },
-  fechaAceptacion: Date,
-  motivoRechazo: String,
 
-  activo: { type: Boolean, default: false },
+
+  activo: { type: Boolean, default: true },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
@@ -42,5 +39,6 @@ equipoCompetenciaSchema.pre('save', async function (next) {
     next(err);
   }
 });
+equipoCompetenciaSchema.index({ equipo: 1, competencia: 1 }, { unique: true });
 
 export default model('EquipoCompetencia', equipoCompetenciaSchema);
