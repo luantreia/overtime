@@ -25,19 +25,6 @@ const SetPartidoSchema = new mongoose.Schema({
     default: 'en_juego',
   },
 
-  estadisticasJugadores: [
-    {
-      jugadorPartido: { type: mongoose.Schema.Types.ObjectId, ref: 'JugadorPartido', required: true },
-      jugador: { type: mongoose.Schema.Types.ObjectId, ref: 'Jugador', required: true },
-      equipo: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipo', required: true },
-
-      throws: { type: Number, default: 0 },
-      hits: { type: Number, default: 0 },
-      outs: { type: Number, default: 0 },
-      catches: { type: Number, default: 0 },
-    }
-  ],
-
   creadoPor: {
     type: String,
     ref: 'Usuario',
@@ -45,6 +32,13 @@ const SetPartidoSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
+
+SetPartidoSchema.pre('validate', function (next) {
+  if (this.ganadorSet && this.ganadorSet !== 'pendiente') {
+    this.estadoSet = 'finalizado';
+  }
+  next();
+});
 
 SetPartidoSchema.index({ partido: 1, numeroSet: 1 }, { unique: true });
 

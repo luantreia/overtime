@@ -14,7 +14,7 @@ const equipoCompetenciaSchema = new Schema({
 
   estado: {
     type: String,
-    enum: ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'],
+    enum: ['pendiente', 'aceptado'],
     default: 'pendiente',
     index: true,
   },
@@ -24,8 +24,7 @@ const equipoCompetenciaSchema = new Schema({
   fechaSolicitud: { type: Date, default: Date.now },
   fechaAceptacion: Date,
   motivoRechazo: String,
-  desde: Date,
-  hasta: Date,
+
   activo: { type: Boolean, default: false },
 }, { timestamps: true });
 
