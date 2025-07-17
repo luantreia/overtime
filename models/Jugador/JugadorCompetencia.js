@@ -10,7 +10,7 @@ const jugadorCompetenciaSchema = new Schema({
 
   activo: { type: Boolean, default: true },
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
 jugadorCompetenciaSchema.index({ jugadorEquipo: 1, equipoCompetencia: 1 }, { unique: true });
@@ -22,6 +22,5 @@ jugadorCompetenciaSchema.pre('save', async function(next) {
   }
   next();
 });
-
 
 export default model('JugadorCompetencia', jugadorCompetenciaSchema);
