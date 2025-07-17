@@ -6,6 +6,7 @@ import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
 import Temporada from '../../models/Competencia/Temporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
+import { crearEquipoCompetenciaAuto } from '../../services/equipoCompetenciaService.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -111,34 +112,30 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
 
     const nueva = new ParticipacionTemporada({
       ...req.body,
-        creadoPor: req.user?.uid || 'sistema',
+      creadoPor: req.user?.uid || 'sistema',
     });
 
     await nueva.save();
+
     // Crear automáticamente la relación en EquipoCompetencia
     if (temporadaDB.competencia) {
-    const yaExiste = await EquipoCompetencia.findOne({
-        equipo,
-        competencia: temporadaDB.competencia,
-    });
-
-    if (!yaExiste) {
-        const nuevoEC = new EquipoCompetencia({
-        equipo,
-        competencia: temporadaDB.competencia,
-        estado: 'pendiente',
-        creadoPor: req.user?.uid || 'sistema',
+      try {
+        const nuevoEC = await crearEquipoCompetenciaAuto({
+          equipo,
+          competencia: temporadaDB.competencia,
+          creadoPor: req.user?.uid || 'sistema',
         });
-
-        await nuevoEC.save();
-            console.log('EquipoCompetencia creado automáticamente:', nuevoEC._id);
-    }}
-
-        res.status(201).json(nueva);
-    } catch (err) {
-        console.error(err);
-        res.status(400).json({ message: 'Error al crear participación', error: err.message });
+        console.log('EquipoCompetencia creado automáticamente:', nuevoEC._id);
+      } catch (ecErr) {
+        console.warn('No se pudo crear EquipoCompetencia:', ecErr.message);
+      }
     }
+
+    res.status(201).json(nueva);
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ message: 'Error al crear participación', error: err.message });
+  }
 });
 
 // PUT /api/participacion-temporada/:id
