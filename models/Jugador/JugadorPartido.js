@@ -14,10 +14,8 @@ const jugadorPartidoSchema = new Schema({
   equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   equipoPartido: { type: Schema.Types.ObjectId, ref: 'EquipoPartido' },
 
-  rol: { type: String, enum: ['jugador', 'capitan', 'entrenador', 'suplente', 'baja'], default: 'jugador' },
+  rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
   numero: { type: Number, min: 0, max: 99 },
-  titular: { type: Boolean, default: true },
-  estado: { type: String, enum: ['disponible', 'lesionado', 'suspendido', 'no_convocado'], default: 'disponible' },
 
   creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
 }, { timestamps: true });

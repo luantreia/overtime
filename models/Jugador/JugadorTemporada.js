@@ -10,9 +10,11 @@ const jugadorTemporadaSchema = new Schema({
   desde: { type: Date, default: Date.now },
   hasta: Date,
 
-  estado: { type: String, enum: ['activo', 'baja'], default: 'activo' },
-  numero: { type: Number, min: 0, max: 99 },
-  rol: { type: String, enum: ['jugador', 'capitan', 'entrenador'], default: 'jugador' },
+  estado: { type: String, 
+    enum: ['activo', 'baja', 'suspendido' ], 
+    default: 'activo' },
+
+  rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
   creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
 }, { timestamps: true });

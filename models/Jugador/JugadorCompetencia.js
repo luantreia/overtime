@@ -9,6 +9,13 @@ const jugadorCompetenciaSchema = new Schema({
   equipoCompetencia: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia', required: true },
 
   activo: { type: Boolean, default: true },
+  estado: {
+    type: String,
+    enum: ['activo', 'baja', 'suspendido'],
+    default: ['aceptado'],
+    index: true,
+  },
+  rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
