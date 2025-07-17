@@ -120,7 +120,7 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
 
     const nueva = new ParticipacionTemporada({
       ...req.body,
-      creadoPor: req.usuario?.id || 'sistema',
+        creadoPor: req.user?.uid || 'sistema',
     });
 
     await nueva.save();
