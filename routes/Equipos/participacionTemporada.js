@@ -96,7 +96,13 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
 // POST /api/participacion-temporada
 router.post('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
+    console.log('POST /participacion-temporada body:', req.body);
+
     const { equipo, temporada } = req.body;
+
+    if (!equipo || !temporada) {
+      return res.status(400).json({ message: 'equipo y temporada son obligatorios' });
+    }
 
     // Validar que equipo y temporada existen
     const [equipoDB, temporadaDB] = await Promise.all([
