@@ -41,38 +41,27 @@ function validarCamposManual(req, res, next) {
   next();
 }
 
-// GET /api/participacion-temporada?temporada=&equipo=&page=&limit=&sort=
+// GET /api/participacion-temporada?temporada=&equipo=
 router.get('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
-    const { temporada, equipo, page = 1, limit = 20, sort = '-createdAt' } = req.query;
+    const { temporada, equipo } = req.query;
     const filtro = {};
     if (temporada) filtro.temporada = temporada;
     if (equipo) filtro.equipo = equipo;
 
-    const skip = (page - 1) * limit;
+    const participaciones = await ParticipacionTemporada.find(filtro)
+      .populate('equipo', 'nombre escudo tipo pais')
+      .populate('temporada', 'nombre fechaInicio fechaFin competencia')
+      .populate('creadoPor', 'nombre email')
+      .sort('-createdAt');
 
-    const [participaciones, total] = await Promise.all([
-      ParticipacionTemporada.find(filtro)
-        .populate('equipo', 'nombre escudo tipo pais')
-        .populate('temporada', 'nombre fechaInicio fechaFin competencia')
-        .populate('creadoPor', 'nombre email')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit),
-      ParticipacionTemporada.countDocuments(filtro),
-    ]);
-
-    res.json({
-      data: participaciones,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-    });
+    res.json(participaciones);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error al obtener participaciones', error: err.message });
   }
 });
+
 
 // GET /api/participacion-temporada/:id
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
