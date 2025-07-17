@@ -13,6 +13,10 @@ const jugadorPartidoSchema = new Schema({
 
   equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   equipoPartido: { type: Schema.Types.ObjectId, ref: 'EquipoPartido' },
+  
+  estado: { type: String, 
+    enum: ['aceptado', 'baja', 'suspendido' ], 
+    default: 'aceptado' },
 
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
   numero: { type: Number, min: 0, max: 99 },

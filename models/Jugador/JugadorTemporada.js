@@ -11,8 +11,8 @@ const jugadorTemporadaSchema = new Schema({
   hasta: Date,
 
   estado: { type: String, 
-    enum: ['activo', 'baja', 'suspendido' ], 
-    default: 'activo' },
+    enum: ['aceptado', 'baja', 'suspendido' ], 
+    default: 'aceptado' },
 
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
