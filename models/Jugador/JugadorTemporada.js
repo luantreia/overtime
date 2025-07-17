@@ -3,7 +3,7 @@ const { Schema, model } = mongoose;
 
 /** JugadorTemporada **/
 const jugadorTemporadaSchema = new Schema({
-  jugadorCompetencia: { type: Schema.Types.ObjectId, ref: 'JugadorCompetencia', required: true },
+  jugadorEquipo: { type: Schema.Types.ObjectId, ref: 'JugadorCompetencia', required: true },
   jugador: { type: Schema.Types.ObjectId, ref: 'Jugador', required: true, index: true },
   participacionTemporada: { type: Schema.Types.ObjectId, ref: 'ParticipacionTemporada', required: true },
 
@@ -19,7 +19,7 @@ const jugadorTemporadaSchema = new Schema({
   creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
-jugadorTemporadaSchema.index({ jugadorCompetencia: 1, participacionTemporada: 1 }, { unique: true });
+jugadorTemporadaSchema.index({ jugadorEquipo: 1, participacionTemporada: 1 }, { unique: true });
 
 jugadorTemporadaSchema.pre('save', async function(next) {
   if (!this.jugador && this.isModified('jugadorCompetencia')) {

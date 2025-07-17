@@ -5,12 +5,8 @@ import Competencia from '../Competencia/Competencia.js';
 
 const equipoCompetenciaSchema = new Schema({
   nombre: { type: String, trim: true },
-
   equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   competencia: { type: Schema.Types.ObjectId, ref: 'Competencia', required: true },
-
-  creadoPor: { type: String, ref: 'Usuario', required: true },
-  administradores: [{ type: String, ref: 'Usuario' }],
 
   estado: {
     type: String,
@@ -18,14 +14,18 @@ const equipoCompetenciaSchema = new Schema({
     default: 'pendiente',
     index: true,
   },
+
   solicitadoPor: { type: String, ref: 'Usuario' },
   origen: { type: String, enum: ['equipo', 'competencia'], required: true },
-
   fechaSolicitud: { type: Date, default: Date.now },
   fechaAceptacion: Date,
   motivoRechazo: String,
 
   activo: { type: Boolean, default: false },
+
+  creadoPor: { type: String, ref: 'Usuario', required: true },
+  administradores: [{ type: String, ref: 'Usuario' }],
+
 }, { timestamps: true });
 
 equipoCompetenciaSchema.pre('save', async function (next) {
