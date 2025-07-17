@@ -9,8 +9,7 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 const router = express.Router();
 const { Types } = mongoose;
 
-// Middleware para validar manualmente campos en query y body
-function validarCamposManual(req, res, next) {
+export function validarCamposManual(req, res, next) {
   // Validar ObjectId en query params si están presentes
   if (req.query.temporada && !Types.ObjectId.isValid(req.query.temporada)) {
     return res.status(400).json({ message: 'temporada inválida' });
@@ -42,7 +41,7 @@ function validarCamposManual(req, res, next) {
 }
 
 // GET /api/participacion-temporada?temporada=&equipo=
-router.get('/', verificarToken, validarObjectId, async (req, res) => {
+router.get('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
     const { temporada, equipo } = req.query;
     const filtro = {};
