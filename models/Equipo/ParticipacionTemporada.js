@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
 const participacionTemporadaSchema = new Schema({
-  equipo: { type: Schema.Types.ObjectId, ref: 'EquipoCompetencia', required: true },
+  equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   temporada: { type: Schema.Types.ObjectId, ref: 'Temporada', required: true },
 
   estado: { type: String, enum: ['activo', 'baja', 'expulsado'], default: 'activo' },
