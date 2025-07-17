@@ -1,9 +1,9 @@
 import express from 'express';
 import ParticipacionTemporada from '../models/ParticipacionTemporada.js';
-import Equipo from '../models/Equipo.js';
-import Temporada from '../models/Temporada.js';
-import verificarToken from '../middlewares/authMiddleware.js';
-import { validarObjectId } from '../middlewares/validacionObjectId.js';
+import Equipo from '../../models/Equipo/Equipo.js';
+import Temporada from '../../models/Competencia/Temporada.js';
+import verificarToken from '../../middlewares/authMiddleware.js';
+import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import { body, query, validationResult } from 'express-validator';
 
 const router = express.Router();
