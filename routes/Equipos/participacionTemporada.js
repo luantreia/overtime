@@ -9,7 +9,37 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 const router = express.Router();
 const { Types } = mongoose;
 
+// Middleware para validar manualmente campos en query y body
+function validarCamposManual(req, res, next) {
+  // Validar ObjectId en query params si están presentes
+  if (req.query.temporada && !Types.ObjectId.isValid(req.query.temporada)) {
+    return res.status(400).json({ message: 'temporada inválida' });
+  }
+  if (req.query.equipo && !Types.ObjectId.isValid(req.query.equipo)) {
+    return res.status(400).json({ message: 'equipo inválido' });
+  }
+  // Validar ObjectId en body si están presentes
+  if (req.body.equipo && !Types.ObjectId.isValid(req.body.equipo)) {
+    return res.status(400).json({ message: 'equipo inválido' });
+  }
+  if (req.body.temporada && !Types.ObjectId.isValid(req.body.temporada)) {
+    return res.status(400).json({ message: 'temporada inválida' });
+  }
+  // Validar estado
+  const estadosValidos = ['activo', 'baja', 'expulsado'];
+  if (req.body.estado && !estadosValidos.includes(req.body.estado)) {
+    return res.status(400).json({ message: 'estado inválido' });
+  }
+  // Validar observaciones
+  if (req.body.observaciones && typeof req.body.observaciones !== 'string') {
+    return res.status(400).json({ message: 'observaciones debe ser texto' });
+  }
+  if (req.body.observaciones && req.body.observaciones.length > 500) {
+    return res.status(400).json({ message: 'observaciones demasiado largo' });
+  }
 
+  next();
+}
 
 // GET /api/participacion-temporada?temporada=&equipo=
 router.get('/', verificarToken, validarObjectId, async (req, res) => {
