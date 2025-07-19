@@ -63,7 +63,7 @@ router.get('/', verificarToken, async (req, res) => {
     if (equipo) filtro.equipo = equipo;
 
     const relaciones = await JugadorEquipo.find(filtro)
-      .populate('jugador', 'nombre alias')
+      .populate('jugador', 'nombre alias genero')
       .populate('equipo', 'nombre escudo')
       .lean();
 

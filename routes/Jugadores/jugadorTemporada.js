@@ -35,9 +35,20 @@ router.get('/', async (req, res) => {
     if (req.query.jugadorCompetencia) filtro.jugadorCompetencia = req.query.jugadorCompetencia;
     if (req.query.participacionTemporada) filtro.participacionTemporada = req.query.participacionTemporada;
 
-    const items = await JugadorTemporada.find(filtro).lean();
+    const items = await JugadorTemporada.find(filtro)
+      .populate({
+        path: 'jugador',
+        select: 'nombre alias genero foto', // ✅ seleccionás los campos que necesitás
+      })
+      .populate({
+        path: 'jugadorEquipo',
+        select: 'numero estado rol equipo', // opcional si querés más info del contrato
+      })
+      .lean();
+
     res.json(items);
   } catch (err) {
+    console.error('Error en GET jugador-temporada:', err);
     res.status(500).json({ error: 'Error al obtener datos' });
   }
 });
