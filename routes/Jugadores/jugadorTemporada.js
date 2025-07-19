@@ -19,6 +19,7 @@ export async function obtenerCompetenciaDesdeParticipacionTemporada(participacio
 
   return participacion.temporada.competencia;
 }
+
 // GET /api/jugador-temporada?jugadorCompetencia=...&participacionTemporada=...
 router.get('/', async (req, res) => {
   try {
@@ -48,6 +49,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { jugadorEquipo, participacionTemporada } = req.body;
+      console.log('req.body:', req.body);
     if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
@@ -77,8 +79,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const nuevo = new JugadorTemporada({
       jugadorEquipo,
       participacionTemporada,
-      estado: estado || 'aceptado',
-      rol: rol || 'jugador',
+      estado: Array.isArray(estado) ? estado[0] : estado || 'aceptado',
+      rol: Array.isArray(rol) ? rol[0] : rol || 'jugador',
       creadoPor: req.user.uid,
     });
 
