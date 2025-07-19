@@ -54,6 +54,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     }
     // Buscar jugadorEquipo y extraer jugador
     const jugadorEquipoDoc = await JugadorEquipo.findById(jugadorEquipo).select('jugador');
+    console.log('JugadorEquipo encontrado:', jugadorEquipoDoc);
     if (!jugadorEquipoDoc) {
       return res.status(400).json({ error: 'jugadorEquipo no válido o no encontrado' });
     }
@@ -61,6 +62,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     // Obtener competencia desde participacionTemporada
     const competenciaId = await obtenerCompetenciaDesdeParticipacionTemporada(participacionTemporada);
+    console.log('Competencia obtenida:', competenciaId); 
     if (!competenciaId) {
       return res.status(400).json({ error: 'No se pudo obtener la competencia desde la participación' });
     }
@@ -85,6 +87,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     res.status(201).json(guardado);
   } catch (err) {
+    console.error('Error en POST jugador-temporada:', err);
     res.status(400).json({ error: err.message });
   }
 });
