@@ -47,32 +47,41 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // POST /api/jugador-temporada
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { jugador, participacionTemporada } = req.body;
-    if (!jugador || !participacionTemporada) {
+    const { jugadorEquipo, participacionTemporada } = req.body;
+    if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
+    // 1. Obtener jugador desde jugadorEquipo
+    const je = await JugadorEquipo.findById(jugadorEquipo).select('jugador');
+    if (!je) {
+      return res.status(400).json({ error: 'jugadorEquipo no válido' });
+    }
+    const jugador = je.jugador;
 
-    // Obtener competencia desde participacionTemporada
+    // 2. Obtener competencia desde participacionTemporada
     const competenciaId = await obtenerCompetenciaDesdeParticipacionTemporada(participacionTemporada);
     if (!competenciaId) {
       return res.status(400).json({ error: 'No se pudo obtener la competencia desde la participación temporada' });
     }
 
-    // Buscar o crear JugadorCompetencia
+    // 3. Buscar o crear JugadorCompetencia
     const jugadorCompetencia = await JugadorCompetencia.findOneAndUpdate(
       { jugador, competencia: competenciaId },
       { jugador, competencia: competenciaId },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    // Crear JugadorTemporada con jugadorCompetencia
+    // Crear nuevo JugadorTemporada
     const nuevo = new JugadorTemporada({
-      ...req.body,
-      jugadorCompetencia: jugadorCompetencia._id,
+      jugadorEquipo,
+      participacionTemporada,
+      estado: estado || 'aceptado',
+      rol: rol || 'jugador',
       creadoPor: req.user.uid,
     });
 
     const guardado = await nuevo.save();
+
     res.status(201).json(guardado);
   } catch (err) {
     res.status(400).json({ error: err.message });

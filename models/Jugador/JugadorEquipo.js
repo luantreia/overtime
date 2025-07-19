@@ -18,6 +18,7 @@ const jugadorEquipoSchema = new Schema({
     default: 'pendiente',
     index: true,
   },
+  rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
   solicitadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario' },
   origen: { type: String, enum: ['equipo', 'jugador'], required: true },
