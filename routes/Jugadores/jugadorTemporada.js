@@ -37,12 +37,11 @@ router.get('/', async (req, res) => {
 
     const items = await JugadorTemporada.find(filtro)
       .populate({
-        path: 'jugador',
-        select: 'nombre alias genero foto', // ✅ seleccionás los campos que necesitás
-      })
-      .populate({
         path: 'jugadorEquipo',
-        select: 'numero estado rol equipo', // opcional si querés más info del contrato
+        populate: {
+          path: 'jugador',
+          select: 'nombre alias genero foto',
+        },
       })
       .lean();
 
