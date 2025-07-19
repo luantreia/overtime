@@ -72,7 +72,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     // Crear o reutilizar JugadorCompetencia
     const jugadorCompetencia = await JugadorCompetencia.findOneAndUpdate(
       { jugador, competencia: competenciaId },
-      { jugador, competencia: competenciaId },
+      {},
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
