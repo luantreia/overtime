@@ -99,6 +99,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       participacionTemporada,
       estado,
       rol,
+      jugador: jugadorEquipoDoc.jugador,
       creadoPor: req.user.uid,
     });
 
