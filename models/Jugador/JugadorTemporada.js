@@ -16,7 +16,7 @@ const jugadorTemporadaSchema = new Schema({
 
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
 jugadorTemporadaSchema.index({ jugadorEquipo: 1, participacionTemporada: 1 }, { unique: true });
