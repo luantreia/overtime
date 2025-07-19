@@ -48,8 +48,9 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // POST /api/jugador-temporada
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { jugadorEquipo, participacionTemporada } = req.body;
-      console.log('req.body:', req.body);
+    const { jugadorEquipo, participacionTemporada, estado, rol } = req.body;
+    console.log('req.body:', req.body);
+
     if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
