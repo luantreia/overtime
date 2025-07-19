@@ -10,16 +10,15 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 const router = express.Router();
 
 // Helper para obtener competencia desde participacionTemporada
-async function obtenerCompetenciaDesdeParticipacionTemporada(participacionTemporadaId) {
-  const participacion = await ParticipacionTemporada.findById(participacionTemporadaId).populate({
-    path: 'equipo',
-    populate: {
-      path: 'competencia'
-    }
-  });
-  return participacion?.equipo?.competencia?._id || null;
-}
+export async function obtenerCompetenciaDesdeParticipacionTemporada(participacionTemporadaId) {
+  const participacion = await ParticipacionTemporada.findById(participacionTemporadaId).populate('temporada');
 
+  if (!participacion?.temporada?.competencia) {
+    return null;
+  }
+
+  return participacion.temporada.competencia;
+}
 // GET /api/jugador-temporada?jugadorCompetencia=...&participacionTemporada=...
 router.get('/', async (req, res) => {
   try {
