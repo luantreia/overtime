@@ -15,7 +15,7 @@ const jugadorCompetenciaSchema = new Schema({
     index: true,
   },
 
-  creadoPor: { type: String, ref: 'Usuario', required: true },
+  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
 jugadorCompetenciaSchema.index({ jugador: 1, competencia: 1 }, { unique: true });
