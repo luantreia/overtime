@@ -11,7 +11,7 @@ const jugadorCompetenciaSchema = new Schema({
   estado: {
     type: String,
     enum: ['aceptado', 'suspendido'],
-    default: ['aceptado'],
+    default: 'aceptado',
     index: true,
   },
 
