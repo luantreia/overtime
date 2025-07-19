@@ -56,10 +56,17 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // POST /api/jugador-temporada
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
+    console.log('req.body.estado antes sanitizar:', req.body.estado);
+    console.log('req.body.rol antes sanitizar:', req.body.rol);
+
     sanitizarCamposString(req.body, ['estado', 'rol']);
+
+    console.log('req.body.estado después sanitizar:', req.body.estado);
+    console.log('req.body.rol después sanitizar:', req.body.rol);
+
     const { jugadorEquipo, participacionTemporada, estado, rol } = req.body;
     console.log('req.body:', req.body);
-
+    
     if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
@@ -109,7 +116,7 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
   try {
     const item = await JugadorTemporada.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'No encontrado' });
-    
+
     sanitizarCamposString(req.body, ['estado', 'rol']);
     Object.assign(item, req.body);
 
