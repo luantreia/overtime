@@ -3,6 +3,7 @@ import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
 import JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
 import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
+import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
@@ -51,20 +52,20 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
-    // 1. Obtener jugador desde jugadorEquipo
-    const je = await JugadorEquipo.findById(jugadorEquipo).select('jugador');
-    if (!je) {
-      return res.status(400).json({ error: 'jugadorEquipo no válido' });
+    // Buscar jugadorEquipo y extraer jugador
+    const jugadorEquipoDoc = await JugadorEquipo.findById(jugadorEquipo).select('jugador');
+    if (!jugadorEquipoDoc) {
+      return res.status(400).json({ error: 'jugadorEquipo no válido o no encontrado' });
     }
-    const jugador = je.jugador;
+    const jugador = jugadorEquipoDoc.jugador;
 
-    // 2. Obtener competencia desde participacionTemporada
+    // Obtener competencia desde participacionTemporada
     const competenciaId = await obtenerCompetenciaDesdeParticipacionTemporada(participacionTemporada);
     if (!competenciaId) {
-      return res.status(400).json({ error: 'No se pudo obtener la competencia desde la participación temporada' });
+      return res.status(400).json({ error: 'No se pudo obtener la competencia desde la participación' });
     }
 
-    // 3. Buscar o crear JugadorCompetencia
+    // Crear o reutilizar JugadorCompetencia
     const jugadorCompetencia = await JugadorCompetencia.findOneAndUpdate(
       { jugador, competencia: competenciaId },
       { jugador, competencia: competenciaId },
