@@ -66,7 +66,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     const { jugadorEquipo, participacionTemporada, estado, rol } = req.body;
     console.log('req.body:', req.body);
-    
+
     if (!jugadorEquipo || !participacionTemporada) {
       return res.status(400).json({ error: 'jugador y participacionTemporada son requeridos' });
     }
@@ -88,7 +88,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     // Crear o reutilizar JugadorCompetencia
     const jugadorCompetencia = await JugadorCompetencia.findOneAndUpdate(
       { jugador, competencia: competenciaId },
-      { $setOnInsert: { jugador, competencia: competenciaId } },
+      { $setOnInsert: { jugador, competencia: competenciaId, estado: 'aceptado' } },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
