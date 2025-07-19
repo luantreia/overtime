@@ -76,12 +76,16 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
+    // Asegurarse que estado y rol son strings, no arrays
+    const estadoSanitized = Array.isArray(estado) ? estado[0] : estado;
+    const rolSanitized = Array.isArray(rol) ? rol[0] : rol;
+
     // Crear nuevo JugadorTemporada
     const nuevo = new JugadorTemporada({
       jugadorEquipo,
       participacionTemporada,
-      estado: Array.isArray(estado) ? estado[0] : estado || 'aceptado',
-      rol: Array.isArray(rol) ? rol[0] : rol || 'jugador',
+      estado: estadoSanitized,
+      rol: rolSanitized,
       creadoPor: req.user.uid,
     });
 
