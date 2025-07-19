@@ -20,6 +20,14 @@ export async function obtenerCompetenciaDesdeParticipacionTemporada(participacio
   return participacion.temporada.competencia;
 }
 
+function sanitizarCamposString(obj, campos) {
+  campos.forEach(campo => {
+    if (obj[campo]) {
+      obj[campo] = Array.isArray(obj[campo]) ? obj[campo][0] : obj[campo];
+    }
+  });
+}
+
 // GET /api/jugador-temporada?jugadorCompetencia=...&participacionTemporada=...
 router.get('/', async (req, res) => {
   try {
@@ -48,6 +56,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
 // POST /api/jugador-temporada
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
+    sanitizarCamposString(req.body, ['estado', 'rol']);
     const { jugadorEquipo, participacionTemporada, estado, rol } = req.body;
     console.log('req.body:', req.body);
 
@@ -76,16 +85,13 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    // Asegurarse que estado y rol son strings, no arrays
-    const estadoSanitized = Array.isArray(estado) ? estado[0] : estado;
-    const rolSanitized = Array.isArray(rol) ? rol[0] : rol;
 
     // Crear nuevo JugadorTemporada
     const nuevo = new JugadorTemporada({
       jugadorEquipo,
       participacionTemporada,
-      estado: estadoSanitized,
-      rol: rolSanitized,
+      estado,
+      rol,
       creadoPor: req.user.uid,
     });
 
@@ -103,8 +109,10 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
   try {
     const item = await JugadorTemporada.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'No encontrado' });
-
+    
+    sanitizarCamposString(req.body, ['estado', 'rol']);
     Object.assign(item, req.body);
+
     const actualizado = await item.save();
     res.json(actualizado);
   } catch (err) {
