@@ -7,7 +7,7 @@ import Temporada from '../../models/Competencia/Temporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import { crearEquipoCompetenciaAuto } from '../../services/equipoCompetenciaService.js';
-import cargarRolDesdeBD from '../../middlewares/cargarRolDesdeBD.js';
+import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
 
