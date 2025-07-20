@@ -6,6 +6,7 @@ import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
+import { sincronizarParticipacionesFaseFaltantes } from '../../utils/sincronizarParticipacionesFaseFaltantes.js';
 
 import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
 
@@ -185,6 +186,16 @@ router.post(
     }
   }
 );
+
+router.post('/sincronizar-fases-faltantes', verificarToken, async (req, res) => {
+  try {
+    const resultado = await sincronizarParticipacionesFaseFaltantes();
+    res.json({ message: 'Sincronización completada', resultado });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error al sincronizar fases', error: err.message });
+  }
+});
 
 // PUT /participaciones/:id - actualizar participación (solo admin o creador)
 router.put(
