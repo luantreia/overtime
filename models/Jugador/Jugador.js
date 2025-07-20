@@ -10,7 +10,7 @@ const jugadorSchema = new Schema({
   foto: { type: String },
   nacionalidad: { type: String, default: '' },
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: Schema.Types.ObjectId, ref: 'Usuario' }],
 }, { timestamps: true });
 

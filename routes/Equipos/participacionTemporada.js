@@ -88,67 +88,56 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   }
 });
 
-// POST /api/jugador-temporada
-router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+// POST /api/participacion-temporada
+router.post('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
-    const { jugadorEquipo, participacionTemporada, ...resto } = req.body;
+    console.log('POST /participacion-temporada body:', req.body);
 
-    // Validar existencia de jugadorEquipo y participacionTemporada
-    const [jugadorEquipoDB, participacionDB] = await Promise.all([
-      JugadorEquipo.findById(jugadorEquipo).populate('jugador equipo'),
-      ParticipacionTemporada.findById(participacionTemporada).populate('temporada'),
+    const { equipo, temporada } = req.body;
+
+    if (!equipo || !temporada) {
+      return res.status(400).json({ message: 'equipo y temporada son obligatorios' });
+    }
+
+    // Validar que equipo y temporada existen
+    const [equipoDB, temporadaDB] = await Promise.all([
+      Equipo.findById(equipo),
+      Temporada.findById(temporada),
     ]);
+    if (!equipoDB) return res.status(400).json({ message: 'Equipo no encontrado' });
+    if (!temporadaDB) return res.status(400).json({ message: 'Temporada no encontrada' });
 
-    if (!jugadorEquipoDB) {
-      return res.status(400).json({ message: 'JugadorEquipo no encontrado' });
-    }
-    if (!participacionDB) {
-      return res.status(400).json({ message: 'Participación de temporada no encontrada' });
-    }
-
-    const jugador = jugadorEquipoDB.jugador;
-    const temporada = participacionDB.temporada;
-    const competenciaId = temporada?.competencia;
-
-    // Validar que no exista ya un jugadorTemporada con ese jugadorEquipo y participacion
-    const yaExiste = await JugadorTemporada.findOne({ jugadorEquipo, participacionTemporada });
-    if (yaExiste) {
-      return res.status(409).json({ message: 'Ya existe este jugador en la participación de temporada' });
+    // Verificar que no exista ya una participación con el mismo equipo-temporada
+    const existe = await ParticipacionTemporada.findOne({ equipo, temporada });
+    if (existe) {
+      return res.status(409).json({ message: 'Ya existe una participación para este equipo y temporada' });
     }
 
-    // Crear nuevo jugadorTemporada
-    const nuevo = new JugadorTemporada({
-      jugadorEquipo,
-      jugador,
-      participacionTemporada,
+    const nueva = new ParticipacionTemporada({
+      ...req.body,
       creadoPor: req.user?.uid || 'sistema',
-      ...resto,
     });
 
-    await nuevo.save();
+    await nueva.save();
 
-    // Crear automáticamente la relación en JugadorCompetencia si hay competencia
-    if (competenciaId) {
+    // Crear automáticamente la relación en EquipoCompetencia
+    if (temporadaDB.competencia) {
       try {
-        const jugadorCompetencia = await JugadorCompetencia.findOneAndUpdate(
-          { jugador, competencia: competenciaId },
-          { jugador, competencia: competenciaId },
-          { new: true, upsert: true, setDefaultsOnInsert: true }
-        );
-        console.log('JugadorCompetencia creado automáticamente:', jugadorCompetencia._id);
-
-        // Actualizar jugadorTemporada con el jugadorCompetencia recién creado
-        nuevo.jugadorCompetencia = jugadorCompetencia._id;
-        await nuevo.save();
-      } catch (jcErr) {
-        console.warn('No se pudo crear JugadorCompetencia automáticamente:', jcErr.message);
+        const nuevoEC = await crearEquipoCompetenciaAuto({
+          equipo,
+          competencia: temporadaDB.competencia,
+          creadoPor: req.user?.uid || 'sistema',
+        });
+        console.log('EquipoCompetencia creado automáticamente:', nuevoEC._id);
+      } catch (ecErr) {
+        console.warn('No se pudo crear EquipoCompetencia:', ecErr.message);
       }
     }
 
-    res.status(201).json(nuevo);
+    res.status(201).json(nueva);
   } catch (err) {
-    console.error('Error al crear jugador-temporada:', err);
-    res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(400).json({ message: 'Error al crear participación', error: err.message });
   }
 });
 
