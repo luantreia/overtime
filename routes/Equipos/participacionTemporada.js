@@ -8,8 +8,8 @@ import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import { crearEquipoCompetenciaAuto } from '../../services/equipoCompetenciaService.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
-import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
-import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
+import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
+import Fase from '../../models/Competencia/Fase.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -88,6 +88,7 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   }
 });
 
+
 // POST /api/participacion-temporada
 router.post('/', verificarToken, validarCamposManual, async (req, res) => {
   try {
@@ -120,7 +121,7 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
 
     await nueva.save();
 
-    // Crear automáticamente la relación en EquipoCompetencia
+    // Crear automáticamente la relación en EquipoCompetencia y ParticipacionesFase
     if (temporadaDB.competencia) {
       try {
         const nuevoEC = await crearEquipoCompetenciaAuto({
@@ -129,12 +130,31 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
           creadoPor: req.user?.uid || 'sistema',
         });
         console.log('EquipoCompetencia creado automáticamente:', nuevoEC._id);
+
+        // Obtener todas las fases de esa competencia
+        const fases = await Fase.find({ competencia: temporadaDB.competencia });
+
+        // Crear ParticipacionesFase para cada fase
+        const promesasParticipacionesFase = fases.map(fase => {
+          const participacionFase = new ParticipacionFase({
+            participacionTemporada: nueva._id,
+            fase: fase._id,
+            // Aquí podés agregar lógica para grupo y división si aplica
+          });
+          return participacionFase.save();
+        });
+
+        const participacionesFaseCreadas = await Promise.all(promesasParticipacionesFase);
+        console.log(`Se crearon ${participacionesFaseCreadas.length} participaciones en fases automáticamente.`);
+
       } catch (ecErr) {
-        console.warn('No se pudo crear EquipoCompetencia:', ecErr.message);
+        console.warn('No se pudo crear EquipoCompetencia o ParticipacionesFase:', ecErr.message);
       }
     }
 
+    // Finalmente responder con la nueva ParticipacionTemporada creada
     res.status(201).json(nueva);
+
   } catch (err) {
     console.error(err);
     res.status(400).json({ message: 'Error al crear participación', error: err.message });
