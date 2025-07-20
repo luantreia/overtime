@@ -14,9 +14,22 @@ router.get('/', async (req, res) => {
   if (participacionFase) filtro.participacionFase = participacionFase;
 
   try {
-    const items = await JugadorFase.find(filtro).lean();
+    const items = await JugadorFase.find(filtro)
+      .populate({
+        path: 'jugadorTemporada',
+        populate: {
+          path: 'jugadorEquipo',
+          populate: {
+            path: 'jugador',
+            select: 'nombre alias foto genero',
+          },
+        },
+      })
+      .lean();
+
     res.json(items);
-  } catch {
+  } catch (err) {
+    console.error('Error al obtener JugadorFase:', err);
     res.status(500).json({ error: 'Error al obtener datos' });
   }
 });
