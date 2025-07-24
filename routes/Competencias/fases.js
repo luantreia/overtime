@@ -4,6 +4,9 @@ import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
+import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
+import Partido from '../../models/Competencia/Partido.js';
+import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
 
 const router = express.Router();
 
@@ -60,6 +63,42 @@ router.post(
       res.status(201).json(guardada);
     } catch (error) {
       res.status(400).json({ error: error.message || 'Error al crear fase' });
+    }
+  }
+);
+
+router.post(
+  '/:id/generar-fixture',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Fase, 'fase'),
+  async (req, res) => {
+    try {
+      const faseId = req.params.id;
+      const fase = await Fase.findById(faseId);
+      if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
+
+      const participaciones = await ParticipacionFase.find({ fase: faseId }).lean();
+
+      if (participaciones.length < 2) {
+        return res.status(400).json({ error: 'Se necesitan al menos 2 equipos para generar partidos' });
+      }
+
+      const datosBase = {
+        fase: faseId,
+        estado: 'pendiente',
+        creadoPor: req.user.uid,
+      };
+
+      const partidos = generarRoundRobinPorDivision(participaciones, datosBase);
+
+      const partidosGuardados = await Partido.insertMany(partidos);
+
+      res.status(201).json({ mensaje: 'Fixture generado con éxito', cantidad: partidosGuardados.length });
+    } catch (error) {
+      console.error('Error generando fixture:', error);
+      res.status(500).json({ error: 'Error al generar fixture' });
     }
   }
 );
