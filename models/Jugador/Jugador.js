@@ -11,7 +11,7 @@ const jugadorSchema = new Schema({
   nacionalidad: { type: String, default: '' },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
-  administradores: [{ type: Schema.Types.ObjectId, ref: 'Usuario' }],
+  administradores: [{ type: String, ref: 'Usuario' }],
 }, { timestamps: true });
 
 // Edad virtual
