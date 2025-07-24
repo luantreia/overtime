@@ -26,6 +26,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Generar fixture para una fase (solo admins de la fase)
+router.post(
+  '/:id/generar-fixture',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Fase, 'fase'),
+  async (req, res) => {
+    try {
+      const faseId = req.params.id;
+      const fase = await Fase.findById(faseId);
+      if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
+
+      const participaciones = await ParticipacionFase.find({ fase: faseId }).lean();
+
+      if (participaciones.length < 2) {
+        return res.status(400).json({ error: 'Se necesitan al menos 2 equipos para generar partidos' });
+      }
+
+      const datosBase = {
+        fase: faseId,
+        estado: 'pendiente',
+        creadoPor: req.user.uid,
+      };
+
+      const partidos = generarRoundRobinPorDivision(participaciones, datosBase);
+
+      const partidosGuardados = await Partido.insertMany(partidos);
+
+      res.status(201).json({ mensaje: 'Fixture generado con éxito', cantidad: partidosGuardados.length });
+    } catch (error) {
+      console.error('Error generando fixture:', error);
+      res.status(500).json({ error: 'Error al generar fixture' });
+    }
+  }
+);
+
 // Obtener fase por ID
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
@@ -67,41 +104,6 @@ router.post(
   }
 );
 
-router.post(
-  '/:id/generar-fixture',
-  validarObjectId,
-  verificarToken,
-  cargarRolDesdeBD,
-  esAdminDeEntidad(Fase, 'fase'),
-  async (req, res) => {
-    try {
-      const faseId = req.params.id;
-      const fase = await Fase.findById(faseId);
-      if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
-
-      const participaciones = await ParticipacionFase.find({ fase: faseId }).lean();
-
-      if (participaciones.length < 2) {
-        return res.status(400).json({ error: 'Se necesitan al menos 2 equipos para generar partidos' });
-      }
-
-      const datosBase = {
-        fase: faseId,
-        estado: 'pendiente',
-        creadoPor: req.user.uid,
-      };
-
-      const partidos = generarRoundRobinPorDivision(participaciones, datosBase);
-
-      const partidosGuardados = await Partido.insertMany(partidos);
-
-      res.status(201).json({ mensaje: 'Fixture generado con éxito', cantidad: partidosGuardados.length });
-    } catch (error) {
-      console.error('Error generando fixture:', error);
-      res.status(500).json({ error: 'Error al generar fixture' });
-    }
-  }
-);
 
 // Actualizar fase (solo admins o creadores)
 router.put(
