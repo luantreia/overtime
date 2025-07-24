@@ -5,7 +5,7 @@ import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
-import Partido from '../../models/Competencia/Partido.js';
+import Partido from '../../models/Partido/Partido.js';
 import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
 
 const router = express.Router();
