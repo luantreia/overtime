@@ -11,10 +11,22 @@ const router = express.Router();
 // GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
 router.get('/', verificarToken, async (req, res) => {
   try {
-    const { fase, competencia } = req.query;
+    const { fase, competencia, tipo, equipo } = req.query;
     const filtro = {};
-    if (fase) filtro.fase = fase;
-    if (competencia) filtro.competencia = competencia;
+
+    if (tipo === 'amistoso') {
+      filtro.competencia = null;
+    } else {
+      if (fase) filtro.fase = fase;
+      if (competencia) filtro.competencia = competencia;
+    }
+
+    if (equipo) {
+      filtro.$or = [
+        { equipoLocal: equipo },
+        { equipoVisitante: equipo }
+      ];
+    }
 
     const partidos = await Partido.find(filtro)
       .populate([
