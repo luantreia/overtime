@@ -80,6 +80,7 @@ router.post(
         creadoPor: req.user.uid,
         categoria,
         modalidad,
+        fecha: new Date(), // Fecha por defecto, se puede ajustar
       };
 
       const partidos = generarRoundRobinPorDivision(participaciones, datosBase);

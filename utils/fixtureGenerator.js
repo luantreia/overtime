@@ -3,6 +3,14 @@
 export const generarRoundRobinPorDivision = (participacionesFase, datosPartidoBase) => {
   const partidos = [];
 
+  // Map para obtener equipos de las participaciones
+  const participacionEquiposMap = {};
+
+  participacionesFase.forEach((pf) => {
+    participacionEquiposMap[pf._id.toString()] =
+      pf.participacionTemporada?.equipoCompetencia?.equipo || null;
+  });
+
   const divisiones = participacionesFase.reduce((acc, pf) => {
     const division = pf.division || 'sin_division';
     if (!acc[division]) acc[division] = [];
@@ -16,10 +24,21 @@ export const generarRoundRobinPorDivision = (participacionesFase, datosPartidoBa
         const local = equipos[i];
         const visitante = equipos[j];
 
+        const equipoLocal = participacionEquiposMap[local._id.toString()];
+        const equipoVisitante = participacionEquiposMap[visitante._id.toString()];
+
+        if (!equipoLocal || !equipoVisitante) {
+          // No generamos partidos sin equipos válidos
+          continue;
+        }
+
         partidos.push({
           ...datosPartidoBase,
           participacionFaseLocal: local._id,
           participacionFaseVisitante: visitante._id,
+          equipoLocal,
+          equipoVisitante,
+          fecha: datosPartidoBase.fecha || new Date(), // asigna fecha, si no está usa hoy
           division,
         });
       }
@@ -28,3 +47,4 @@ export const generarRoundRobinPorDivision = (participacionesFase, datosPartidoBa
 
   return partidos;
 };
+
