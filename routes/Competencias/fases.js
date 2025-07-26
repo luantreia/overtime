@@ -47,7 +47,7 @@ router.post(
 
       const datosBase = {
         fase: faseId,
-        estado: 'pendiente',
+        estado: 'programado',
         creadoPor: req.user.uid,
       };
 
