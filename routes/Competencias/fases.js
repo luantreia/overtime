@@ -103,6 +103,26 @@ router.post(
 
       const partidosGuardados = await Partido.insertMany(partidosValidos);
 
+      // Crear equipoPartido para cada partido generado
+      for (const partido of partidosGuardados) {
+        await EquipoPartido.create([
+          {
+            partido: partido._id,
+            equipo: partido.equipoLocal,
+            participacionFase: partido.participacionFaseLocal,
+            esLocal: true,
+            creadoPor: req.user.uid,
+          },
+          {
+            partido: partido._id,
+            equipo: partido.equipoVisitante,
+            participacionFase: partido.participacionFaseVisitante,
+            esLocal: false,
+            creadoPor: req.user.uid,
+          },
+        ]);
+      }
+
       res.status(201).json({
         mensaje: 'Fixture generado con éxito',
         cantidad: partidosGuardados.length,
