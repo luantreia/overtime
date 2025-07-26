@@ -8,7 +8,7 @@ export const generarRoundRobinPorDivision = (participacionesFase, datosPartidoBa
 
   participacionesFase.forEach((pf) => {
     participacionEquiposMap[pf._id.toString()] =
-      pf.participacionTemporada?.equipoCompetencia?.equipo || null;
+      pf.participacionTemporada?.equipo || null;
   });
 
   const divisiones = participacionesFase.reduce((acc, pf) => {
