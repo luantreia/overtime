@@ -65,8 +65,15 @@ router.post(
         });
       }
 
-      const participaciones = await ParticipacionFase.find({ fase: faseId }).lean();
-
+      const participaciones = await ParticipacionFase.find({ fase: faseId })
+        .populate({
+          path: 'participacionTemporada',
+          populate: {
+            path: 'equipo',
+            select: 'nombre escudo tipo pais', // opcional
+          },
+        })
+        .lean();
       if (participaciones.length < 2) {
         return res.status(400).json({
           error: 'Se necesitan al menos 2 equipos para generar partidos',
