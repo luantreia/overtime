@@ -36,26 +36,69 @@ router.post(
   async (req, res) => {
     try {
       const faseId = req.params.id;
-      const fase = await Fase.findById(faseId);
-      if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
+
+      // Obtenemos fase + temporada + competencia
+      const fase = await Fase.findById(faseId)
+        .populate({
+          path: 'temporada',
+          populate: {
+            path: 'competencia',
+          },
+        });
+
+      if (!fase) {
+        return res.status(404).json({ error: 'Fase no encontrada' });
+      }
+
+      const competencia = fase?.temporada?.competencia;
+
+      if (!competencia) {
+        return res.status(404).json({ error: 'No se pudo obtener la competencia desde la fase' });
+      }
+
+      const categoria = competencia.categoria;
+      const modalidad = competencia.modalidad;
+
+      if (!categoria || !modalidad) {
+        return res.status(400).json({
+          error: 'La competencia no tiene definida categoría o modalidad',
+        });
+      }
 
       const participaciones = await ParticipacionFase.find({ fase: faseId }).lean();
 
       if (participaciones.length < 2) {
-        return res.status(400).json({ error: 'Se necesitan al menos 2 equipos para generar partidos' });
+        return res.status(400).json({
+          error: 'Se necesitan al menos 2 equipos para generar partidos',
+        });
       }
 
+      // Datos base para cada partido
       const datosBase = {
         fase: faseId,
         estado: 'programado',
         creadoPor: req.user.uid,
+        categoria,
+        modalidad,
       };
 
       const partidos = generarRoundRobinPorDivision(participaciones, datosBase);
 
-      const partidosGuardados = await Partido.insertMany(partidos);
+      // Validación de estructura de partidos antes de guardar
+      const partidosValidos = partidos.filter(p =>
+        p.equipoLocal && p.equipoVisitante && p.fecha && p.categoria && p.modalidad
+      );
 
-      res.status(201).json({ mensaje: 'Fixture generado con éxito', cantidad: partidosGuardados.length });
+      if (partidosValidos.length === 0) {
+        return res.status(400).json({ error: 'No se generaron partidos válidos' });
+      }
+
+      const partidosGuardados = await Partido.insertMany(partidosValidos);
+
+      res.status(201).json({
+        mensaje: 'Fixture generado con éxito',
+        cantidad: partidosGuardados.length,
+      });
     } catch (error) {
       console.error('Error generando fixture:', error);
       res.status(500).json({ error: 'Error al generar fixture' });
