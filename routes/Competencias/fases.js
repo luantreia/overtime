@@ -7,7 +7,7 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
 import Partido from '../../models/Partido/Partido.js';
 import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
-import EquipoPartido from '../../models/Partido/EquipoPartido.js';
+import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 
 const router = express.Router();
 
