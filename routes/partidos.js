@@ -82,23 +82,17 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     if (participacionFaseLocal) {
       const pfLocal = await ParticipacionFase.findById(participacionFaseLocal).populate({
         path: 'participacionTemporada',
-        populate: {
-          path: 'equipoCompetencia',
-          populate: 'equipo',
-        },
+        populate: 'equipo',
       });
-      data.equipoLocal = pfLocal?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+      data.equipoLocal = pfLocal?.participacionTemporada?.equipo?._id;
     }
 
     if (participacionFaseVisitante) {
       const pfVisitante = await ParticipacionFase.findById(participacionFaseVisitante).populate({
         path: 'participacionTemporada',
-        populate: {
-          path: 'equipoCompetencia',
-          populate: 'equipo',
-        },
+        populate: 'equipo',
       });
-      data.equipoVisitante = pfVisitante?.participacionTemporada?.equipoCompetencia?.equipo?._id;
+      data.equipoVisitante = pfVisitante?.participacionTemporada?.equipo?._id;
     }
 
   // --- Completar competencia desde fase ---
