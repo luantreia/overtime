@@ -6,17 +6,23 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
-// GET /api/jugador-competencia?equipoCompetencia=...&jugadorEquipo=...
+// GET /api/jugador-competencia?competencia=...
 router.get('/', async (req, res) => {
-  const { equipoCompetencia, jugadorEquipo } = req.query;
+  const { competencia } = req.query;
   const filtro = {};
-  if (equipoCompetencia) filtro.equipoCompetencia = equipoCompetencia;
-  if (jugadorEquipo) filtro.jugadorEquipo = jugadorEquipo;
+  if (competencia) filtro.competencia = competencia;
 
   try {
-    const items = await JugadorCompetencia.find(filtro).lean();
+    const items = await JugadorCompetencia.find(filtro)
+      .populate({
+        path: 'jugador',
+        select: 'nombre apellido foto',
+      })
+      .lean();
+
     res.json(items);
   } catch (err) {
+    console.error('Error al obtener jugadores competencia', err);
     res.status(500).json({ error: 'Error al obtener datos' });
   }
 });
