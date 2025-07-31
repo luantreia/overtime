@@ -8,6 +8,7 @@ import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
 import Partido from '../../models/Partido/Partido.js';
 import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
 import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
+import { generarFixturePorTipo } from '../../utils/generadorFixturePorTipo.js';
 
 const router = express.Router();
 
@@ -91,7 +92,7 @@ router.post(
         fecha: new Date(), // Fecha por defecto, se puede ajustar
       };
 
-      const partidos = generarRoundRobinPorDivision(participaciones, datosBase);
+      const partidos = generarFixturePorTipo(fase, participaciones, datosBase);
 
       // Validación de estructura de partidos antes de guardar
       const partidosValidos = partidos.filter(p =>

@@ -9,7 +9,6 @@ const jugadorPartidoSchema = new Schema({
   jugadorEquipo: { type: Schema.Types.ObjectId, ref: 'JugadorEquipo' },
   jugadorCompetencia: { type: Schema.Types.ObjectId, ref: 'JugadorCompetencia' },
   jugadorTemporada: { type: Schema.Types.ObjectId, ref: 'JugadorTemporada' },
-  jugadorFase: { type: Schema.Types.ObjectId, ref: 'JugadorFase' },
 
   equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
   equipoPartido: { type: Schema.Types.ObjectId, ref: 'EquipoPartido' },

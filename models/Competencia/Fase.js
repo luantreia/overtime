@@ -8,6 +8,7 @@ const FaseSchema = new mongoose.Schema({
   tipo: { 
     type: String, 
     enum: ['grupo', 'liga', 'playoff', 'promocion', 'otro'], 
+    default: 'otro',
     required: true 
   },
   orden: { type: Number, required: true, default: 0 },
