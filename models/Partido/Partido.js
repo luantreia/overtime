@@ -39,7 +39,7 @@ const PartidoSchema = new Schema({
   marcadorLocal: { type: Number, default: 0 },
   marcadorVisitante: { type: Number, default: 0 },
 
-  marcadorModificadoManualmente: { type: Boolean, default: false }, // <-- nuevo campo
+  marcadorModificadoManualmente: { type: Boolean, default: true }, // <-- nuevo campo
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
