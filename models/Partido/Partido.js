@@ -176,10 +176,22 @@ PartidoSchema.pre('save', async function (next) {
   }
 });
 
-// En el modelo Partido
 PartidoSchema.post('save', async function () {
-  if (this.estado !== 'finalizado') return; // Solo si está terminado
+  if (this.estado !== 'finalizado') return;
 
+  // 1. Recalcular marcador si es necesario
+  await this.recalcularMarcador();
+
+  // 2. Actualizar tabla de posiciones
+  const actualizarParticipacionFase = require('../../utils/actualizarParticipacionFase').actualizarParticipacionFase;
+  if (this.participacionFaseLocal) {
+    await actualizarParticipacionFase(this.participacionFaseLocal.toString(), this.fase.toString());
+  }
+  if (this.participacionFaseVisitante) {
+    await actualizarParticipacionFase(this.participacionFaseVisitante.toString(), this.fase.toString());
+  }
+
+  // 3. Actualizar EquipoPartido
   const EquipoPartido = mongoose.model('EquipoPartido');
   const equipos = await EquipoPartido.find({ partido: this._id });
 
@@ -194,10 +206,10 @@ PartidoSchema.post('save', async function () {
     } else {
       ep.resultado = 'perdido';
     }
-
     await ep.save();
   }
 });
+
 
 PartidoSchema.set('toJSON', { virtuals: true });
 PartidoSchema.set('toObject', { virtuals: true });
