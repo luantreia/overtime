@@ -158,7 +158,7 @@ router.put(
   '/:id',
   verificarToken,
   cargarRolDesdeBD,
-  validarObjectId,
+  validarObjectId, // Middleware que valida req.params.id
   async (req, res) => {
     try {
       const partido = await Partido.findById(req.params.id);
@@ -166,25 +166,27 @@ router.put(
         return res.status(404).json({ message: 'Partido no encontrado' });
       }
 
-      const esCreador = partido.creadoPor?.toString() === req.user.uid;
-      const esAdminDelPartido = partido.administradores?.some(adminId => adminId.toString() === req.user.uid);
+      const uid = req.user.uid;
+      const esCreador = partido.creadoPor?.toString() === uid;
+      const esAdminDelPartido = partido.administradores?.some(adminId => adminId.toString() === uid);
       const esAdminGlobal = req.user.rol === 'admin';
 
       if (!esCreador && !esAdminDelPartido && !esAdminGlobal) {
         return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
       }
 
-      // Definir campos permitidos para actualizar
+      // Campos permitidos para editar
       const camposEditables = [
         'fecha', 'hora', 'ubicacion', 'estado',
         'fase', 'etapa', 'observaciones', 'datosExtras'
       ];
 
-      camposEditables.forEach(campo => {
-        if (req.body.hasOwnProperty(campo)) {
+      // Asignación segura de campos
+      for (const campo of camposEditables) {
+        if (Object.prototype.hasOwnProperty.call(req.body, campo)) {
           partido[campo] = req.body[campo];
         }
-      });
+      }
 
       await partido.save();
       res.json(partido);
