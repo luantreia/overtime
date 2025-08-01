@@ -153,12 +153,14 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   }
 });
 
+import mongoose from 'mongoose';
+
 // PUT /api/partidos/:id - Actualizar partido
 router.put(
   '/:id',
   verificarToken,
   cargarRolDesdeBD,
-  validarObjectId, // Middleware que valida req.params.id
+  validarObjectId,
   async (req, res) => {
     try {
       const partido = await Partido.findById(req.params.id);
@@ -175,28 +177,46 @@ router.put(
         return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
       }
 
-      // Campos permitidos para editar
       const camposEditables = [
-        'fecha', 'hora', 'ubicacion', 'estado',
-        'fase', 'etapa', 'observaciones', 'datosExtras'
+        'fecha',
+        'ubicacion',
+        'estado',
+        'fase',
+        'etapa',
+        'participacionFaseLocal',
+        'participacionFaseVisitante',
+        'marcadorModificadoManualmente',
+        'marcadorLocal',
+        'marcadorVisitante',
+        'grupo',
+        'division',
+        'nombrePartido',
       ];
 
-      // Asignación segura de campos
+      const objectIdCampos = ['fase', 'participacionFaseLocal', 'participacionFaseVisitante'];
+
       for (const campo of camposEditables) {
         if (Object.prototype.hasOwnProperty.call(req.body, campo)) {
-          partido[campo] = req.body[campo];
+          if (objectIdCampos.includes(campo)) {
+            if (req.body[campo] && !mongoose.Types.ObjectId.isValid(req.body[campo])) {
+              return res.status(400).json({ message: `ID inválido para campo ${campo}` });
+            }
+            partido[campo] = req.body[campo] || null;
+          } else {
+            partido[campo] = req.body[campo];
+          }
         }
       }
 
       await partido.save();
       res.json(partido);
-
     } catch (err) {
       console.error('[ERROR][PUT /partidos/:id]', err);
       res.status(500).json({ message: 'Error interno al actualizar el partido', error: err.message });
     }
   }
 );
+
 
 // DELETE /api/partidos/:id - Eliminar partido
 router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
