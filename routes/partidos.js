@@ -158,7 +158,7 @@ router.put(
   '/:id',
   verificarToken,
   cargarRolDesdeBD,
-  validarObjectId('id'),
+  validarObjectId,
   async (req, res) => {
     try {
       const partido = await Partido.findById(req.params.id);
