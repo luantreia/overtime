@@ -16,6 +16,7 @@ import jugadorEquipoRoutes from './routes/Jugadores/jugadorEquipo.js';
 import jugadorCompetenciaRoutes from './routes/Jugadores/jugadorCompetencia.js';
 import jugadorTemporadaRoutes from './routes/Jugadores/jugadorTemporada.js';
 import jugadorFaseRoutes from './routes/Jugadores/jugadorFase.js';
+import jugadorPartidoRoutes from './routes/Jugadores/jugadorPartido.js';
 
 import partidosRoutes from './routes/partidos.js';
 import setPartidoRoutes from './routes/setPartido.js';
@@ -79,6 +80,7 @@ app.use('/api/jugador-equipo', jugadorEquipoRoutes);
 app.use('/api/jugador-competencia', jugadorCompetenciaRoutes);
 app.use('/api/jugador-temporada', jugadorTemporadaRoutes);
 app.use('/api/jugador-fase', jugadorFaseRoutes);
+app.use('/api/jugador-partido', jugadorPartidoRoutes);
 
 app.use('/api/partidos', partidosRoutes);
 app.use('/api/set-partido', setPartidoRoutes);
