@@ -10,7 +10,7 @@ const estadisticasJugadorPartidoSchema = new Schema({
   outs: { type: Number, default: 0 },
   catches: { type: Number, default: 0 },
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
 export default model('EstadisticasJugadorPartido', estadisticasJugadorPartidoSchema);
