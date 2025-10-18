@@ -21,6 +21,8 @@ import jugadorPartidoRoutes from './routes/Jugadores/jugadorPartido.js';
 import partidosRoutes from './routes/partidos.js';
 import setPartidoRoutes from './routes/setPartido.js';
 import estadisticasRoutes from './routes/estadisticas.js';
+import estadisticasJugadorPartidoRoutes from './routes/Jugadores/estadisticasJugadorPartido.js';
+import estadisticasJugadorSetRoutes from './routes/Jugadores/estadisticasJugadorSet.js';
 
 import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/Competencias/competencias.js';
@@ -85,6 +87,8 @@ app.use('/api/jugador-partido', jugadorPartidoRoutes);
 app.use('/api/partidos', partidosRoutes);
 app.use('/api/set-partido', setPartidoRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
+app.use('/api/estadisticas/jugador-partido', estadisticasJugadorPartidoRoutes);
+app.use('/api/estadisticas/jugador-set', estadisticasJugadorSetRoutes);
 
 app.use('/api/organizaciones', organizacionesRoutes);
 app.use('/api/competencias', competenciasRoutes);
