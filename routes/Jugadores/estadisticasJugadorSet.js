@@ -6,6 +6,36 @@ import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.
 
 const router = express.Router();
 
+// GET /api/estadisticas/jugador-set
+router.get(
+  '/',
+  verificarToken,
+  cargarRolDesdeBD,
+  async (req, res) => {
+    try {
+      const { set, jugadorPartido, jugador, equipo } = req.query;
+      
+      // Construir filtro dinámico
+      const filtro = {};
+      if (set) filtro.set = set;
+      if (jugadorPartido) filtro.jugadorPartido = jugadorPartido;
+      if (jugador) filtro.jugador = jugador;
+      if (equipo) filtro.equipo = equipo;
+
+      const estadisticas = await EstadisticasJugadorSet.find(filtro)
+        .populate('jugador', 'nombre apellido')
+        .populate('equipo', 'nombre')
+        .populate('jugadorPartido')
+        .populate('set', 'numeroSet')
+        .sort({ createdAt: 1 });
+
+      res.json(estadisticas);
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Error al obtener estadísticas' });
+    }
+  }
+);
+
 // POST /api/estadisticas/jugador-set
 router.post(
   '/',
