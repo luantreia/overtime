@@ -43,6 +43,27 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     });
 
     const guardado = await nuevo.save();
+
+    // Crear automáticamente estadísticas iniciales para este jugador en el partido
+    try {
+      const { default: EstadisticasJugadorPartido } = await import('../../models/Jugador/EstadisticasJugadorPartido.js');
+
+      const estadisticasIniciales = new EstadisticasJugadorPartido({
+        jugadorPartido: guardado._id,
+        throws: 0,
+        hits: 0,
+        outs: 0,
+        catches: 0,
+        creadoPor: req.user.uid,
+      });
+
+      await estadisticasIniciales.save();
+      console.log('✅ EstadisticasJugadorPartido iniciales creadas para jugador:', guardado._id);
+    } catch (statsError) {
+      console.error('⚠️ Error creando estadísticas iniciales:', statsError);
+      // No fallar la petición principal
+    }
+
     res.status(201).json(guardado);
   } catch (err) {
     console.error('Error en POST jugador-partido:', err);
@@ -69,6 +90,16 @@ router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (
   try {
     const item = await JugadorPartido.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'No encontrado' });
+
+    // Eliminar también las estadísticas asociadas
+    try {
+      const { default: EstadisticasJugadorPartido } = await import('../../models/Jugador/EstadisticasJugadorPartido.js');
+      await EstadisticasJugadorPartido.deleteMany({ jugadorPartido: req.params.id });
+      console.log('✅ EstadisticasJugadorPartido eliminadas para jugador:', req.params.id);
+    } catch (statsError) {
+      console.error('⚠️ Error eliminando estadísticas:', statsError);
+      // No fallar la petición principal
+    }
 
     await item.deleteOne();
     res.json({ mensaje: 'Eliminado' });

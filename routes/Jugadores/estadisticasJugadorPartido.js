@@ -191,5 +191,28 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   }
 });
 
+// POST /api/estadisticas/jugador-partido/poblar-iniciales (solo para admin)
+router.post('/poblar-iniciales', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    // Solo administradores pueden ejecutar esta migración
+    if (!req.user.roles || !req.user.roles.includes('admin')) {
+      return res.status(403).json({ error: 'Solo administradores pueden ejecutar esta migración' });
+    }
+
+    const { poblarEstadisticasIniciales } = await import('../../utils/estadisticasAggregator.js');
+    
+    console.log('🚀 Iniciando migración de estadísticas iniciales...');
+    await poblarEstadisticasIniciales();
+    
+    res.json({ 
+      mensaje: 'Migración de estadísticas iniciales completada',
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('Error en migración:', error);
+    res.status(500).json({ error: 'Error en migración de estadísticas iniciales' });
+  }
+});
+
 export default router;
 

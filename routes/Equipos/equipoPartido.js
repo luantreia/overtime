@@ -50,8 +50,32 @@ router.post('/', verificarToken, async (req, res) => {
       creadoPor: req.usuarioId,
     });
 
-    await nuevo.save();
-    res.status(201).json(nuevo);
+    const guardado = await nuevo.save();
+
+    // Crear automáticamente estadísticas iniciales para este equipo en el partido
+    try {
+      const { default: EstadisticasEquipoPartido } = await import('../../models/Equipo/EstadisticasEquipoPartido.js');
+
+      const estadisticasIniciales = new EstadisticasEquipoPartido({
+        partido: req.body.partido,
+        equipo: req.body.equipo,
+        throws: 0,
+        hits: 0,
+        outs: 0,
+        catches: 0,
+        efectividad: 0,
+        jugadores: 0,
+        creadoPor: req.usuarioId,
+      });
+
+      await estadisticasIniciales.save();
+      console.log('✅ EstadisticasEquipoPartido iniciales creadas para equipo:', req.body.equipo);
+    } catch (statsError) {
+      console.error('⚠️ Error creando estadísticas iniciales de equipo:', statsError);
+      // No fallar la petición principal
+    }
+
+    res.status(201).json(guardado);
   } catch (err) {
     if (err.code === 11000) {
       res.status(400).json({ message: 'Ya existe un vínculo para ese partido y equipo' });
@@ -80,8 +104,23 @@ router.put('/:id', verificarToken, validarObjectId, async (req, res) => {
 // ✅ DELETE - Eliminar uno
 router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
-    const eliminado = await EquipoPartido.findByIdAndDelete(req.params.id);
-    if (!eliminado) return res.status(404).json({ message: 'No encontrado' });
+    const equipoPartido = await EquipoPartido.findById(req.params.id);
+    if (!equipoPartido) return res.status(404).json({ message: 'No encontrado' });
+
+    // Eliminar también las estadísticas asociadas
+    try {
+      const { default: EstadisticasEquipoPartido } = await import('../../models/Equipo/EstadisticasEquipoPartido.js');
+      await EstadisticasEquipoPartido.deleteMany({
+        partido: equipoPartido.partido,
+        equipo: equipoPartido.equipo
+      });
+      console.log('✅ EstadisticasEquipoPartido eliminadas para equipo:', equipoPartido.equipo);
+    } catch (statsError) {
+      console.error('⚠️ Error eliminando estadísticas de equipo:', statsError);
+      // No fallar la petición principal
+    }
+
+    await EquipoPartido.findByIdAndDelete(req.params.id);
     res.json({ message: 'Eliminado correctamente' });
   } catch (err) {
     res.status(500).json({ message: err.message });

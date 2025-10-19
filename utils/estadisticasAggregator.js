@@ -118,54 +118,84 @@ export async function actualizarEstadisticasEquipoPartido(partidoId, equipoId, c
 }
 
 /**
- * Recalcula todas las estadísticas agregadas para un set específico
- * Útil cuando se actualizan estadísticas de un set
+ * Crea estadísticas iniciales para partidos existentes que no tienen estadísticas
+ * Útil para migrar datos existentes
  */
-export async function recalcularEstadisticasDeSet(setId) {
+export async function poblarEstadisticasIniciales() {
   try {
-    console.log('🔄 Recalculando estadísticas agregadas para set:', setId);
-    
-    // Obtener todas las estadísticas del set
-    const estadisticasSet = await EstadisticasJugadorSet.find({ set: setId })
-      .populate('jugadorPartido');
-    
-    if (estadisticasSet.length === 0) {
-      console.log('⚠️ No hay estadísticas para este set');
-      return;
-    }
-    
-    // Obtener jugadorPartidoIds y equipos únicos
-    const jugadoresPartidoSet = new Set();
-    const equiposPartidoMap = new Map(); // equipoId -> partidoId
-    
-    for (const stat of estadisticasSet) {
-      jugadoresPartidoSet.add(stat.jugadorPartido._id.toString());
-      
-      const jugadorPartido = await JugadorPartido.findById(stat.jugadorPartido).populate('partido');
-      if (jugadorPartido) {
-        equiposPartidoMap.set(
-          stat.equipo.toString(),
-          jugadorPartido.partido._id.toString()
-        );
+    console.log('🔄 Poblando estadísticas iniciales...');
+
+    // 1. Obtener todos los JugadorPartido
+    const todosJugadoresPartido = await JugadorPartido.find({});
+    console.log(`📊 Total de JugadorPartido encontrados: ${todosJugadoresPartido.length}`);
+
+    // Obtener IDs de jugadores que ya tienen estadísticas
+    const jugadoresConStats = await EstadisticasJugadorPartido.distinct('jugadorPartido');
+    console.log(`📊 Jugadores que ya tienen estadísticas: ${jugadoresConStats.length}`);
+
+    // Filtrar jugadores sin estadísticas
+    const jugadoresSinStats = todosJugadoresPartido.filter(
+      jugador => !jugadoresConStats.some(id => id.equals(jugador._id))
+    );
+
+    console.log(`📊 Jugadores sin estadísticas: ${jugadoresSinStats.length}`);
+
+    // Crear estadísticas iniciales para jugadores sin stats
+    for (const jugador of jugadoresSinStats) {
+      try {
+        const estadisticasIniciales = new EstadisticasJugadorPartido({
+          jugadorPartido: jugador._id,
+          throws: 0,
+          hits: 0,
+          outs: 0,
+          catches: 0,
+          creadoPor: jugador.creadoPor || 'system',
+        });
+
+        await estadisticasIniciales.save();
+        console.log(`✅ Estadísticas iniciales creadas para jugador: ${jugador._id}`);
+      } catch (error) {
+        console.error(`❌ Error creando estadísticas para jugador ${jugador._id}:`, error);
       }
     }
-    
-    // Obtener el creadoPor del primer registro
-    const creadoPor = estadisticasSet[0].creadoPor;
-    
-    // Actualizar estadísticas de cada jugador
-    for (const jugadorPartidoId of jugadoresPartidoSet) {
-      await actualizarEstadisticasJugadorPartido(jugadorPartidoId, creadoPor);
+
+    // 2. Obtener todos los EquipoPartido
+    const todosEquiposPartido = await EquipoPartido.find({});
+    console.log(`📊 Total de EquipoPartido encontrados: ${todosEquiposPartido.length}`);
+
+    // Crear estadísticas iniciales para equipos (más simple)
+    for (const equipoPartido of todosEquiposPartido) {
+      try {
+        // Verificar si ya existe
+        const existe = await EstadisticasEquipoPartido.findOne({
+          partido: equipoPartido.partido,
+          equipo: equipoPartido.equipo
+        });
+
+        if (!existe) {
+          const estadisticasIniciales = new EstadisticasEquipoPartido({
+            partido: equipoPartido.partido,
+            equipo: equipoPartido.equipo,
+            throws: 0,
+            hits: 0,
+            outs: 0,
+            catches: 0,
+            efectividad: 0,
+            jugadores: 0,
+            creadoPor: equipoPartido.creadoPor || 'system',
+          });
+
+          await estadisticasIniciales.save();
+          console.log(`✅ Estadísticas iniciales creadas para equipo: ${equipoPartido.equipo} en partido: ${equipoPartido.partido}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error creando estadísticas para equipo ${equipoPartido.equipo}:`, error);
+      }
     }
-    
-    // Actualizar estadísticas de cada equipo
-    for (const [equipoId, partidoId] of equiposPartidoMap) {
-      await actualizarEstadisticasEquipoPartido(partidoId, equipoId, creadoPor);
-    }
-    
-    console.log('✅ Estadísticas agregadas recalculadas correctamente');
+
+    console.log('✅ Poblado de estadísticas iniciales completado');
   } catch (error) {
-    console.error('❌ Error recalculando estadísticas:', error);
+    console.error('❌ Error en poblado de estadísticas iniciales:', error);
     throw error;
   }
 }
