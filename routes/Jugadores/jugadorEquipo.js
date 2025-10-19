@@ -311,4 +311,27 @@ router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdmin
   }
 });
 
+// --- DIAGNOSTIC: Test middleware without making changes
+router.put('/diagnostic/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
+  try {
+    console.log('🔬 DIAGNOSTIC: Middleware passed successfully');
+    console.log('👤 User:', req.user.uid, 'Role:', req.user.rol);
+    console.log('📄 Relation:', req.relacion._id, 'Status:', req.relacion.estado);
+    console.log('🏟️ Team:', req.equipo.nombre, 'ID:', req.equipo._id);
+    console.log('👤 Player:', req.jugador.nombre, 'ID:', req.jugador._id);
+
+    res.json({
+      success: true,
+      message: 'Diagnostic completed - middleware working',
+      user: req.user.uid,
+      relation: req.relacion.estado,
+      team: req.equipo.nombre,
+      player: req.jugador.nombre
+    });
+  } catch (error) {
+    console.error('💥 ERROR in diagnostic:', error);
+    res.status(500).json({ error: 'Diagnostic failed', details: error.message });
+  }
+});
+
 export default router;
