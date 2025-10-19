@@ -148,10 +148,12 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
     const jugadoresStats = await EstadisticasJugadorPartido.find({
       jugadorPartido: { $in: jugadorPartidoIds }
     })
-    .populate('jugador', 'nombre apellido numero')
     .populate({
       path: 'jugadorPartido',
-      populate: { path: 'equipo', select: 'nombre escudo' }
+      populate: [
+        { path: 'jugador', select: 'nombre apellido numero' },
+        { path: 'equipo', select: 'nombre escudo' }
+      ]
     });
 
     // Calcular estadísticas por equipo desde EstadisticasEquipoPartido
