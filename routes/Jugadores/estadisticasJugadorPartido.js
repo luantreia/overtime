@@ -214,5 +214,49 @@ router.post('/poblar-iniciales', verificarToken, cargarRolDesdeBD, async (req, r
   }
 });
 
+// GET /api/estadisticas/jugador-partido/debug (para debugging)
+router.get('/debug', verificarToken, async (req, res) => {
+  try {
+    const { partido } = req.query;
+    
+    const debugData = {
+      partidoId: partido,
+      timestamp: new Date(),
+      estadisticasJugadorSet: [],
+      estadisticasJugadorPartido: [],
+      estadisticasEquipoPartido: [],
+      jugadorPartido: []
+    };
+
+    if (partido) {
+      // Estadísticas por set
+      debugData.estadisticasJugadorSet = await EstadisticasJugadorSet.find({
+        'jugadorPartido.partido': partido
+      }).populate('jugadorPartido', 'jugador equipo').lean();
+
+      // Estadísticas por jugador en partido
+      const jugadoresPartidoIds = debugData.estadisticasJugadorSet.map(s => s.jugadorPartido._id);
+      debugData.estadisticasJugadorPartido = await EstadisticasJugadorPartido.find({
+        jugadorPartido: { $in: jugadoresPartidoIds }
+      }).populate('jugadorPartido', 'jugador equipo').lean();
+
+      // Estadísticas por equipo
+      debugData.estadisticasEquipoPartido = await EstadisticasEquipoPartido.find({
+        partido: partido
+      }).populate('equipo', 'nombre').lean();
+
+      // Jugadores del partido
+      debugData.jugadorPartido = await JugadorPartido.find({
+        partido: partido
+      }).populate('jugador', 'nombre apellido').populate('equipo', 'nombre').lean();
+    }
+
+    res.json(debugData);
+  } catch (error) {
+    console.error('Error en debug:', error);
+    res.status(500).json({ error: 'Error en debug', details: error.message });
+  }
+});
+
 export default router;
 
