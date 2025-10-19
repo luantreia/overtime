@@ -21,7 +21,7 @@ router.get(
       // Si se solicita por partido, buscar a través de jugadorPartido
       if (partido) {
         // Necesitamos buscar los jugadorPartido que pertenezcan a este partido
-        const { default: JugadorPartido } = await import('../../models/Partido/JugadorPartido.js');
+        const { default: JugadorPartido } = await import('../../models/Jugador/JugadorPartido.js');
         const jugadoresDelPartido = await JugadorPartido.find({ partido }).select('_id');
         const idsJugadorPartido = jugadoresDelPartido.map(jp => jp._id);
         filtro.jugadorPartido = { $in: idsJugadorPartido };

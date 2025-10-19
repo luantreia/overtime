@@ -3,7 +3,7 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
-import JugadorPartido from '../../models/Partido/JugadorPartido.js';
+import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import { actualizarEstadisticasJugadorPartido, actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
 
 const router = express.Router();

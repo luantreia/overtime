@@ -1,7 +1,7 @@
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
-import JugadorPartido from '../models/Partido/JugadorPartido.js';
+import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 
 /**
  * Actualiza las estadísticas totales de un jugador en un partido
