@@ -133,5 +133,63 @@ router.delete(
   }
 );
 
+// En estadisticasJugadorPartido.js (backend)
+router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+    
+    // Obtener estadísticas de jugadores
+    const jugadoresStats = await EstadisticasJugadorPartido.find({
+      'jugadorPartido.partido': partidoId
+    })
+    .populate('jugador', 'nombre apellido numero')
+    .populate('equipo', 'nombre escudo');
+
+    // Calcular estadísticas por equipo
+    const equiposMap = new Map();
+
+    jugadoresStats.forEach(stat => {
+      const equipoId = stat.equipo._id.toString();
+      
+      if (!equiposMap.has(equipoId)) {
+        equiposMap.set(equipoId, {
+          _id: equipoId,
+          nombre: stat.equipo.nombre,
+          escudo: stat.equipo.escudo,
+          jugadores: 0,
+          throws: 0,
+          hits: 0,
+          outs: 0,
+          catches: 0,
+          efectividad: 0
+        });
+      }
+
+      const equipo = equiposMap.get(equipoId);
+      equipo.jugadores += 1;
+      equipo.throws += stat.throws || 0;
+      equipo.hits += stat.hits || 0;
+      equipo.outs += stat.outs || 0;
+      equipo.catches += stat.catches || 0;
+    });
+
+    // Calcular efectividad (ejemplo: hits/throws)
+    for (const equipo of equiposMap.values()) {
+      equipo.efectividad = equipo.throws > 0 
+        ? ((equipo.hits / equipo.throws) * 100).toFixed(1) 
+        : 0;
+    }
+
+    res.json({
+      jugadores: jugadoresStats,
+      equipos: Array.from(equiposMap.values())
+    });
+
+  } catch (error) {
+    console.error('Error en resumen de partido:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas del partido' });
+  }
+});
+
 export default router;
 
