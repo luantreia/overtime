@@ -23,11 +23,34 @@ router.get(
       if (equipo) filtro.equipo = equipo;
 
       const estadisticas = await EstadisticasJugadorSet.find(filtro)
-        .populate('jugador', 'nombre apellido')
-        .populate('equipo', 'nombre')
-        .populate('jugadorPartido')
-        .populate('set', 'numeroSet')
+        .populate({
+          path: 'jugador',
+          select: 'nombre apellido email'
+        })
+        .populate({
+          path: 'equipo',
+          select: 'nombre'
+        })
+        .populate({
+          path: 'jugadorPartido',
+          select: 'jugador equipo'
+        })
+        .populate({
+          path: 'set',
+          select: 'numeroSet'
+        })
+        .lean()
         .sort({ createdAt: 1 });
+
+      // Log para debug - ver qué se está devolviendo
+      if (estadisticas.length > 0) {
+        console.log('📊 Primera estadística devuelta:', {
+          _id: estadisticas[0]._id,
+          jugador: estadisticas[0].jugador,
+          tieneNombre: !!estadisticas[0].jugador?.nombre,
+          tieneApellido: !!estadisticas[0].jugador?.apellido
+        });
+      }
 
       res.json(estadisticas);
     } catch (err) {
