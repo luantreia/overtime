@@ -150,3 +150,5 @@ router.get('/estadisticas/:partidoId', verificarToken, async (req, res) => {
     res.status(500).json({ message: 'Error al obtener estadísticas de equipo', error: err.message });
   }
 });
+
+export default router;
