@@ -29,10 +29,14 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   if (!equipo || !jugador) return res.status(404).json({ message: 'Equipo o jugador no encontrados' });
 
   const esAdminEquipo =
-    equipo.creadoPor.toString() === usuarioId || equipo.administradores.includes(usuarioId) || rol === 'admin';
+    equipo.creadoPor?.toString() === usuarioId ||
+    equipo.administradores?.includes(usuarioId) ||
+    rol === 'admin';
 
   const esAdminJugador =
-    jugador.creadoPor.toString() === usuarioId || jugador.administradores.includes(usuarioId) || rol === 'admin';
+    jugador.creadoPor?.toString() === usuarioId ||
+    jugador.administradores?.includes(usuarioId) ||
+    rol === 'admin';
 
   const esSolicitante = relacion.solicitadoPor?.toString() === usuarioId;
 
@@ -49,7 +53,7 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
 // --- Utilidad: Determina si la solicitud fue hecha por el equipo
 function fueHechaPorEquipo(relacion, equipo) {
   const solicitante = relacion.solicitadoPor?.toString();
-  return equipo.creadoPor.toString() === solicitante || equipo.administradores.includes(solicitante);
+  return equipo.creadoPor?.toString() === solicitante || equipo.administradores?.includes(solicitante);
 }
 
 // --- GET /api/jugador-equipo?jugador=...&equipo=...
@@ -91,7 +95,9 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
     if (!equipoDB || !jugadorDB) return res.status(404).json({ message: 'Jugador o equipo no encontrados' });
 
     const esAdminEquipo =
-      equipoDB.creadoPor.toString() === usuarioId || equipoDB.administradores.includes(usuarioId) || req.user.rol === 'admin';
+      equipoDB.creadoPor?.toString() === usuarioId ||
+      equipoDB.administradores?.includes(usuarioId) ||
+      req.user.rol === 'admin';
 
     if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
 
@@ -133,7 +139,9 @@ router.post('/solicitar-jugador', verificarToken, cargarRolDesdeBD, async (req, 
     if (!jugadorDB || !equipoDB) return res.status(404).json({ message: 'Jugador o equipo no encontrados' });
 
     const esAdminJugador =
-      jugadorDB.creadoPor.toString() === usuarioId || jugadorDB.administradores.includes(usuarioId) || req.user.rol === 'admin';
+      jugadorDB.creadoPor?.toString() === usuarioId ||
+      jugadorDB.administradores?.includes(usuarioId) ||
+      req.user.rol === 'admin';
 
     if (!esAdminJugador) return res.status(403).json({ message: 'No autorizado' });
 
