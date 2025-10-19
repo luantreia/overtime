@@ -127,4 +127,26 @@ router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
   }
 });
 
-export default router;
+// ✅ GET - Obtener estadísticas de equipo por partido
+router.get('/estadisticas/:partidoId', verificarToken, async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+    
+    const estadisticas = await EstadisticasEquipoPartido.find({ partido: partidoId })
+      .populate('equipo', 'nombre escudo')
+      .populate('partido', 'nombrePartido fecha')
+      .lean();
+
+    // Formatear respuesta para incluir equipo en nivel superior
+    const estadisticasFormateadas = estadisticas.map(stat => ({
+      ...stat,
+      equipo: stat.equipo,
+      partido: stat.partido
+    }));
+
+    res.json(estadisticasFormateadas);
+  } catch (err) {
+    console.error('Error obteniendo estadísticas de equipo:', err);
+    res.status(500).json({ message: 'Error al obtener estadísticas de equipo', error: err.message });
+  }
+});
