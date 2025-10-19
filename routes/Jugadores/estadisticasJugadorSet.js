@@ -3,6 +3,8 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
+import JugadorPartido from '../../models/Partido/JugadorPartido.js';
+import { actualizarEstadisticasJugadorPartido, actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
 
 const router = express.Router();
 
@@ -84,6 +86,24 @@ router.post(
       });
 
       const guardado = await nuevo.save();
+      
+      // Actualizar estadísticas agregadas automáticamente
+      try {
+        // 1. Actualizar totales del jugador en el partido
+        await actualizarEstadisticasJugadorPartido(jugadorPartido, req.user.uid);
+        
+        // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
+        const jugPartido = await JugadorPartido.findById(jugadorPartido);
+        if (jugPartido) {
+          await actualizarEstadisticasEquipoPartido(jugPartido.partido, equipo, req.user.uid);
+        }
+        
+        console.log('✅ Estadísticas agregadas actualizadas automáticamente');
+      } catch (aggError) {
+        console.error('⚠️ Error actualizando estadísticas agregadas:', aggError);
+        // No falla la petición principal, solo log el error
+      }
+      
       res.status(201).json(guardado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al crear estadísticas de set' });
@@ -110,6 +130,24 @@ router.put(
       }
 
       const actualizado = await item.save();
+      
+      // Actualizar estadísticas agregadas automáticamente
+      try {
+        // 1. Actualizar totales del jugador en el partido
+        await actualizarEstadisticasJugadorPartido(item.jugadorPartido, req.user.uid);
+        
+        // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
+        const jugPartido = await JugadorPartido.findById(item.jugadorPartido);
+        if (jugPartido) {
+          await actualizarEstadisticasEquipoPartido(jugPartido.partido, item.equipo, req.user.uid);
+        }
+        
+        console.log('✅ Estadísticas agregadas actualizadas automáticamente');
+      } catch (aggError) {
+        console.error('⚠️ Error actualizando estadísticas agregadas:', aggError);
+        // No falla la petición principal, solo log el error
+      }
+      
       res.json(actualizado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al actualizar' });
@@ -128,7 +166,29 @@ router.delete(
       const item = await EstadisticasJugadorSet.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'No encontrado' });
 
+      // Guardar referencias antes de eliminar
+      const jugadorPartidoId = item.jugadorPartido;
+      const equipoId = item.equipo;
+
       await item.deleteOne();
+      
+      // Actualizar estadísticas agregadas automáticamente
+      try {
+        // 1. Actualizar totales del jugador en el partido
+        await actualizarEstadisticasJugadorPartido(jugadorPartidoId, req.user.uid);
+        
+        // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
+        const jugPartido = await JugadorPartido.findById(jugadorPartidoId);
+        if (jugPartido) {
+          await actualizarEstadisticasEquipoPartido(jugPartido.partido, equipoId, req.user.uid);
+        }
+        
+        console.log('✅ Estadísticas agregadas recalculadas después de eliminar');
+      } catch (aggError) {
+        console.error('⚠️ Error actualizando estadísticas agregadas:', aggError);
+        // No falla la petición principal, solo log el error
+      }
+      
       res.json({ mensaje: 'Eliminado' });
     } catch (err) {
       res.status(500).json({ error: 'Error al eliminar' });
