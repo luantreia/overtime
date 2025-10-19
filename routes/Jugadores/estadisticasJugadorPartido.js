@@ -3,6 +3,8 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import EstadisticasJugadorPartido from '../../models/Jugador/EstadisticasJugadorPartido.js';
+import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
+import EstadisticasEquipoPartido from '../../models/Equipo/EstadisticasEquipoPartido.js';
 
 const router = express.Router();
 
@@ -138,51 +140,40 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;
     
-    // Obtener estadísticas de jugadores
+    // Primero obtener los JugadorPartido de este partido
+    const jugadoresDelPartido = await JugadorPartido.find({ partido: partidoId }).select('_id');
+    const jugadorPartidoIds = jugadoresDelPartido.map(jp => jp._id);
+    
+    // Obtener estadísticas de jugadores del partido
     const jugadoresStats = await EstadisticasJugadorPartido.find({
-      'jugadorPartido.partido': partidoId
+      jugadorPartido: { $in: jugadorPartidoIds }
     })
     .populate('jugador', 'nombre apellido numero')
-    .populate('equipo', 'nombre escudo');
-
-    // Calcular estadísticas por equipo
-    const equiposMap = new Map();
-
-    jugadoresStats.forEach(stat => {
-      const equipoId = stat.equipo._id.toString();
-      
-      if (!equiposMap.has(equipoId)) {
-        equiposMap.set(equipoId, {
-          _id: equipoId,
-          nombre: stat.equipo.nombre,
-          escudo: stat.equipo.escudo,
-          jugadores: 0,
-          throws: 0,
-          hits: 0,
-          outs: 0,
-          catches: 0,
-          efectividad: 0
-        });
-      }
-
-      const equipo = equiposMap.get(equipoId);
-      equipo.jugadores += 1;
-      equipo.throws += stat.throws || 0;
-      equipo.hits += stat.hits || 0;
-      equipo.outs += stat.outs || 0;
-      equipo.catches += stat.catches || 0;
+    .populate({
+      path: 'jugadorPartido',
+      populate: { path: 'equipo', select: 'nombre escudo' }
     });
 
-    // Calcular efectividad (ejemplo: hits/throws)
-    for (const equipo of equiposMap.values()) {
-      equipo.efectividad = equipo.throws > 0 
-        ? ((equipo.hits / equipo.throws) * 100).toFixed(1) 
-        : 0;
-    }
+    // Calcular estadísticas por equipo desde EstadisticasEquipoPartido
+    const equiposStats = await EstadisticasEquipoPartido.find({ partido: partidoId })
+      .populate('equipo', 'nombre escudo');
+
+    // Formatear respuesta
+    const equiposFormateados = equiposStats.map(equipo => ({
+      _id: equipo.equipo._id,
+      nombre: equipo.equipo.nombre,
+      escudo: equipo.equipo.escudo,
+      throws: equipo.throws || 0,
+      hits: equipo.hits || 0,
+      outs: equipo.outs || 0,
+      catches: equipo.catches || 0,
+      efectividad: equipo.throws > 0 ? ((equipo.hits / equipo.throws) * 100).toFixed(1) : 0,
+      jugadores: equipo.jugadores || 0
+    }));
 
     res.json({
       jugadores: jugadoresStats,
-      equipos: Array.from(equiposMap.values())
+      equipos: equiposFormateados
     });
 
   } catch (error) {
@@ -229,26 +220,26 @@ router.get('/debug', verificarToken, async (req, res) => {
     };
 
     if (partido) {
+      // Jugadores del partido
+      debugData.jugadorPartido = await JugadorPartido.find({
+        partido: partido
+      }).populate('jugador', 'nombre apellido').populate('equipo', 'nombre').lean();
+
       // Estadísticas por set
       debugData.estadisticasJugadorSet = await EstadisticasJugadorSet.find({
         'jugadorPartido.partido': partido
       }).populate('jugadorPartido', 'jugador equipo').lean();
 
       // Estadísticas por jugador en partido
-      const jugadoresPartidoIds = debugData.estadisticasJugadorSet.map(s => s.jugadorPartido._id);
+      const jugadorPartidoIds = debugData.jugadorPartido.map(jp => jp._id);
       debugData.estadisticasJugadorPartido = await EstadisticasJugadorPartido.find({
-        jugadorPartido: { $in: jugadoresPartidoIds }
+        jugadorPartido: { $in: jugadorPartidoIds }
       }).populate('jugadorPartido', 'jugador equipo').lean();
 
       // Estadísticas por equipo
       debugData.estadisticasEquipoPartido = await EstadisticasEquipoPartido.find({
         partido: partido
       }).populate('equipo', 'nombre').lean();
-
-      // Jugadores del partido
-      debugData.jugadorPartido = await JugadorPartido.find({
-        partido: partido
-      }).populate('jugador', 'nombre apellido').populate('equipo', 'nombre').lean();
     }
 
     res.json(debugData);
