@@ -225,23 +225,15 @@ router.get('/:id', validarObjectId, verificarToken, async (req, res) => {
 
 router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
-    console.log('🔍 PUT /jugador-equipo/:id - Inicio del request');
-    console.log('📋 Body recibido:', JSON.stringify(req.body, null, 2));
-
-    const { estado, motivoRechazo, numero, rol: nuevoRol, foto, desde, hasta } = req.body;
+    const { estado, motivoRechazo, rol: nuevoRol, foto, desde, hasta } = req.body;
     const relacion = req.relacion;
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
 
-    console.log('👤 Usuario:', usuarioId, 'Rol:', rol);
-    console.log('📄 Relación actual:', JSON.stringify(relacion, null, 2));
-
     const estadoPrevio = relacion.estado;
-    console.log('📊 Estado previo:', estadoPrevio);
 
-    const validos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'finalizado'];
+    const validos = ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'baja'];
     if (estado && !validos.includes(estado)) {
-      console.log('❌ Estado inválido:', estado);
       return res.status(400).json({ message: 'Estado inválido' });
     }
 
@@ -249,19 +241,13 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
     const esAdminEquipo = req.equipo?.creadoPor?.toString() === usuarioId || req.equipo?.administradores?.includes(usuarioId) || rol === 'admin';
     const esAdminJugador = req.jugador?.creadoPor?.toString() === usuarioId || req.jugador?.administradores?.includes(usuarioId) || rol === 'admin';
 
-    console.log('🔐 Verificaciones de permisos - fueEquipo:', fueEquipo, 'esAdminEquipo:', esAdminEquipo, 'esAdminJugador:', esAdminJugador);
-
     // --- Cambios de estado si está pendiente
     if (estadoPrevio === 'pendiente') {
-      console.log('📝 Procesando cambio de estado desde pendiente');
       if (estado === 'aceptado') {
-        console.log('✅ Intentando aceptar solicitud');
         if ((fueEquipo && !esAdminJugador) || (!fueEquipo && !esAdminEquipo)) {
-          console.log('❌ No autorizado para aceptar solicitud');
           return res.status(403).json({ message: 'No autorizado para aceptar solicitud' });
         }
 
-        console.log('🔍 Verificando contratos activos existentes');
         const yaActivo = await JugadorEquipo.findOne({
           jugador: relacion.jugador,
           equipo: relacion.equipo,
@@ -269,53 +255,39 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
           _id: { $ne: relacion._id },
         });
 
-        if (yaActivo) {
-          console.log('⚠️ Ya hay un contrato activo');
-          return res.status(400).json({ message: 'Ya hay un contrato activo entre jugador y equipo' });
-        }
+        if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre jugador y equipo' });
 
-        console.log('💾 Aceptando solicitud y guardando');
         relacion.estado = 'aceptado';
         relacion.activo = true;
         relacion.fechaAceptacion = new Date();
         await relacion.save();
-        console.log('✅ Solicitud aceptada exitosamente');
         return res.status(200).json(relacion);
       }
 
       if (['rechazado', 'cancelado'].includes(estado)) {
-        console.log('❌ Rechazando o cancelando solicitud');
         if (motivoRechazo) relacion.motivoRechazo = motivoRechazo;
         await relacion.save();
         await JugadorEquipo.findByIdAndDelete(relacion._id);
-        console.log('🗑️ Solicitud eliminada');
         return res.status(200).json({ message: 'Solicitud eliminada por rechazo o cancelación' });
       }
     }
 
     // --- Edición de contrato aceptado o finalizado
-    if (['aceptado', 'finalizado'].includes(estadoPrevio)) {
-      console.log('✏️ Procesando edición de contrato');
+    if (['aceptado', 'baja'].includes(estadoPrevio)) {
       if (!esAdminEquipo && !esAdminJugador) {
-        console.log('❌ No autorizado para editar contrato');
         return res.status(403).json({ message: 'No autorizado para editar contrato' });
       }
 
-      console.log('📝 Aplicando cambios:', { numero, nuevoRol, foto, desde, hasta });
-      if (numero !== undefined) relacion.numero = numero;
       if (nuevoRol !== undefined) relacion.rol = nuevoRol;
       if (foto !== undefined) relacion.foto = foto;
       if (desde !== undefined) relacion.desde = desde;
       if (hasta !== undefined) relacion.hasta = hasta;
 
-      console.log('💾 Guardando cambios en contrato');
       await relacion.save();
-      console.log('✅ Contrato actualizado exitosamente');
       return res.status(200).json(relacion);
     }
 
     // --- Otros estados no editables
-    console.log('❓ Estado no editable:', estadoPrevio);
     return res.status(400).json({ message: 'No se puede editar esta relación en su estado actual' });
 
   } catch (error) {
