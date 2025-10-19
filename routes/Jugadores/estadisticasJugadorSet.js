@@ -46,12 +46,14 @@ router.get(
 
       // Log para debug - ver qué se está devolviendo
       if (estadisticas.length > 0) {
-        console.log('📊 Primera estadística devuelta:', {
-          _id: estadisticas[0]._id,
-          jugador: estadisticas[0].jugador,
-          tieneNombre: !!estadisticas[0].jugador?.nombre,
-          tieneApellido: !!estadisticas[0].jugador?.apellido
-        });
+        console.log('📊 Primera estadística devuelta:');
+        console.log('  - _id:', estadisticas[0]._id);
+        console.log('  - jugador completo:', JSON.stringify(estadisticas[0].jugador, null, 2));
+        console.log('  - tieneNombre:', !!estadisticas[0].jugador?.nombre);
+        console.log('  - tieneApellido:', !!estadisticas[0].jugador?.apellido);
+        console.log('  - Total estadísticas devueltas:', estadisticas.length);
+      } else {
+        console.log('⚠️ No se encontraron estadísticas para los filtros:', filtro);
       }
 
       res.json(estadisticas);
