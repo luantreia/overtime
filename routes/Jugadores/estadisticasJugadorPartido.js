@@ -68,7 +68,7 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { jugadorPartido, throws, hits, outs, catches } = req.body;
+      const { jugadorPartido, throws, hits, outs, catches, tipoCaptura, fuente } = req.body;
       if (!jugadorPartido) {
         return res.status(400).json({ error: 'jugadorPartido es obligatorio' });
       }
@@ -79,6 +79,9 @@ router.post(
         hits,
         outs,
         catches,
+        tipoCaptura: tipoCaptura || 'automatica',
+        fuente: fuente || 'sistema',
+        ultimaActualizacion: new Date(),
         creadoPor: req.user.uid,
       });
 
@@ -101,12 +104,14 @@ router.put(
       const item = await EstadisticasJugadorPartido.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'No encontrado' });
 
-      const campos = ['throws', 'hits', 'outs', 'catches'];
+      const campos = ['throws', 'hits', 'outs', 'catches', 'tipoCaptura', 'fuente'];
       for (const c of campos) {
         if (Object.prototype.hasOwnProperty.call(req.body, c)) {
           item[c] = req.body[c];
         }
       }
+
+      item.ultimaActualizacion = new Date();
 
       const actualizado = await item.save();
       res.json(actualizado);

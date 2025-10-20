@@ -16,6 +16,10 @@ router.get('/', async (req, res) => {
 
     const items = await JugadorPartido.find(filtro)
       .populate({
+        path: 'jugador',
+        select: 'nombre numero alias foto',
+      })
+      .populate({
         path: 'jugadorTemporada',
         populate: {
           path: 'jugadorEquipo',
@@ -24,6 +28,10 @@ router.get('/', async (req, res) => {
             select: 'nombre alias foto',
           },
         },
+      })
+      .populate({
+        path: 'equipo',
+        select: 'nombre escudo tipo',
       })
       .lean();
 

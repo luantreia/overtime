@@ -85,7 +85,7 @@ router.post(
       // Actualizar estadísticas agregadas automáticamente
       try {
         // 1. Actualizar totales del jugador en el partido
-        await actualizarEstadisticasJugadorPartido(jugadorPartido, req.user.uid);
+        await actualizarEstadisticasJugadorPartido(jugadorPartido, req.user.uid, false);
         
         // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
         const jugPartido = await JugadorPartido.findById(jugadorPartido);
@@ -129,7 +129,7 @@ router.put(
       // Actualizar estadísticas agregadas automáticamente
       try {
         // 1. Actualizar totales del jugador en el partido
-        await actualizarEstadisticasJugadorPartido(item.jugadorPartido, req.user.uid);
+        await actualizarEstadisticasJugadorPartido(item.jugadorPartido, req.user.uid, false);
         
         // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
         const jugPartido = await JugadorPartido.findById(item.jugadorPartido);
@@ -170,7 +170,7 @@ router.delete(
       // Actualizar estadísticas agregadas automáticamente
       try {
         // 1. Actualizar totales del jugador en el partido
-        await actualizarEstadisticasJugadorPartido(jugadorPartidoId, req.user.uid);
+        await actualizarEstadisticasJugadorPartido(jugadorPartidoId, req.user.uid, false);
         
         // 2. Obtener el partido del jugador para actualizar estadísticas del equipo
         const jugPartido = await JugadorPartido.findById(jugadorPartidoId);
