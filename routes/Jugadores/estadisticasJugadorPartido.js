@@ -281,3 +281,5 @@ router.put('/convertir-a-automaticas/:partidoId', validarObjectId, verificarToke
   }
 });
 
+
+export default router;
