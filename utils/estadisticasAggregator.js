@@ -225,3 +225,72 @@ export async function poblarEstadisticasIniciales() {
     throw error;
   }
 }
+
+/**
+ * Convierte estadísticas manuales a automáticas para todos los jugadores de un partido
+ * Útil cuando se quiere sobreescribir estadísticas manuales con datos calculados de sets
+ */
+export async function convertirEstadisticasManualesAAutomaticas(partidoId, creadoPor) {
+  try {
+    console.log('🔄 Convirtiendo estadísticas manuales a automáticas para partido:', partidoId);
+
+    // Obtener todas las estadísticas manuales del partido
+    const estadisticasManuales = await EstadisticasJugadorPartido.find({
+      'jugadorPartido.partido': partidoId,
+      tipoCaptura: 'manual'
+    }).populate('jugadorPartido');
+
+    if (estadisticasManuales.length === 0) {
+      console.log('ℹ️ No hay estadísticas manuales para convertir en este partido');
+      return { convertidas: 0, mensaje: 'No hay estadísticas manuales para convertir' };
+    }
+
+    console.log(`📊 Encontradas ${estadisticasManuales.length} estadísticas manuales para convertir`);
+
+    let convertidas = 0;
+
+    for (const estadistica of estadisticasManuales) {
+      try {
+        // Intentar actualizar con datos de sets (esto debería calcular los totales automáticamente)
+        const resultado = await actualizarEstadisticasJugadorPartido(
+          estadistica.jugadorPartido._id || estadistica.jugadorPartido,
+          creadoPor,
+          true // Forzar actualización para sobreescribir las manuales
+        );
+
+        if (resultado) {
+          convertidas++;
+          console.log(`✅ Convertida estadística manual para jugador: ${estadistica.jugadorPartido._id}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error convirtiendo estadística para jugador ${estadistica.jugadorPartido._id}:`, error);
+      }
+    }
+
+    // Después de convertir todas las estadísticas de jugadores, actualizar estadísticas de equipos
+    try {
+      // Obtener los equipos del partido
+      const Partido = (await import('../models/Partido.js')).default;
+      const partido = await Partido.findById(partidoId);
+      if (partido) {
+        await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoLocal._id, creadoPor);
+        await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoVisitante._id, creadoPor);
+        console.log('✅ Estadísticas de equipos actualizadas después de conversión');
+      }
+    } catch (error) {
+      console.error('❌ Error actualizando estadísticas de equipos:', error);
+    }
+
+    console.log(`✅ Conversión completada: ${convertidas} de ${estadisticasManuales.length} estadísticas convertidas`);
+
+    return {
+      convertidas,
+      total: estadisticasManuales.length,
+      mensaje: `Se convirtieron ${convertidas} de ${estadisticasManuales.length} estadísticas manuales a automáticas`
+    };
+
+  } catch (error) {
+    console.error('❌ Error convirtiendo estadísticas manuales a automáticas:', error);
+    throw error;
+  }
+}

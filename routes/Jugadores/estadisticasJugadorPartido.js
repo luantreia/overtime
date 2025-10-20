@@ -256,5 +256,28 @@ router.get('/debug', verificarToken, async (req, res) => {
   }
 });
 
-export default router;
+// PUT /api/estadisticas/jugador-partido/convertir-a-automaticas/:partidoId
+// Convierte todas las estadísticas manuales de un partido a automáticas
+router.put('/convertir-a-automaticas/:partidoId', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+    const { convertirEstadisticasManualesAAutomaticas } = await import('../../utils/estadisticasAggregator.js');
+
+    console.log('🔄 Solicitud de conversión de estadísticas manuales a automáticas para partido:', partidoId);
+
+    const resultado = await convertirEstadisticasManualesAAutomaticas(partidoId, req.user.uid);
+
+    res.json({
+      mensaje: 'Conversión completada',
+      ...resultado
+    });
+
+  } catch (error) {
+    console.error('❌ Error en conversión de estadísticas:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      detalle: error.message
+    });
+  }
+});
 
