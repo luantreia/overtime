@@ -10,6 +10,15 @@ const estadisticasJugadorPartidoSchema = new Schema({
   outs: { type: Number, default: 0 },
   catches: { type: Number, default: 0 },
 
+  // Nuevo: Control de tipo de captura
+  tipoCaptura: {
+    type: String,
+    enum: ['manual', 'automatica', 'mixta'],
+    default: 'automatica'
+  },
+  fuente: { type: String, default: 'sistema' }, // 'captura-directa', 'calculo-sets', etc.
+  ultimaActualizacion: { type: Date, default: Date.now },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 

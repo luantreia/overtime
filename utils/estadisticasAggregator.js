@@ -7,21 +7,34 @@ import EquipoPartido from '../models/Equipo/EquipoPartido.js';
 /**
  * Actualiza las estadísticas totales de un jugador en un partido
  * sumando todas sus EstadisticasJugadorSet
+ * @param {string} jugadorPartidoId - ID del JugadorPartido
+ * @param {string} creadoPor - Usuario que realiza la acción
+ * @param {boolean} forzarActualizacion - Si true, sobrescribe incluso estadísticas manuales
  */
-export async function actualizarEstadisticasJugadorPartido(jugadorPartidoId, creadoPor) {
+export async function actualizarEstadisticasJugadorPartido(jugadorPartidoId, creadoPor, forzarActualizacion = false) {
   try {
     console.log('🔄 Actualizando estadísticas totales para jugadorPartido:', jugadorPartidoId);
-    
+
+    // Verificar si ya existen estadísticas manuales
+    const estadisticasExistentes = await EstadisticasJugadorPartido.findOne({
+      jugadorPartido: jugadorPartidoId
+    });
+
+    if (estadisticasExistentes && estadisticasExistentes.tipoCaptura === 'manual' && !forzarActualizacion) {
+      console.log('⏭️ Estadísticas manuales detectadas - no se sobrescriben automáticamente');
+      return estadisticasExistentes;
+    }
+
     // Obtener todas las estadísticas por set de este jugador
     const estadisticasPorSet = await EstadisticasJugadorSet.find({
       jugadorPartido: jugadorPartidoId
     });
-    
+
     if (estadisticasPorSet.length === 0) {
       console.log('⚠️ No hay estadísticas por set para este jugador');
       return null;
     }
-    
+
     // Sumar todas las estadísticas
     const totales = estadisticasPorSet.reduce((acc, stat) => ({
       throws: acc.throws + (stat.throws || 0),
@@ -29,9 +42,18 @@ export async function actualizarEstadisticasJugadorPartido(jugadorPartidoId, cre
       outs: acc.outs + (stat.outs || 0),
       catches: acc.catches + (stat.catches || 0)
     }), { throws: 0, hits: 0, outs: 0, catches: 0 });
-    
+
     console.log('📊 Totales calculados:', totales);
-    
+
+    // Determinar el tipo de captura
+    let tipoCaptura = 'automatica';
+    let fuente = 'calculo-sets';
+
+    if (estadisticasExistentes && estadisticasExistentes.tipoCaptura === 'manual' && forzarActualizacion) {
+      tipoCaptura = 'mixta'; // Era manual pero ahora se mezcló con sets
+      fuente = 'calculo-sets-sobre-manual';
+    }
+
     // Actualizar o crear EstadisticasJugadorPartido
     const estadisticasPartido = await EstadisticasJugadorPartido.findOneAndUpdate(
       { jugadorPartido: jugadorPartidoId },
@@ -40,13 +62,16 @@ export async function actualizarEstadisticasJugadorPartido(jugadorPartidoId, cre
         hits: totales.hits,
         outs: totales.outs,
         catches: totales.catches,
+        tipoCaptura,
+        fuente,
+        ultimaActualizacion: new Date(),
         creadoPor
       },
       { upsert: true, new: true }
     );
-    
+
     console.log('✅ EstadisticasJugadorPartido actualizado:', estadisticasPartido._id);
-    
+
     return estadisticasPartido;
   } catch (error) {
     console.error('❌ Error actualizando estadísticas de jugador partido:', error);
