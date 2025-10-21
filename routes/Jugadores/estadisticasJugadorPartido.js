@@ -274,6 +274,16 @@ router.put('/convertir-a-automaticas/:partidoId', validarObjectId, verificarToke
 
   } catch (error) {
     console.error('❌ Error en conversión de estadísticas:', error);
+
+    // Si es un error de validación (partido no existe, no tiene sets), devolver 400
+    if (error.message.includes('no encontrado') || error.message.includes('no tiene sets')) {
+      return res.status(400).json({
+        error: error.message,
+        tipo: 'validacion'
+      });
+    }
+
+    // Para otros errores, devolver 500
     res.status(500).json({
       error: 'Error interno del servidor',
       detalle: error.message

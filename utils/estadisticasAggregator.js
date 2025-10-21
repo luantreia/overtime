@@ -234,9 +234,28 @@ export async function convertirEstadisticasManualesAAutomaticas(partidoId, cread
   try {
     console.log('🔄 Convirtiendo estadísticas manuales a automáticas para partido:', partidoId);
 
+    // Verificar que el partido existe
+    const Partido = (await import('../models/Partido.js')).default;
+    const partido = await Partido.findById(partidoId);
+    if (!partido) {
+      throw new Error('Partido no encontrado');
+    }
+
+    // Verificar que el partido tenga sets
+    const SetPartido = (await import('../models/Partido/SetPartido.js')).default;
+    const setsCount = await SetPartido.countDocuments({ partido: partidoId });
+    if (setsCount === 0) {
+      throw new Error('El partido no tiene sets registrados. No se pueden calcular estadísticas automáticas.');
+    }
+
+    // Primero obtener los JugadorPartido de este partido
+    const JugadorPartido = (await import('../models/Jugador/JugadorPartido.js')).default;
+    const jugadoresDelPartido = await JugadorPartido.find({ partido: partidoId }).select('_id');
+    const jugadorPartidoIds = jugadoresDelPartido.map(jp => jp._id);
+
     // Obtener todas las estadísticas manuales del partido
     const estadisticasManuales = await EstadisticasJugadorPartido.find({
-      'jugadorPartido.partido': partidoId,
+      jugadorPartido: { $in: jugadorPartidoIds },
       tipoCaptura: 'manual'
     }).populate('jugadorPartido');
 
