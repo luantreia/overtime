@@ -142,10 +142,12 @@ router.delete(
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;
+    console.log('🔍 Buscando estadísticas manuales para partido:', partidoId);
 
     // Primero obtener los JugadorPartido de este partido
     const jugadoresDelPartido = await JugadorPartido.find({ partido: partidoId }).select('_id');
     const jugadorPartidoIds = jugadoresDelPartido.map(jp => jp._id);
+    console.log('👥 Jugadores del partido encontrados:', jugadorPartidoIds.length);
 
     // Obtener estadísticas manuales de jugadores del partido
     const jugadoresStats = await EstadisticasJugadorPartidoManual.find({
@@ -159,9 +161,50 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
       ]
     });
 
+    console.log('📊 Estadísticas manuales encontradas:', jugadoresStats.length);
+    console.log('📈 Primera estadística:', jugadoresStats[0] || 'Ninguna');
+
+    // Calcular estadísticas por equipo agregando las estadísticas de jugadores
+    const equiposMap = {};
+
+    jugadoresStats.forEach(stat => {
+      const equipo = stat.jugadorPartido?.equipo;
+      console.log('🏆 Procesando estadística para equipo:', equipo?.nombre || 'Sin equipo');
+      if (equipo) {
+        const equipoId = equipo._id || equipo;
+
+        if (!equiposMap[equipoId]) {
+          equiposMap[equipoId] = {
+            _id: equipoId,
+            nombre: equipo.nombre,
+            escudo: equipo.escudo,
+            throws: 0,
+            hits: 0,
+            outs: 0,
+            catches: 0,
+            jugadores: 0
+          };
+        }
+
+        equiposMap[equipoId].throws += stat.throws || 0;
+        equiposMap[equipoId].hits += stat.hits || 0;
+        equiposMap[equipoId].outs += stat.outs || 0;
+        equiposMap[equipoId].catches += stat.catches || 0;
+        equiposMap[equipoId].jugadores += 1;
+      }
+    });
+
+    // Calcular efectividad para cada equipo
+    Object.values(equiposMap).forEach(equipo => {
+      equipo.efectividad = equipo.throws > 0 ? ((equipo.hits / equipo.throws) * 100).toFixed(1) : 0;
+    });
+
+    const equiposStats = Object.values(equiposMap);
+    console.log('🏆 Estadísticas de equipos calculadas:', equiposStats);
+
     res.json({
       jugadores: jugadoresStats,
-      equipos: [] // Las estadísticas de equipo se calculan por separado
+      equipos: equiposStats
     });
 
   } catch (error) {
