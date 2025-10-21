@@ -26,16 +26,12 @@ router.get(
 
       const estadisticas = await EstadisticasJugadorSet.find(filtro)
         .populate({
-          path: 'jugador',
-          select: 'nombre apellido email'
-        })
-        .populate({
-          path: 'equipo',
-          select: 'nombre'
-        })
-        .populate({
           path: 'jugadorPartido',
-          select: 'jugador equipo'
+          select: 'jugador equipo',
+          populate: [
+            { path: 'jugador', select: 'nombre apellido numero email' },
+            { path: 'equipo', select: 'nombre escudo' }
+          ]
         })
         .populate({
           path: 'set',
@@ -44,12 +40,19 @@ router.get(
         .lean()
         .sort({ createdAt: 1 });
 
+      // Formatear respuesta para consistencia con otros endpoints
+      const estadisticasFormateadas = estadisticas.map(stat => ({
+        ...stat,
+        jugador: stat.jugadorPartido?.jugador || null,
+        equipo: stat.jugadorPartido?.equipo || null
+      }));
+
       // Log opcional para debug
       // if (estadisticas.length > 0) {
       //   console.log('📊 Estadísticas devueltas:', estadisticas.length);
       // }
 
-      res.json(estadisticas);
+      res.json(estadisticasFormateadas);
     } catch (err) {
       res.status(500).json({ error: err.message || 'Error al obtener estadísticas' });
     }
@@ -218,12 +221,26 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
         })
         .populate({
           path: 'jugadorPartido',
-          select: 'jugador equipo'
+          select: 'jugador equipo',
+          populate: [
+            {
+              path: 'jugador',
+              select: 'nombre apellido numero'
+            },
+            {
+              path: 'equipo',
+              select: 'nombre escudo'
+            }
+          ]
         });
 
         return {
           ...set.toObject(),
-          estadisticas: estadisticasSet
+          estadisticas: estadisticasSet.map(stat => ({
+            ...stat,
+            jugador: stat.jugadorPartido?.jugador || null,
+            equipo: stat.jugadorPartido?.equipo || null
+          }))
         };
       })
     );
