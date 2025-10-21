@@ -71,6 +71,17 @@ router.post(
         return res.status(400).json({ error: 'jugadorPartido es obligatorio' });
       }
 
+      // Verificar si ya existe una estadística para este jugadorPartido
+      const existente = await EstadisticasJugadorPartidoManual.findOne({ jugadorPartido });
+      if (existente) {
+        return res.status(409).json({
+          error: 'Ya existe una estadística manual para este jugador en el partido',
+          mensaje: 'Si deseas modificar las estadísticas existentes, usa el método PUT para actualizar.',
+          estadisticaExistente: existente._id,
+          tipo: 'duplicado'
+        });
+      }
+
       const nuevo = new EstadisticasJugadorPartidoManual({
         jugadorPartido,
         throws,
@@ -85,12 +96,67 @@ router.post(
       const guardado = await nuevo.save();
       res.status(201).json(guardado);
     } catch (err) {
+      // Manejar específicamente errores de duplicado de MongoDB
+      if (err.code === 11000 || err.message.includes('duplicate key')) {
+        return res.status(409).json({
+          error: 'Ya existe una estadística manual para este jugador en el partido',
+          mensaje: 'No se pueden crear estadísticas duplicadas para el mismo jugador.',
+          tipo: 'duplicado'
+        });
+      }
+
+      console.error('Error al crear estadísticas manuales:', err);
       res.status(400).json({ error: err.message || 'Error al crear estadísticas manuales' });
     }
   }
 );
 
-// PUT /api/estadisticas/jugador-partido-manual/:id
+// PUT /api/estadisticas/jugador-partido-manual/upsert
+// Crear o actualizar estadísticas manuales (upsert)
+router.put('/upsert', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { jugadorPartido, throws, hits, outs, catches, notas } = req.body;
+    if (!jugadorPartido) {
+      return res.status(400).json({ error: 'jugadorPartido es obligatorio' });
+    }
+
+    // Usar upsert para crear o actualizar
+    const estadistica = await EstadisticasJugadorPartidoManual.findOneAndUpdate(
+      { jugadorPartido }, // Filtro
+      {
+        throws,
+        hits,
+        outs,
+        catches,
+        notas,
+        ultimaActualizacion: new Date(),
+        creadoPor: req.user.uid,
+        version: { $inc: 1 } // Incrementar versión
+      }, // Datos a actualizar
+      {
+        new: true, // Retornar documento actualizado
+        upsert: true, // Crear si no existe
+        runValidators: true, // Ejecutar validaciones
+        setDefaultsOnInsert: true // Establecer valores por defecto al insertar
+      }
+    );
+
+    // Determinar si fue creado o actualizado
+    const fueCreado = estadistica.createdAt.getTime() === estadistica.updatedAt.getTime();
+
+    res.status(fueCreado ? 201 : 200).json({
+      ...estadistica.toObject(),
+      operacion: fueCreado ? 'creado' : 'actualizado',
+      mensaje: fueCreado
+        ? 'Estadísticas manuales creadas exitosamente'
+        : 'Estadísticas manuales actualizadas exitosamente'
+    });
+
+  } catch (err) {
+    console.error('Error en upsert de estadísticas manuales:', err);
+    res.status(400).json({ error: err.message || 'Error al guardar estadísticas manuales' });
+  }
+});
 router.put(
   '/:id',
   validarObjectId,
@@ -112,8 +178,13 @@ router.put(
       item.version = (item.version || 1) + 1; // Incrementar versión
 
       const actualizado = await item.save();
-      res.json(actualizado);
+      res.json({
+        ...actualizado.toObject(),
+        operacion: 'actualizado',
+        mensaje: 'Estadísticas manuales actualizadas exitosamente'
+      });
     } catch (err) {
+      console.error('Error al actualizar estadísticas manuales:', err);
       res.status(400).json({ error: err.message || 'Error al actualizar estadísticas manuales' });
     }
   }
