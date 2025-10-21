@@ -35,7 +35,9 @@ router.get('/', verificarToken, async (req, res) => {
         'equipoLocal',
         'equipoVisitante',
         'participacionFaseLocal',
-        'participacionFaseVisitante'
+        'participacionFaseVisitante',
+        'creadoPor',
+        'administradores'
       ])
       .sort({ fecha: 1 });
 
@@ -55,7 +57,9 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
         'equipoLocal',
         'equipoVisitante',
         'participacionFaseLocal',
-        'participacionFaseVisitante'
+        'participacionFaseVisitante',
+        'creadoPor',
+        'administradores'
       ]);
 
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
@@ -217,6 +221,40 @@ router.put(
   }
 );
 
+// PUT /api/partidos/:id/recalcular-marcador - Recalcular marcador desde sets
+router.put(
+  '/:id/recalcular-marcador',
+  verificarToken,
+  cargarRolDesdeBD,
+  validarObjectId,
+  async (req, res) => {
+    try {
+      const partido = await Partido.findById(req.params.id);
+      if (!partido) {
+        return res.status(404).json({ message: 'Partido no encontrado' });
+      }
+
+      const uid = req.user.uid;
+      const esCreador = partido.creadoPor?.toString() === uid;
+      const esAdminDelPartido = partido.administradores?.some(adminId => adminId.toString() === uid);
+      const esAdminGlobal = req.user.rol === 'admin';
+
+      if (!esCreador && !esAdminDelPartido && !esAdminGlobal) {
+        return res.status(403).json({ message: 'No tiene permiso para recalcular el marcador de este partido' });
+      }
+
+      // Recalcular marcador desde sets
+      await partido.recalcularMarcador();
+      partido.marcadorModificadoManualmente = false;
+      await partido.save();
+
+      res.json(partido);
+    } catch (err) {
+      console.error('[ERROR][PUT /partidos/:id/recalcular-marcador]', err);
+      res.status(500).json({ message: 'Error interno al recalcular marcador', error: err.message });
+    }
+  }
+);
 
 // DELETE /api/partidos/:id - Eliminar partido
 router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
