@@ -270,30 +270,59 @@ export async function convertirEstadisticasManualesAAutomaticas(partidoId, cread
 
     for (const estadistica of estadisticasManuales) {
       try {
+        console.log('🔄 Procesando estadística:', {
+          id: estadistica._id,
+          jugadorPartido: estadistica.jugadorPartido,
+          tipoJugadorPartido: typeof estadistica.jugadorPartido,
+          esObjeto: typeof estadistica.jugadorPartido === 'object'
+        });
+
+        // Determinar el ID correcto
+        let jugadorPartidoId;
+        if (typeof estadistica.jugadorPartido === 'object' && estadistica.jugadorPartido._id) {
+          jugadorPartidoId = estadistica.jugadorPartido._id.toString();
+        } else if (typeof estadistica.jugadorPartido === 'string') {
+          jugadorPartidoId = estadistica.jugadorPartido;
+        } else {
+          throw new Error(`ID de jugadorPartido inválido: ${estadistica.jugadorPartido}`);
+        }
+
+        console.log('🎯 ID extraído:', jugadorPartidoId);
+
         // Intentar actualizar con datos de sets (esto debería calcular los totales automáticamente)
         const resultado = await actualizarEstadisticasJugadorPartido(
-          estadistica.jugadorPartido._id || estadistica.jugadorPartido,
+          jugadorPartidoId,
           creadoPor,
           true // Forzar actualización para sobreescribir las manuales
         );
 
         if (resultado) {
           convertidas++;
-          console.log(`✅ Convertida estadística manual para jugador: ${estadistica.jugadorPartido._id}`);
+          console.log(`✅ Convertida estadística manual para jugador: ${jugadorPartidoId}`);
         }
       } catch (error) {
-        console.error(`❌ Error convirtiendo estadística para jugador ${estadistica.jugadorPartido._id}:`, error);
+        console.error(`❌ Error convirtiendo estadística para jugador ${estadistica._id}:`, error);
+        throw error; // Re-throw para que se maneje arriba
       }
     }
 
     // Después de convertir todas las estadísticas de jugadores, actualizar estadísticas de equipos
     try {
-      // Obtener los equipos del partido
+      // Obtener los equipos del partido con populate
       const Partido = (await import('../models/Partido.js')).default;
-      const partido = await Partido.findById(partidoId);
+      const partido = await Partido.findById(partidoId).populate('equipoLocal equipoVisitante');
       if (partido) {
-        await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoLocal._id, creadoPor);
-        await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoVisitante._id, creadoPor);
+        console.log('🏆 Equipos del partido:', {
+          equipoLocal: partido.equipoLocal,
+          equipoVisitante: partido.equipoVisitante
+        });
+
+        if (partido.equipoLocal && partido.equipoLocal._id) {
+          await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoLocal._id.toString(), creadoPor);
+        }
+        if (partido.equipoVisitante && partido.equipoVisitante._id) {
+          await actualizarEstadisticasEquipoPartido(partidoId, partido.equipoVisitante._id.toString(), creadoPor);
+        }
         console.log('✅ Estadísticas de equipos actualizadas después de conversión');
       }
     } catch (error) {
