@@ -41,6 +41,13 @@ const PartidoSchema = new Schema({
 
   marcadorModificadoManualmente: { type: Boolean, default: true }, // <-- nuevo campo
 
+  // Modo de estadísticas: 'automatico' (calculado de sets) o 'manual' (ingresado directamente)
+  modoEstadisticas: {
+    type: String,
+    enum: ['automatico', 'manual'],
+    default: 'automatico'
+  },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 
