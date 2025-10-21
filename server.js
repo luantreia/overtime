@@ -102,7 +102,7 @@ app.use('/api/fases', fasesRoutes);
 
 
 app.get('/api/ping', (req, res) => {
-  res.status(200).send('pong');
+  res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
 // Definir puerto del servidor
