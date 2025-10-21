@@ -193,6 +193,7 @@ router.put(
         'marcadorLocal',
         'marcadorVisitante',
         'modoEstadisticas',
+        'modoVisualizacion',
         'grupo',
         'division',
         'nombrePartido',

@@ -48,6 +48,13 @@ const PartidoSchema = new Schema({
     default: 'automatico'
   },
 
+  // Modo de visualización: qué estadísticas mostrar al público ('automatico', 'manual', 'mixto')
+  modoVisualizacion: {
+    type: String,
+    enum: ['automatico', 'manual', 'mixto'],
+    default: 'automatico'
+  },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 
