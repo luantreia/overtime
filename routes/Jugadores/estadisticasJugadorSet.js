@@ -191,5 +191,53 @@ router.delete(
   }
 );
 
+// GET /api/estadisticas/jugador-set/resumen-partido/:partidoId
+router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+
+    // Obtener sets del partido
+    const SetPartido = (await import('../../models/Partido/SetPartido.js')).default;
+    const setsDelPartido = await SetPartido.find({ partido: partidoId })
+      .populate('ganadorSet', 'nombre')
+      .sort({ numeroSet: 1 });
+
+    // Para cada set, obtener estadísticas de jugadores
+    const setsConEstadisticas = await Promise.all(
+      setsDelPartido.map(async (set) => {
+        const estadisticasSet = await EstadisticasJugadorSet.find({
+          set: set._id
+        })
+        .populate({
+          path: 'jugador',
+          select: 'nombre apellido numero'
+        })
+        .populate({
+          path: 'equipo',
+          select: 'nombre escudo'
+        })
+        .populate({
+          path: 'jugadorPartido',
+          select: 'jugador equipo'
+        });
+
+        return {
+          ...set.toObject(),
+          estadisticas: estadisticasSet
+        };
+      })
+    );
+
+    res.json({
+      partido: partidoId,
+      sets: setsConEstadisticas
+    });
+
+  } catch (error) {
+    console.error('Error en resumen de sets del partido:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas por set del partido' });
+  }
+});
+
 export default router;
 
