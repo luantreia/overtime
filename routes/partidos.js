@@ -223,9 +223,13 @@ router.put(
         'grupo',
         'division',
         'nombrePartido',
+        // Nuevos campos permitidos a editar
+        'modalidad',
+        'categoria',
+        'competencia',
       ];
 
-      const objectIdCampos = ['fase', 'participacionFaseLocal', 'participacionFaseVisitante'];
+      const objectIdCampos = ['fase', 'participacionFaseLocal', 'participacionFaseVisitante', 'competencia'];
 
       for (const campo of camposEditables) {
         if (Object.prototype.hasOwnProperty.call(req.body, campo)) {
