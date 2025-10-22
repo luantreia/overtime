@@ -85,7 +85,7 @@ router.get('/por-equipo/:equipoId', async (req, res) => {
   }
 
   try {
-    const relaciones = await JugadorEquipo.find({ equipoId, activo: true }) // o sin `activo` si no lo usás
+    const relaciones = await JugadorEquipo.find({ equipo: equipoId, activo: true }) // usar campo correcto 'equipo'
       .populate('jugador', 'nombre alias foto');
 
     const jugadores = relaciones.map(rel => rel.jugador);
