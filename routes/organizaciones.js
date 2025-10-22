@@ -57,14 +57,14 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let organizaciones;
 
     if (rol === 'admin') {
-      organizaciones = await Organizacion.find({}, 'nombre _id').lean();
+      organizaciones = await Organizacion.find({}, 'nombre _id descripcion activa sitioWeb createdAt updatedAt').lean();
     } else {
       organizaciones = await Organizacion.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id').lean();
+      }, 'nombre _id descripcion activa sitioWeb createdAt updatedAt').lean();
     }
 
     res.status(200).json(organizaciones);

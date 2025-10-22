@@ -48,14 +48,14 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let jugadores;
 
     if (rol === 'admin') {
-      jugadores = await Jugador.find({}, 'nombre _id').lean();
+      jugadores = await Jugador.find({}, 'nombre _id fechaNacimiento genero nacionalidad createdAt updatedAt').lean();
     } else {
       jugadores = await Jugador.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id').lean();
+      }, 'nombre _id fechaNacimiento genero nacionalidad createdAt updatedAt').lean();
     }
 
     res.status(200).json(jugadores);

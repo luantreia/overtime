@@ -31,14 +31,14 @@ router.get('/admin',
     let competencias;
 
     if (rol === 'admin') {
-      competencias = await Competencia.find({}, 'nombre _id').lean();
+      competencias = await Competencia.find({}, 'nombre _id tipo estado fechaInicio fechaFin organizacion createdAt updatedAt').populate('organizacion', 'nombre').lean();
     } else {
       competencias = await Competencia.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id').lean();
+      }, 'nombre _id tipo estado fechaInicio fechaFin organizacion createdAt updatedAt').populate('organizacion', 'nombre').lean();
     }
 
     res.status(200).json(competencias);

@@ -8,6 +8,32 @@ import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de i
 
 const router = express.Router();
 
+// GET /api/partidos/admin - partidos que el usuario puede administrar
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const rol = req.user.rol;
+
+    let partidos;
+
+    if (rol === 'admin') {
+      partidos = await Partido.find({}, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores').lean();
+    } else {
+      partidos = await Partido.find({
+        $or: [
+          { creadoPor: uid },
+          { administradores: uid }
+        ]
+      }, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores').lean();
+    }
+
+    res.status(200).json(partidos);
+  } catch (error) {
+    console.error('Error al obtener partidos administrables:', error);
+    res.status(500).json({ message: 'Error al obtener partidos administrables' });
+  }
+});
+
 // GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
 router.get('/', verificarToken, async (req, res) => {
   try {
