@@ -9,8 +9,8 @@ import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 
 // Importa modelos necesarios para obtener administradores
-import EquipoCompetencia from '../models/EquipoCompetencia.js';
-import Equipo from '../models/Equipo.js';
+import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
+import Equipo from '../models/Equipo/Equipo.js';
 // importa otros modelos que puedas necesitar...
 
 const router = express.Router();
