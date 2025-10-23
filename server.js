@@ -30,6 +30,7 @@ import organizacionesRoutes from './routes/organizaciones.js';
 import competenciasRoutes from './routes/Competencias/competencias.js';
 import fasesRoutes from "./routes/Competencias/fases.js";
 import temporadasRoutes from './routes/Competencias/temporadas.js';
+import solicitudesEdicionRoutes from './routes/solicitudEdicion.js';
 
 
 dotenv.config(); // inicializar dotenv
@@ -99,6 +100,7 @@ app.use('/api/organizaciones', organizacionesRoutes);
 app.use('/api/competencias', competenciasRoutes);
 app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);
+app.use('/api/solicitudes-edicion', solicitudesEdicionRoutes);
 
 
 app.get('/api/ping', (req, res) => {
