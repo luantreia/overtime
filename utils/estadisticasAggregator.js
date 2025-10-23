@@ -235,7 +235,7 @@ export async function convertirEstadisticasManualesAAutomaticas(partidoId, cread
     console.log('🔄 Convirtiendo estadísticas manuales a automáticas para partido:', partidoId);
 
     // Verificar que el partido existe
-    const Partido = (await import('../models/Partido.js')).default;
+    const Partido = (await import('../models/Partido/Partido.js')).default;
     const partido = await Partido.findById(partidoId);
     if (!partido) {
       throw new Error('Partido no encontrado');
@@ -309,7 +309,7 @@ export async function convertirEstadisticasManualesAAutomaticas(partidoId, cread
     // Después de convertir todas las estadísticas de jugadores, actualizar estadísticas de equipos
     try {
       // Obtener los equipos del partido con populate
-      const Partido = (await import('../models/Partido.js')).default;
+      const Partido = (await import('../models/Partido/Partido.js')).default;
       const partido = await Partido.findById(partidoId).populate('equipoLocal equipoVisitante');
       if (partido) {
         console.log('🏆 Equipos del partido:', {
