@@ -77,6 +77,103 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
+// --- GET /opciones (jugadores disponibles para un equipo o equipos disponibles para un jugador)
+router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { equipo, jugador } = req.query;
+    const usuarioId = req.user.uid;
+    const rol = req.user.rol;
+
+    if ((equipo && jugador) || (!equipo && !jugador)) {
+      return res.status(400).json({ message: 'Debe indicar solo jugador o equipo' });
+    }
+
+    if (equipo) {
+      if (!Types.ObjectId.isValid(equipo)) {
+        return res.status(400).json({ message: 'Equipo inválido' });
+      }
+
+      const equipoDB = await Equipo.findById(equipo).lean();
+      if (!equipoDB) return res.status(404).json({ message: 'Equipo no encontrado' });
+
+      const esAdminEquipo =
+        rol === 'admin' ||
+        equipoDB.creadoPor?.toString() === usuarioId ||
+        (equipoDB.administradores || []).map(id => id?.toString?.()).includes(usuarioId);
+
+      if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
+
+      const relaciones = await JugadorEquipo.find({
+        equipo,
+        estado: { $in: ['pendiente', 'aceptado'] }
+      }).select('jugador').lean();
+
+      const jugadoresOcupados = new Set(relaciones.map(rel => rel.jugador?.toString()));
+
+      const jugadoresDisponibles = await Jugador.find({
+        $or: [
+          { creadoPor: usuarioId },
+          { administradores: usuarioId }
+        ]
+      }).select('nombre alias foto').lean();
+
+      const opciones = jugadoresDisponibles
+        .filter(j => j?._id && !jugadoresOcupados.has(j._id.toString()))
+        .map(j => ({
+          _id: j._id,
+          nombre: j.nombre,
+          alias: j.alias,
+          foto: j.foto
+        }));
+
+      return res.status(200).json(opciones);
+    }
+
+    if (!Types.ObjectId.isValid(jugador)) {
+      return res.status(400).json({ message: 'Jugador inválido' });
+    }
+
+    const jugadorDB = await Jugador.findById(jugador).lean();
+    if (!jugadorDB) return res.status(404).json({ message: 'Jugador no encontrado' });
+
+    const esAdminJugador =
+      rol === 'admin' ||
+      jugadorDB.creadoPor?.toString() === usuarioId ||
+      (jugadorDB.administradores || []).map(id => id?.toString?.()).includes(usuarioId);
+
+    if (!esAdminJugador) return res.status(403).json({ message: 'No autorizado' });
+
+    const relacionesJugador = await JugadorEquipo.find({
+      jugador,
+      estado: { $in: ['pendiente', 'aceptado'] }
+    }).select('equipo').lean();
+
+    const equiposOcupados = new Set(relacionesJugador.map(rel => rel.equipo?.toString()));
+
+    const equiposDisponibles = await Equipo.find({
+      $or: [
+        { creadoPor: usuarioId },
+        { administradores: usuarioId }
+      ]
+    }).select('nombre tipo pais escudo').lean();
+
+    const opcionesEquipos = equiposDisponibles
+      .filter(eq => eq?._id && !equiposOcupados.has(eq._id.toString()))
+      .map(eq => ({
+        _id: eq._id,
+        nombre: eq.nombre,
+        alias: eq.tipo,
+        pais: eq.pais,
+        escudo: eq.escudo
+      }));
+
+    return res.status(200).json(opcionesEquipos);
+  } catch (error) {
+    console.error('Error en GET /opciones jugador-equipo:', error);
+    res.status(500).json({ message: 'Error al obtener opciones', error: error.message });
+  }
+});
+
 // --- POST /solicitar-equipo
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
