@@ -4,7 +4,7 @@ import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
-import  validarDobleConfirmacion  from '../utils/validarDobleConfirmacion.js';
+import  validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js';
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 
