@@ -82,7 +82,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
     // Obtener admins responsables (de tu función existente)
     const admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
-    if (!admins.includes(uid)) {
+    if (req.user.rol !== 'admin' && !admins.includes(uid)) {
       return res.status(403).json({ message: 'No tienes permiso para procesar esta solicitud' });
     }
 
