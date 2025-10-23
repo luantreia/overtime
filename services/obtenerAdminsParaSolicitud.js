@@ -1,21 +1,21 @@
 import mongoose from 'mongoose';
 
-import Equipo from '../models/Equipo.js';
-import Competencia from '../models/Competencia.js';
-import Jugador from '../models/Jugador.js';
+import Equipo from '../models/Equipo/Equipo.js';
+import Competencia from '../models/Competencia/Competencia.js';
+import Jugador from '../models/Jugador/Jugador.js';
 import Organizacion from '../models/Organizacion.js';
 
-import JugadorEquipo from '../models/JugadorEquipo.js';
-import EquipoCompetencia from '../models/EquipoCompetencia.js';
-import ParticipacionTemporada from '../models/ParticipacionTemporada.js';
-import ParticipacionFase from '../models/ParticipacionFase.js';
-import Partido from '../models/Partido.js';
-import EquipoPartido from '../models/EquipoPartido.js';
+import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
+import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
+import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js';
+import ParticipacionFase from '../models/Equipo/ParticipacionFase.js';
+import Partido from '../models/Partido/Partido.js';
+import EquipoPartido from '../models/Equipo/EquipoPartido.js';
 
-import EstadisticasEquipoPartido from '../models/EstadisticasEquipoPartido.js';
-import EstadisticasEquipoSet from '../models/EstadisticasEquipoSet.js';
-import EstadisticasJugadorPartido from '../models/EstadisticasJugadorPartido.js';
-import EstadisticasJugadorSet from '../models/EstadisticasJugadorSet.js';
+import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
+import EstadisticasEquipoSet from '../models/Equipo/EstadisticasEquipoSet.js';
+import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
+import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 
 function extraerAdmins(doc, campos = []) {
   const ids = new Set();
