@@ -2,7 +2,7 @@
 
 export const tiposSolicitudMeta = {
   contratoJugadorEquipo: {
-    requiereDobleConfirmacion: true,
+    requiereDobleConfirmacion: false,
     camposCriticos: ['fechaInicio', 'fechaFin', 'estado', 'rol', 'numero'],
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: ['foto', 'alias'],
