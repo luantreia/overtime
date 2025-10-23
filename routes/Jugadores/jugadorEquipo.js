@@ -80,7 +80,7 @@ router.get('/', verificarToken, async (req, res) => {
 // --- GET /opciones (jugadores disponibles para un equipo o equipos disponibles para un jugador)
 router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { equipo, jugador } = req.query;
+    const { equipo, jugador, q } = req.query;
     const usuarioId = req.user.uid;
     const rol = req.user.rol;
 
@@ -110,12 +110,21 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
       const jugadoresOcupados = new Set(relaciones.map(rel => rel.jugador?.toString()));
 
-      const jugadoresDisponibles = await Jugador.find({
-        $or: [
-          { creadoPor: usuarioId },
-          { administradores: usuarioId }
-        ]
-      }).select('nombre alias foto').lean();
+      const filtrosJugador = {
+        _id: { $nin: Array.from(jugadoresOcupados) }
+      };
+
+      if (q) {
+        const regex = new RegExp(q, 'i');
+        filtrosJugador.$or = [{ nombre: regex }];
+        filtrosJugador.$or.push({ alias: regex });
+      }
+
+      const jugadoresDisponibles = await Jugador.find(filtrosJugador)
+        .select('nombre alias foto nacionalidad')
+        .sort({ nombre: 1 })
+        .limit(50)
+        .lean();
 
       const opciones = jugadoresDisponibles
         .filter(j => j?._id && !jugadoresOcupados.has(j._id.toString()))
@@ -123,7 +132,8 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
           _id: j._id,
           nombre: j.nombre,
           alias: j.alias,
-          foto: j.foto
+          foto: j.foto,
+          nacionalidad: j.nacionalidad
         }));
 
       return res.status(200).json(opciones);
@@ -150,12 +160,20 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     const equiposOcupados = new Set(relacionesJugador.map(rel => rel.equipo?.toString()));
 
-    const equiposDisponibles = await Equipo.find({
-      $or: [
-        { creadoPor: usuarioId },
-        { administradores: usuarioId }
-      ]
-    }).select('nombre tipo pais escudo').lean();
+    const filtrosEquipo = {
+      _id: { $nin: Array.from(equiposOcupados) }
+    };
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      filtrosEquipo.$or = [{ nombre: regex }, { tipo: regex }, { pais: regex }];
+    }
+
+    const equiposDisponibles = await Equipo.find(filtrosEquipo)
+      .select('nombre tipo pais escudo')
+      .sort({ nombre: 1 })
+      .limit(50)
+      .lean();
 
     const opcionesEquipos = equiposDisponibles
       .filter(eq => eq?._id && !equiposOcupados.has(eq._id.toString()))
