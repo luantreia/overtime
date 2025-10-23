@@ -7,6 +7,7 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import  validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js';
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
+import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 
 // Importa modelos necesarios para obtener administradores
 import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
@@ -117,6 +118,32 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       // Actualizar datosPropuestos si vienen
       if (datosPropuestos) {
         solicitud.datosPropuestos = datosPropuestos;
+      }
+
+      // Aplicar cambios a la entidad si corresponde
+      if (solicitud.tipo === 'contratoJugadorEquipo' && solicitud.entidad) {
+        try {
+          const relacion = await JugadorEquipo.findById(solicitud.entidad);
+          if (relacion) {
+            const cambios = solicitud.datosPropuestos || {};
+            if (cambios.rol !== undefined) relacion.rol = cambios.rol;
+            if (cambios.foto !== undefined) relacion.foto = cambios.foto;
+            if (cambios.desde !== undefined) relacion.desde = cambios.desde;
+            if (cambios.hasta !== undefined) relacion.hasta = cambios.hasta;
+
+            // Permitir finalizar contrato aceptado → baja
+            if (cambios.estado === 'baja' && relacion.estado === 'aceptado') {
+              relacion.estado = 'baja';
+              relacion.activo = false;
+              if (!relacion.hasta) relacion.hasta = new Date();
+            }
+
+            await relacion.save();
+          }
+        } catch (e) {
+          // No fallar la aceptación por error al aplicar, pero informar
+          console.error('Error aplicando cambios de solicitud a JugadorEquipo:', e);
+        }
       }
     } else if (estado === 'rechazado') {
       solicitud.estado = 'rechazado';

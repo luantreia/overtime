@@ -158,7 +158,7 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
 
 router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
-    await req.equipo.populate('administradores', 'email nombre').execPopulate();
+    await req.equipo.populate('administradores', 'email nombre');
     res.status(200).json(req.equipo.administradores);
   } catch (error) {
     console.error('Error al obtener administradores:', error);
