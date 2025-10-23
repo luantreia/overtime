@@ -5,6 +5,8 @@ import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
 import  validarDobleConfirmacion  from '../utils/validarDobleConfirmacion.js';
+import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
+import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 
 // Importa modelos necesarios para obtener administradores
 import EquipoCompetencia from '../models/EquipoCompetencia.js';
@@ -13,42 +15,6 @@ import Equipo from '../models/Equipo.js';
 
 const router = express.Router();
 const { Types } = mongoose;
-
-// Función para obtener administradores responsables según tipo y entidad
-async function obtenerAdminsEntidad(tipo, entidadId) {
-  switch (tipo) {
-    case 'contratoJugadorEquipo':
-      // Ejemplo: obtener administradores del equipo involucrado en la relación
-      // Aquí deberías consultar el modelo JugadorEquipo o similar
-      // Para simplificar, supongamos que entidadId es el ID de JugadorEquipo
-      // const jugadorEquipo = await JugadorEquipo.findById(entidadId).populate('equipo');
-      // return jugadorEquipo?.equipo?.administradores || [];
-
-      // Ejemplo con EquipoCompetencia:
-      return [];
-
-    case 'contratoEquipoCompetencia':
-      // Obtener administradores de EquipoCompetencia
-      if (!Types.ObjectId.isValid(entidadId)) return [];
-      const ec = await EquipoCompetencia.findById(entidadId).select('administradores creadoPor').lean();
-      if (!ec) return [];
-      // Devuelvo administradores + creador (por si acaso)
-      return [...(ec.administradores || []), ec.creadoPor].filter(Boolean);
-
-    // Otros casos para distintos tipos:
-    case 'estadisticasEquipoPartido':
-    case 'estadisticasEquipoSet':
-    case 'resultadoPartido':
-    case 'resultadoSet':
-    case 'estadisticasJugadorPartido':
-    case 'estadisticasJugadorSet':
-      // Ejemplo: podrías obtener admins del equipo o competencia asociada
-      return [];
-
-    default:
-      return [];
-  }
-}
 
 // --- GET /api/solicitudes-edicion
 router.get('/', verificarToken, async (req, res) => {
@@ -114,7 +80,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     if (solicitud.estado !== 'pendiente') return res.status(400).json({ message: 'Solicitud ya procesada' });
 
     // Obtener admins responsables (de tu función existente)
-    const admins = await obtenerAdminsEntidad(solicitud.tipo, solicitud.entidad);
+    const admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
     if (!admins.includes(uid)) {
       return res.status(403).json({ message: 'No tienes permiso para procesar esta solicitud' });
     }
