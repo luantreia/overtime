@@ -2,7 +2,7 @@
 
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 
-export function validarDobleConfirmacion(tipo, camposModificados) {
+export default function validarDobleConfirmacion(tipo, camposModificados) {
   const meta = tiposSolicitudMeta[tipo];
   if (!meta) throw new Error(`Tipo de solicitud "${tipo}" no definido en metadatos`);
 
