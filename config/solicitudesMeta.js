@@ -8,7 +8,7 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: ['foto', 'alias'],
   },
   contratoEquipoCompetencia: {
-    requiereDobleConfirmacion: true,
+    requiereDobleConfirmacion: false,
     camposCriticos: ['fechaInicio', 'fechaFin', 'estado'],
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],

@@ -40,7 +40,7 @@ const SolicitudEdicionSchema = new Schema({
 
     requiereDobleConfirmacion: {
     type: Boolean,
-    default: true,
+    default: false,
     },
 
     motivoRechazo: { type: String },
