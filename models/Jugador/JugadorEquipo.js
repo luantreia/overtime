@@ -20,7 +20,7 @@ const jugadorEquipoSchema = new Schema({
   },
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
 
-  solicitadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario' },
+  solicitadoPor: { type: String, ref: 'Usuario' },
   origen: { type: String, enum: ['equipo', 'jugador'], required: true },
 
   fechaSolicitud: { type: Date, default: Date.now },
@@ -28,8 +28,8 @@ const jugadorEquipoSchema = new Schema({
   motivoRechazo: String,
   foto: String,
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
-  administradores: [{ type: Schema.Types.ObjectId, ref: 'Usuario' }],
+  creadoPor: { type: String, ref: 'Usuario', required: true },
+  administradores: [{ type: String, ref: 'Usuario' }],
 
   nombreJugadorEquipo: { type: String, index: true }, // persistido para búsquedas
 }, {
