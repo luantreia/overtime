@@ -7,6 +7,9 @@ const equipoSchema = new Schema({
   foto: { type: String },
   colores: { type: [String], default: [] }, // Ej: ['#75AADB', '#FFFFFF']
 
+  fechaFormacion: { type: Date },
+  fechaDisolucion: { type: Date },
+
   tipo: {
     type: String,
     enum: ['club', 'seleccion', 'academia', 'otro'],
