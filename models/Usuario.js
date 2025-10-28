@@ -9,7 +9,7 @@ const usuarioSchema = new mongoose.Schema({
   rol: { type: String, enum: ["lector", "editor", "admin"], default: "lector" },
   // Para autenticación local (JWT)
   passwordHash: { type: String, select: false },
-  provider: { type: String, enum: ["firebase", "local"], default: "firebase" },
+  provider: { type: String, enum: ["firebase", "local"], default: "local" },
   firebaseUid: { type: String },
 });
 

@@ -3,31 +3,14 @@
 import express from 'express';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
-import admin from '../utils/firebaseAdmin.js';
 
 
 const router = express.Router();
 
 
-// Crear usuario
+// Crear usuario (deprecado en modo JWT-only)
 router.post('/', verificarToken, async (req, res) => {
-  try {
-    const { email, rol, nombre } = req.body;
-    const { id, provider } = req.user;
-
-    if (provider !== 'firebase') {
-      return res.status(400).json({ error: 'Registro local disponible en /api/auth/registro' });
-    }
-
-    const nuevoUsuario = new Usuario({ email, rol, nombre, _id: id, provider: 'firebase', firebaseUid: id });
-    await nuevoUsuario.save();
-
-    await admin.auth().setCustomUserClaims(id, { rol });
-    res.status(201).json({ mensaje: 'Usuario guardado' });
-  } catch (error) {
-    console.error('Error al guardar usuario:', error);
-    res.status(500).json({ error: error.message });
-  }
+  return res.status(400).json({ error: 'Usar /api/auth/registro para crear usuarios (JWT)' });
 });
 
 // Obtener datos del usuario autenticado
@@ -85,15 +68,10 @@ router.put('/actualizar', verificarToken, async (req, res) => {
 // Eliminar usuario autenticado
 router.delete('/eliminar', verificarToken, async (req, res) => {
   try {
-    const { id, provider } = req.user;
+    const { id } = req.user;
 
     // Eliminar en MongoDB
     await Usuario.deleteOne({ _id: id });
-
-    // Eliminar en Firebase
-    if (provider === 'firebase') {
-      await admin.auth().deleteUser(id);
-    }
 
     res.json({ mensaje: 'Cuenta eliminada correctamente' });
   } catch (error) {

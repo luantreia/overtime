@@ -3,8 +3,8 @@ import Usuario from '../models/Usuario.js';
 
 const verificarRol = (rolesPermitidos) => {
   return async (req, res, next) => {
-    const uid = req.user.uid;
-    const usuario = await Usuario.findOne({ firebaseUid: uid });
+    const uid = req.user.id;
+    const usuario = await Usuario.findById(uid);
 
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
 

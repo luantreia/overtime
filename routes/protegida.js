@@ -6,9 +6,9 @@ import Usuario from '../models/Usuario.js';
 const router = express.Router();
 
 router.get("/solo-editores", verificarToken, async (req, res) => {
-  const uid = req.user.uid;
+  const uid = req.user.id;
 
-  const usuario = await Usuario.findOne({ firebaseUid: uid });
+  const usuario = await Usuario.findById(uid);
   if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
 
   if (usuario.rol !== "editor") {

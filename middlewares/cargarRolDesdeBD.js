@@ -2,7 +2,7 @@ import Usuario from "../models/Usuario.js";
 
 export const cargarRolDesdeBD = async (req, res, next) => {
   try {
-    const uid = req.user?.uid;
+    const uid = req.user?.id;
     if (!uid) {
       console.warn('No se encontró UID en req.user');
       return res.status(401).json({ message: 'No autorizado' });
