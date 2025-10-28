@@ -35,7 +35,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 });
 
 // GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
-router.get('/', verificarToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { fase, competencia, tipo, equipo } = req.query;
     const filtro = {};

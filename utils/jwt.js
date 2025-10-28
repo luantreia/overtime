@@ -3,12 +3,27 @@ import jwt from 'jsonwebtoken';
 
 const ACCESS_TTL = process.env.JWT_ACCESS_TTL || '20m';
 const REFRESH_TTL = process.env.JWT_REFRESH_TTL || '30d';
-const ACCESS_SECRET = process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
 
-if (!ACCESS_SECRET) {
-  console.warn('JWT_SECRET no está definido. Define JWT_SECRET en el entorno.');
-}
+const resolveSecret = () => {
+  if (process.env.JWT_SECRET) {
+    return process.env.JWT_SECRET;
+  }
+
+  if (process.env.JWT_SECRET_FALLBACK) {
+    console.warn('⚠️  Usando JWT_SECRET_FALLBACK, define JWT_SECRET lo antes posible.');
+    return process.env.JWT_SECRET_FALLBACK;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('⚠️  JWT_SECRET no definido. Usando valor por defecto SOLO para desarrollo.');
+    return 'dev-secret-change-me';
+  }
+
+  throw new Error('JWT_SECRET no está definido. Configura JWT_SECRET en el entorno.');
+};
+
+const ACCESS_SECRET = resolveSecret();
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || ACCESS_SECRET;
 
 export function signAccessToken(user) {
   const payload = {
