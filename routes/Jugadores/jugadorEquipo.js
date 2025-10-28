@@ -195,7 +195,7 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
 // --- POST /solicitar-equipo
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
-    const { jugador, equipo } = req.body;
+    const { jugador, equipo, desde, hasta, rol: rolAsignado } = req.body;
     const usuarioId = req.user.uid;
 
     if (!jugador || !equipo || !Types.ObjectId.isValid(jugador) || !Types.ObjectId.isValid(equipo)) {
@@ -228,6 +228,10 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
       solicitadoPor: usuarioId,
       origen: 'equipo',
     });
+
+    if (rolAsignado) solicitud.rol = rolAsignado;
+    if (desde) solicitud.desde = desde;
+    if (hasta) solicitud.hasta = hasta;
 
     await solicitud.save();
     res.status(201).json(solicitud);
