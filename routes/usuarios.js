@@ -13,12 +13,16 @@ const router = express.Router();
 router.post('/', verificarToken, async (req, res) => {
   try {
     const { email, rol, nombre } = req.body;
-    const firebaseUid = req.user.uid;
+    const { id, provider } = req.user;
 
-    const nuevoUsuario = new Usuario({ email, rol, nombre, _id: firebaseUid });
+    if (provider !== 'firebase') {
+      return res.status(400).json({ error: 'Registro local disponible en /api/auth/registro' });
+    }
+
+    const nuevoUsuario = new Usuario({ email, rol, nombre, _id: id, provider: 'firebase', firebaseUid: id });
     await nuevoUsuario.save();
 
-    await admin.auth().setCustomUserClaims(firebaseUid, { rol });
+    await admin.auth().setCustomUserClaims(id, { rol });
     res.status(201).json({ mensaje: 'Usuario guardado' });
   } catch (error) {
     console.error('Error al guardar usuario:', error);
@@ -29,7 +33,7 @@ router.post('/', verificarToken, async (req, res) => {
 // Obtener datos del usuario autenticado
 router.get('/mi-perfil', verificarToken, async (req, res) => {
   try {
-    const usuario = await Usuario.findById(req.user.uid);
+    const usuario = await Usuario.findById(req.user.id);
 
     if (!usuario) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -49,7 +53,7 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
 // Actualizar perfil del usuario autenticado
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
-    const { uid } = req.user;
+    const { id } = req.user;
     const { nombre } = req.body;
 
     if (!nombre) {
@@ -57,7 +61,7 @@ router.put('/actualizar', verificarToken, async (req, res) => {
     }
 
     const usuarioActualizado = await Usuario.findOneAndUpdate(
-      { firebaseUid: uid },
+      { _id: id },
       { nombre },
       { new: true }
     );
@@ -81,13 +85,15 @@ router.put('/actualizar', verificarToken, async (req, res) => {
 // Eliminar usuario autenticado
 router.delete('/eliminar', verificarToken, async (req, res) => {
   try {
-    const { uid } = req.user;
+    const { id, provider } = req.user;
 
     // Eliminar en MongoDB
-    await Usuario.deleteOne({ firebaseUid: uid });
+    await Usuario.deleteOne({ _id: id });
 
     // Eliminar en Firebase
-    await admin.auth().deleteUser(uid);
+    if (provider === 'firebase') {
+      await admin.auth().deleteUser(id);
+    }
 
     res.json({ mensaje: 'Cuenta eliminada correctamente' });
   } catch (error) {

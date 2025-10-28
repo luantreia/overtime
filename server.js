@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import usuariosRoutes from './routes/usuarios.js';
+import authRoutes from './routes/auth.js';
 
 import equiposRoutes from './routes/Equipos/equipos.js';
 import equiposCompetenciaRoutes from './routes/Equipos/equiposCompetencia.js';
@@ -73,6 +74,7 @@ app.use(cors({
 app.use(express.json());
 
   // Rutas
+app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 
 app.use('/api/equipos', equiposRoutes);
