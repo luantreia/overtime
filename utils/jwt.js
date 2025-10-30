@@ -1,7 +1,7 @@
 // utils/jwt.js
 import jwt from 'jsonwebtoken';
 
-const ACCESS_TTL = process.env.JWT_ACCESS_TTL || '20m';
+const ACCESS_TTL = process.env.JWT_ACCESS_TTL || '30d';
 const REFRESH_TTL = process.env.JWT_REFRESH_TTL || '30d';
 
 const resolveSecret = () => {
