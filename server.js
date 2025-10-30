@@ -54,7 +54,9 @@ mongoose.connect(process.env.MONGO_URI, {
 const allowedOrigins = [
   'http://localhost:3000',
   'https://overtime-dodgeball.vercel.app',
-  'https://overtime-dodgeball.vercel.app/'  // Agregar con barra al final por si acaso
+  'https://overtime-dodgeball.vercel.app/',
+  'https://dodgeballmanager.vercel.app',
+  'https://dodgeballmanager.vercel.app/'  // Agregar con barra al final por si acaso
 ];
 
 app.use(cors({
