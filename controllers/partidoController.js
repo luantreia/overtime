@@ -22,7 +22,7 @@ export async function obtenerPartidos(req, res) {
     if (competenciaId) filtro.competencia = competenciaId;
 
     const partidos = await Partido.find(filtro)
-      .select('equipoLocal equipoVisitante marcadorLocal marcadorVisitante fecha estado competencia fase creadoPor administradores')
+      .select('equipoLocal equipoVisitante marcadorLocal marcadorVisitante fecha estado competencia fase grupo division etapa creadoPor administradores')
       .sort({ fecha: -1 })
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
