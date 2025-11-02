@@ -56,7 +56,11 @@ const allowedOrigins = [
   'https://overtime-dodgeball.vercel.app',
   'https://overtime-dodgeball.vercel.app/',
   'https://dodgeballmanager.vercel.app',
-  'https://dodgeballmanager.vercel.app/'  // Agregar con barra al final por si acaso
+  'https://dodgeballmanager.vercel.app/',
+  'https://overtime-manager.vercel.app',
+  'https://overtime-manager.vercel.app/',
+  
+    // Agregar con barra al final por si acaso
 ];
 
 app.use(cors({
