@@ -22,7 +22,7 @@ const estadisticasJugadorPartidoManualSchema = new Schema({
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
-// Índice único para evitar duplicados por jugador-partido
-estadisticasJugadorPartidoManualSchema.index({ jugadorPartido: 1 }, { unique: true });
+// Índice único para evitar duplicados por jugador-partido (comentado porque ya se define con unique: true en el campo)
+// estadisticasJugadorPartidoManualSchema.index({ jugadorPartido: 1 }, { unique: true });
 
 export default model('EstadisticasJugadorPartidoManual', estadisticasJugadorPartidoManualSchema);
