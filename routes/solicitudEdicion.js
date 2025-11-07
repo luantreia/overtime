@@ -52,8 +52,32 @@ router.post('/', verificarToken, async (req, res) => {
     const { tipo, entidad, datosPropuestos } = req.body;
     const creadoPor = req.user.uid;
 
+    console.log('POST /solicitudes-edicion - Datos recibidos:', { tipo, entidad, datosPropuestos, creadoPor });
+
+    if (!creadoPor) {
+      return res.status(401).json({ message: 'Usuario no identificado' });
+    }
+
     if (!tipo || !datosPropuestos) {
-      return res.status(400).json({ message: 'Faltan campos requeridos' });
+      return res.status(400).json({ message: 'Faltan campos requeridos: tipo y datosPropuestos' });
+    }
+
+    const tiposPermitidos = [
+      'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet',
+      'estadisticasEquipoPartido', 'estadisticasEquipoSet', 'contratoJugadorEquipo',
+      'contratoEquipoCompetencia', 'jugador-equipo-crear', 'jugador-equipo-eliminar'
+    ];
+
+    if (!tiposPermitidos.includes(tipo)) {
+      return res.status(400).json({ message: `Tipo de solicitud no válido: ${tipo}` });
+    }
+
+    // Validar estructura de datosPropuestos según el tipo
+    if (tipo === 'jugador-equipo-crear' && !datosPropuestos.jugadorId) {
+      return res.status(400).json({ message: 'jugadorId requerido para solicitudes de creación' });
+    }
+    if (tipo === 'jugador-equipo-eliminar' && !datosPropuestos.contratoId) {
+      return res.status(400).json({ message: 'contratoId requerido para solicitudes de eliminación' });
     }
 
     const solicitud = new SolicitudEdicion({
@@ -63,9 +87,13 @@ router.post('/', verificarToken, async (req, res) => {
       creadoPor,
     });
 
-    await solicitud.save();
-    res.status(201).json(solicitud);
+    console.log('Guardando solicitud:', solicitud);
+
+    const savedSolicitud = await solicitud.save();
+    console.log('Solicitud guardada exitosamente:', savedSolicitud);
+    res.status(201).json(savedSolicitud);
   } catch (error) {
+    console.error('Error completo al crear solicitud:', error);
     res.status(500).json({ message: 'Error al crear solicitud', error: error.message });
   }
 });
@@ -81,9 +109,40 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     if (solicitud.estado !== 'pendiente') return res.status(400).json({ message: 'Solicitud ya procesada' });
 
     // Obtener admins responsables (de tu función existente)
-    const admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
-    if (req.user.rol !== 'admin' && !admins.includes(uid)) {
-      return res.status(403).json({ message: 'No tienes permiso para procesar esta solicitud' });
+    let admins = [];
+    if (solicitud.entidad) {
+      // Si hay entidad, usar la lógica normal
+      admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
+    } else {
+      // Para solicitudes donde entidad es null
+      if (solicitud.tipo === 'jugador-equipo-crear') {
+        const equipoId = solicitud.datosPropuestos.equipoId;
+        if (equipoId) {
+          const equipo = await Equipo.findById(equipoId).select('administradores creadoPor');
+          if (equipo) {
+            admins = [equipo.creadoPor, ...(equipo.administradores || [])].filter(Boolean);
+          }
+        }
+      } else if (solicitud.tipo === 'jugador-equipo-eliminar') {
+        const contratoId = solicitud.datosPropuestos.contratoId;
+        if (contratoId) {
+          const contrato = await JugadorEquipo.findById(contratoId)
+            .populate('equipo', 'administradores creadoPor')
+            .populate('jugador', 'administradores creadoPor');
+          if (contrato) {
+            const ids = new Set();
+            if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
+            if (Array.isArray(contrato.equipo?.administradores)) {
+              contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
+            }
+            if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
+            if (Array.isArray(contrato.jugador?.administradores)) {
+              contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
+            }
+            admins = Array.from(ids);
+          }
+        }
+      }
     }
 
     if (estado === 'aceptado') {
@@ -121,7 +180,40 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       }
 
       // Aplicar cambios a la entidad si corresponde
-      if (solicitud.tipo === 'contratoJugadorEquipo' && solicitud.entidad) {
+      if (solicitud.tipo === 'jugador-equipo-crear') {
+        try {
+          const { jugadorId, equipoId, rol, numeroCamiseta, fechaInicio, fechaFin } = solicitud.datosPropuestos;
+          const nuevaRelacion = new JugadorEquipo({
+            jugador: jugadorId,
+            equipo: equipoId,
+            rol: rol || 'jugador',
+            numeroCamiseta,
+            desde: fechaInicio,
+            hasta: fechaFin,
+            estado: 'aceptado',
+            origen: 'solicitud',
+            creadoPor: solicitud.creadoPor
+          });
+          await nuevaRelacion.save();
+        } catch (e) {
+          console.error('Error creando nueva relación JugadorEquipo:', e);
+          return res.status(500).json({ message: 'Error al crear la relación', error: e.message });
+        }
+      } else if (solicitud.tipo === 'jugador-equipo-eliminar') {
+        try {
+          const { contratoId } = solicitud.datosPropuestos;
+          const relacion = await JugadorEquipo.findById(contratoId);
+          if (relacion) {
+            // Marcar como baja en lugar de eliminar físicamente para mantener historial
+            relacion.estado = 'baja';
+            relacion.hasta = new Date();
+            await relacion.save();
+          }
+        } catch (e) {
+          console.error('Error eliminando relación JugadorEquipo:', e);
+          return res.status(500).json({ message: 'Error al eliminar la relación', error: e.message });
+        }
+      } else if (solicitud.tipo === 'contratoJugadorEquipo' && solicitud.entidad) {
         try {
           const relacion = await JugadorEquipo.findById(solicitud.entidad);
           if (relacion) {
