@@ -151,4 +151,68 @@ router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (
   }
 });
 
+// GET /api/jugador-temporada/temporadas-jugador?jugador=...
+router.get('/temporadas-jugador', async (req, res) => {
+  try {
+    const { jugador } = req.query;
+    if (!jugador) return res.status(400).json({ error: 'Falta el parámetro jugador' });
+
+    // Buscar todas las JugadorTemporada del jugador
+    const jugadorTemporadas = await JugadorTemporada.find({ jugador })
+      .populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'temporada',
+          populate: {
+            path: 'competencia',
+            select: 'nombre modalidad categoria organizacion'
+          }
+        }
+      })
+      .populate({
+        path: 'jugadorEquipo',
+        populate: {
+          path: 'equipo',
+          select: 'nombre'
+        }
+      })
+      .lean();
+
+    // Transformar los datos para el frontend
+    const temporadasFormateadas = jugadorTemporadas.map(jt => {
+      const participacionTemporada = jt.participacionTemporada;
+      const temporada = participacionTemporada?.temporada;
+      const competencia = temporada?.competencia;
+      const equipo = jt.jugadorEquipo?.equipo;
+
+      if (!temporada || !competencia || !equipo) return null;
+
+      return {
+        id: temporada._id,
+        nombre: temporada.nombre,
+        descripcion: temporada.descripcion,
+        fechaInicio: temporada.fechaInicio,
+        fechaFin: temporada.fechaFin,
+        competencia: {
+          id: competencia._id,
+          nombre: competencia.nombre,
+          modalidad: competencia.modalidad,
+          categoria: competencia.categoria,
+        },
+        equipo: {
+          id: equipo._id,
+          nombre: equipo.nombre,
+        },
+        estado: jt.estado,
+        rol: jt.rol,
+      };
+    }).filter(Boolean); // Remover nulls
+
+    res.json(temporadasFormateadas);
+  } catch (error) {
+    console.error('Error obteniendo temporadas del jugador:', error);
+    res.status(500).json({ error: 'Error al obtener temporadas' });
+  }
+});
+
 export default router;
