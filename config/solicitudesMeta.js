@@ -7,6 +7,18 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: ['foto', 'alias'],
   },
+  'jugador-equipo-crear': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['jugadorId', 'equipoId', 'fechaInicio', 'fechaFin', 'rol'],
+    rolesAprobadores: ['adminEquipo'],
+    camposPermitidosSinConsenso: [],
+  },
+  'jugador-equipo-eliminar': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['contratoId'],
+    rolesAprobadores: ['adminEquipo', 'adminJugador'],
+    camposPermitidosSinConsenso: [],
+  },
   contratoEquipoCompetencia: {
     requiereDobleConfirmacion: false,
     camposCriticos: ['fechaInicio', 'fechaFin', 'estado'],
