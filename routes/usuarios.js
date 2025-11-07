@@ -33,6 +33,33 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
   }
 });
 
+// Buscar usuario por email (para gestión de administradores)
+router.get('/', verificarToken, async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email requerido' });
+    }
+
+    const usuario = await Usuario.findOne({ email });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      id: usuario._id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+    });
+  } catch (error) {
+    console.error('Error al buscar usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Actualizar perfil del usuario autenticado
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
