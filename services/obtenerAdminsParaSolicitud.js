@@ -13,7 +13,6 @@ import Partido from '../models/Partido/Partido.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js';
 
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
-import EstadisticasEquipoSet from '../models/Equipo/EstadisticasEquipoSet.js';
 import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 
