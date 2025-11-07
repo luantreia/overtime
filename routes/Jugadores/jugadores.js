@@ -148,7 +148,7 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeE
 router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
   try {
     await req.jugador.populate('administradores', 'email nombre').execPopulate();
-    res.status(200).json(req.jugador.administradores);
+    res.status(200).json(req.jugador.administradores || []);
   } catch (error) {
     console.error('Error al obtener administradores:', error);
     res.status(500).json({ message: 'Error al obtener administradores' });
