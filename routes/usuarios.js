@@ -60,6 +60,29 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
+// Obtener usuario por ID
+router.get('/:id', verificarToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const usuario = await Usuario.findById(id);
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      id: usuario._id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+    });
+  } catch (error) {
+    console.error('Error al obtener usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Actualizar perfil del usuario autenticado
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
