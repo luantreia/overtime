@@ -8,6 +8,7 @@ import  validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js';
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
+import Jugador from '../models/Jugador/Jugador.js';
 
 // Importa modelos necesarios para obtener administradores
 import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
@@ -116,12 +117,33 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     } else {
       // Para solicitudes donde entidad es null
       if (solicitud.tipo === 'jugador-equipo-crear') {
-        const equipoId = solicitud.datosPropuestos.equipoId;
-        if (equipoId) {
-          const equipo = await Equipo.findById(equipoId).select('administradores creadoPor');
-          if (equipo) {
-            admins = [equipo.creadoPor, ...(equipo.administradores || [])].filter(Boolean);
-          }
+        const equipoId = solicitud.datosPropuestos?.equipoId;
+        const jugadorId = solicitud.datosPropuestos?.jugadorId;
+        const [equipo, jugador] = await Promise.all([
+          equipoId ? Equipo.findById(equipoId).select('administradores creadoPor') : null,
+          jugadorId ? Jugador.findById(jugadorId).select('administradores creadoPor') : null,
+        ]);
+
+        const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])]
+          .filter(Boolean)
+          .map(x => x?.toString?.() || x);
+
+        const adminsEquipo = equipo ? toIds(equipo.creadoPor, equipo.administradores) : [];
+        const adminsJugador = jugador ? toIds(jugador.creadoPor, jugador.administradores) : [];
+
+        const creador = solicitud.creadoPor?.toString();
+        const creadorEsEquipo = adminsEquipo.includes(creador);
+        const creadorEsJugador = adminsJugador.includes(creador);
+
+        // Si la solicitud la creó un admin del equipo, entonces debe aprobar un admin del jugador.
+        // Si la creó un admin del jugador, debe aprobar un admin del equipo.
+        if (creadorEsEquipo) {
+          admins = adminsJugador;
+        } else if (creadorEsJugador) {
+          admins = adminsEquipo;
+        } else {
+          // Fallback: admins del equipo
+          admins = adminsEquipo;
         }
       } else if (solicitud.tipo === 'jugador-equipo-eliminar') {
         const contratoId = solicitud.datosPropuestos.contratoId;
@@ -143,6 +165,11 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           }
         }
       }
+    }
+
+    // Autorización: sólo aprobadores (o admin global) pueden gestionar la solicitud
+    if (!admins.map(id => id?.toString?.() || id).includes(uid) && req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No autorizado para gestionar esta solicitud' });
     }
 
     if (estado === 'aceptado') {
@@ -260,7 +287,40 @@ router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
     const solicitud = await SolicitudEdicion.findById(req.params.id);
     if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
     if (solicitud.estado !== 'pendiente') return res.status(403).json({ message: 'No se puede eliminar esta solicitud' });
-    if (solicitud.creadoPor !== req.user.uid) return res.status(403).json({ message: 'No autorizado' });
+    const uid = req.user.uid;
+
+    let permitido = solicitud.creadoPor === uid;
+
+    // Permitir también a administradores del lado emisor cancelar
+    if (!permitido && solicitud.tipo === 'jugador-equipo-crear') {
+      const equipoId = solicitud.datosPropuestos?.equipoId;
+      const jugadorId = solicitud.datosPropuestos?.jugadorId;
+
+      const [equipo, jugador] = await Promise.all([
+        equipoId ? Equipo.findById(equipoId).select('administradores creadoPor') : null,
+        jugadorId ? Jugador.findById(jugadorId).select('administradores creadoPor') : null,
+      ]);
+
+      const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])]
+        .filter(Boolean)
+        .map(x => x?.toString?.() || x);
+
+      const adminsEquipo = equipo ? toIds(equipo.creadoPor, equipo.administradores) : [];
+      const adminsJugador = jugador ? toIds(jugador.creadoPor, jugador.administradores) : [];
+
+      const creador = solicitud.creadoPor?.toString();
+      const creadorEsEquipo = adminsEquipo.includes(creador);
+      const creadorEsJugador = adminsJugador.includes(creador);
+
+      const esAdminEquipo = adminsEquipo.includes(uid);
+      const esAdminJugador = adminsJugador.includes(uid);
+
+      if ((creadorEsEquipo && esAdminEquipo) || (creadorEsJugador && esAdminJugador)) {
+        permitido = true;
+      }
+    }
+
+    if (!permitido) return res.status(403).json({ message: 'No autorizado' });
 
     await solicitud.deleteOne();
     res.status(200).json({ message: 'Solicitud cancelada correctamente' });
