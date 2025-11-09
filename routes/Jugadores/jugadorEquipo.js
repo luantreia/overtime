@@ -14,7 +14,7 @@ const { Types } = mongoose;
 async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   const { id } = req.params;
   const usuarioId = req.user.uid;
-  const rol = req.user.rol;
+  const rol = (req.user.rol || '').toLowerCase?.() || 'lector';
 
   if (!Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'ID inválido' });
 
@@ -82,7 +82,7 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { equipo, jugador, q } = req.query;
     const usuarioId = req.user.uid;
-    const rol = req.user.rol;
+    const rol = (req.user.rol || '').toLowerCase?.();
 
     if ((equipo && jugador) || (!equipo && !jugador)) {
       return res.status(400).json({ message: 'Debe indicar solo jugador o equipo' });
