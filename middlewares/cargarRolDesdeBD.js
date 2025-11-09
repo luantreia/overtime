@@ -15,7 +15,12 @@ export const cargarRolDesdeBD = async (req, res, next) => {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    req.user.rol = usuario.rol || 'lector'; // fallback si por alguna razón no tiene rol
+    // Conservar el rol de mayor privilegio entre el token y la BD
+    const rolToken = (req.user.rol || '').toLowerCase?.() || 'lector';
+    const rolDB = (usuario.rol || '').toLowerCase?.() || 'lector';
+    const niveles = { lector: 0, editor: 1, admin: 2 };
+    const finalRol = (niveles[rolToken] ?? 0) >= (niveles[rolDB] ?? 0) ? rolToken : rolDB;
+    req.user.rol = finalRol;
 
     next();
   } catch (error) {
