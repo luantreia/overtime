@@ -53,6 +53,8 @@ mongoose.connect(process.env.MONGO_URI, {
 // Configurar CORS para aceptar solicitudes desde cualquier origen
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
   'https://overtime-dodgeball.vercel.app',
   'https://overtime-dodgeball.vercel.app/',
   'https://dodgeballmanager.vercel.app',
