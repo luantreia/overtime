@@ -282,7 +282,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 });
 
 // --- DELETE /api/solicitudes-edicion/:id
-router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
+router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const solicitud = await SolicitudEdicion.findById(req.params.id);
     if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
@@ -319,6 +319,9 @@ router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
         permitido = true;
       }
     }
+
+    // Permitir siempre a admin global
+    if (req.user.rol === 'admin') permitido = true;
 
     if (!permitido) return res.status(403).json({ message: 'No autorizado' });
 
