@@ -6,6 +6,133 @@ import { actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAgg
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: EstadisticasEquipoPartido
+ *   description: Estadísticas agregadas por equipo en un partido
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EstadisticasEquipoPartido:
+ *       type: object
+ *       required:
+ *         - partido
+ *         - equipo
+ *       properties:
+ *         _id:
+ *           type: string
+ *         partido:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al partido
+ *         equipo:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al equipo
+ *         equipoPartido:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al vínculo equipo-partido (opcional)
+ *         throws:
+ *           type: number
+ *           nullable: true
+ *           example: 120
+ *         hits:
+ *           type: number
+ *           nullable: true
+ *           example: 65
+ *         outs:
+ *           type: number
+ *           nullable: true
+ *           example: 55
+ *         catches:
+ *           type: number
+ *           nullable: true
+ *           example: 18
+ *         calculado:
+ *           type: boolean
+ *           description: Indica si fue calculado automáticamente
+ *           default: false
+ *         creadoPor:
+ *           type: string
+ *           description: ID del usuario que creó/actualizó
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/estadisticas/equipo-partido/actualizar:
+ *   post:
+ *     summary: Actualiza estadísticas de un equipo en un partido
+ *     description: Recalcula y guarda las estadísticas agregadas del equipo para el partido indicado.
+ *     tags: [EstadisticasEquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - partidoId
+ *               - equipoId
+ *             properties:
+ *               partidoId:
+ *                 type: string
+ *                 format: ObjectId
+ *               equipoId:
+ *                 type: string
+ *                 format: ObjectId
+ *               creadoPor:
+ *                 type: string
+ *                 description: UID del usuario (opcional; por defecto el usuario autenticado)
+ *     responses:
+ *       200:
+ *         description: Estadísticas actualizadas correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensaje:
+ *                   type: string
+ *                 estadisticas:
+ *                   $ref: '#/components/schemas/EstadisticasEquipoPartido'
+ *       400:
+ *         description: Faltan parámetros requeridos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No se pudieron calcular estadísticas para el equipo/partido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/estadisticas/equipo-partido/actualizar
 // Actualiza las estadísticas agregadas de un equipo en un partido
 router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) => {
@@ -18,7 +145,7 @@ router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) =>
       });
     }
 
-    console.log('🔄 Solicitud de actualización de estadísticas de equipo:', { partidoId, equipoId });
+    console.log(' Solicitud de actualización de estadísticas de equipo:', { partidoId, equipoId });
 
     const estadisticasEquipo = await actualizarEstadisticasEquipoPartido(
       partidoId,
@@ -38,7 +165,7 @@ router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) =>
     });
 
   } catch (error) {
-    console.error('❌ Error en POST /api/estadisticas/equipo-partido/actualizar:', error);
+    console.error(' Error en POST /api/estadisticas/equipo-partido/actualizar:', error);
     res.status(500).json({
       error: 'Error interno del servidor',
       detalle: error.message
@@ -46,6 +173,42 @@ router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) =>
   }
 });
 
+/**
+ * @swagger
+ * /api/estadisticas/equipo-partido:
+ *   get:
+ *     summary: Lista estadísticas de equipo en un partido
+ *     description: Permite filtrar por partido y/o equipo. Devuelve datos con partido y equipo poblados.
+ *     tags: [EstadisticasEquipoPartido]
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del partido
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del equipo
+ *     responses:
+ *       200:
+ *         description: Lista de estadísticas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EstadisticasEquipoPartido'
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/estadisticas/equipo-partido?partido=...&equipo=...
 // Obtener estadísticas de equipo en un partido
 router.get('/', async (req, res) => {

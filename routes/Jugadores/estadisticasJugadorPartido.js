@@ -8,7 +8,150 @@ import EstadisticasEquipoPartido from '../../models/Equipo/EstadisticasEquipoPar
 
 const router = express.Router();
 
-// GET /api/estadisticas/jugador-partido
+/**
+ * @swagger
+ * tags:
+ *   name: EstadisticasJugadorPartido
+ *   description: Gestión de estadísticas agregadas por jugador en un partido
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EstadisticasJugadorPartido:
+ *       type: object
+ *       required:
+ *         - jugadorPartido
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: ID único de las estadísticas del jugador en el partido
+ *         jugadorPartido:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia a la relación Jugador-Partido
+ *           example: 64f8d0f3b5d7a8e4c3c8d4f5a
+ *         throws:
+ *           type: number
+ *           description: Cantidad de lanzamientos intentados
+ *           default: 0
+ *           example: 25
+ *         hits:
+ *           type: number
+ *           description: Cantidad de aciertos
+ *           default: 0
+ *           example: 14
+ *         outs:
+ *           type: number
+ *           description: Cantidad de fallos
+ *           default: 0
+ *           example: 11
+ *         catches:
+ *           type: number
+ *           description: Cantidad de recepciones/capturas
+ *           default: 0
+ *           example: 3
+ *         fuente:
+ *           type: string
+ *           description: Origen de los datos (p. ej. calculo-automatico-sets)
+ *           example: calculo-automatico-sets
+ *         ultimaActualizacion:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de última actualización
+ *         setsCalculados:
+ *           type: number
+ *           description: Número de sets usados para el cálculo
+ *           default: 0
+ *         creadoPor:
+ *           type: string
+ *           description: ID del usuario que creó el registro
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido:
+ *   get:
+ *     summary: Lista estadísticas por jugador en un partido
+ *     description: |
+ *       Retorna estadísticas agregadas por jugador en un partido. Permite filtrar por partido, jugadorPartido, jugador o equipo.
+ *       Incluye en la respuesta referencias pobladas a jugador, equipo y partido para conveniencia.
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del partido para agrupar por jugadorPartido
+ *       - in: query
+ *         name: jugadorPartido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: jugador
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de estadísticas obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EstadisticasJugadorPartido'
+ *             example:
+ *               - _id: 64f8d0f3b5d7a8e4c3c8d4f5a
+ *                 jugadorPartido: 64f8d0f3b5d7a8e4c3c8d4f5b
+ *                 throws: 25
+ *                 hits: 14
+ *                 outs: 11
+ *                 catches: 3
+ *                 fuente: calculo-automatico-sets
+ *                 ultimaActualizacion: 2025-01-10T08:15:00.000Z
+ *                 createdAt: 2025-01-10T08:15:00.000Z
+ *                 updatedAt: 2025-01-10T09:00:00.000Z
+ *                 jugador:
+ *                   _id: 64f8d0f3b5d7a8e4c3c8d4f5c
+ *                   nombre: Juan
+ *                   apellido: Pérez
+ *                 equipo:
+ *                   _id: 64f8d0f3b5d7a8e4c3c8d4f5d
+ *                   nombre: Equipo Rojo
+ *                 partido:
+ *                   _id: 64f8d0f3b5d7a8e4c3c8d4f5e
+ *                   nombrePartido: Fecha 1
+ *                   fecha: 2025-01-10T06:00:00.000Z
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error del servidor al obtener estadísticas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get(
   '/',
   verificarToken,
@@ -61,7 +204,70 @@ router.get(
   }
 );
 
-// POST /api/estadisticas/jugador-partido
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido:
+ *   post:
+ *     summary: Crea estadísticas agregadas de un jugador en un partido
+ *     description: Crea un registro de estadísticas para un `jugadorPartido`. Algunos campos son opcionales.
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jugadorPartido
+ *             properties:
+ *               jugadorPartido:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID de la relación Jugador-Partido
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *               tipoCaptura:
+ *                 type: string
+ *                 description: Tipo de captura de datos
+ *                 example: automatica
+ *               fuente:
+ *                 type: string
+ *                 description: Origen de los datos
+ *                 example: sistema
+ *     responses:
+ *       201:
+ *         description: Estadísticas creadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EstadisticasJugadorPartido'
+ *       400:
+ *         description: Datos inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error al crear estadísticas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.post(
   '/',
   verificarToken,
@@ -93,7 +299,67 @@ router.post(
   }
 );
 
-// PUT /api/estadisticas/jugador-partido/:id
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/{id}:
+ *   put:
+ *     summary: Actualiza estadísticas de un jugador en un partido
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del registro de estadísticas
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *               tipoCaptura:
+ *                 type: string
+ *               fuente:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Estadísticas actualizadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EstadisticasJugadorPartido'
+ *       400:
+ *         description: Solicitud inválida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -121,7 +387,32 @@ router.put(
   }
 );
 
-// DELETE /api/estadisticas/jugador-partido/:id
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/{id}:
+ *   delete:
+ *     summary: Elimina estadísticas de un jugador en un partido
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del registro de estadísticas
+ *     responses:
+ *       200:
+ *         description: Eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error al eliminar
+ */
 router.delete(
   '/:id',
   validarObjectId,
@@ -140,7 +431,63 @@ router.delete(
   }
 );
 
-// En estadisticasJugadorPartido.js (backend)
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/resumen-partido/{partidoId}:
+ *   get:
+ *     summary: Obtiene un resumen de estadísticas por partido
+ *     description: |
+ *       Devuelve estadísticas de jugadores y equipos para un partido específico.
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Resumen obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 jugadores:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/EstadisticasJugadorPartido'
+ *                 equipos:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       nombre:
+ *                         type: string
+ *                       escudo:
+ *                         type: string
+ *                       throws:
+ *                         type: number
+ *                       hits:
+ *                         type: number
+ *                       outs:
+ *                         type: number
+ *                       catches:
+ *                         type: number
+ *                       efectividad:
+ *                         type: string
+ *                       jugadores:
+ *                         type: number
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;
@@ -189,7 +536,23 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   }
 });
 
-// POST /api/estadisticas/jugador-partido/poblar-iniciales (solo para admin)
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/poblar-iniciales:
+ *   post:
+ *     summary: Migra y crea estadísticas iniciales (solo admin)
+ *     description: Ejecuta un proceso de migración para poblar estadísticas iniciales desde sets.
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Migración completada
+ *       403:
+ *         description: Prohibido - Solo administradores
+ *       500:
+ *         description: Error en migración
+ */
 router.post('/poblar-iniciales', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     // Solo administradores pueden ejecutar esta migración
@@ -212,7 +575,29 @@ router.post('/poblar-iniciales', verificarToken, cargarRolDesdeBD, async (req, r
   }
 });
 
-// GET /api/estadisticas/jugador-partido/debug (para debugging)
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/debug:
+ *   get:
+ *     summary: Endpoint de diagnóstico para depuración
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del partido a inspeccionar
+ *     responses:
+ *       200:
+ *         description: Datos de depuración
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/debug', verificarToken, async (req, res) => {
   try {
     const { partido } = req.query;
@@ -256,8 +641,32 @@ router.get('/debug', verificarToken, async (req, res) => {
   }
 });
 
-// PUT /api/estadisticas/jugador-partido/convertir-a-automaticas/:partidoId
-// Convierte todas las estadísticas manuales de un partido a automáticas
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido/convertir-a-automaticas/{partidoId}:
+ *   put:
+ *     summary: Convierte estadísticas manuales a automáticas para un partido
+ *     description: Convierte todas las estadísticas manuales de un partido a estadísticas automáticas.
+ *     tags: [EstadisticasJugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Conversión completada
+ *       400:
+ *         description: Error de validación (partido no encontrado o sin sets)
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error interno del servidor
+ */
 router.put('/convertir-a-automaticas/:partidoId', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { partidoId } = req.params;

@@ -5,7 +5,98 @@ import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: EquipoPartido
+ *   description: Vínculos entre equipos y partidos
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EquipoPartido:
+ *       type: object
+ *       required:
+ *         - partido
+ *         - equipo
+ *         - esLocal
+ *       properties:
+ *         _id:
+ *           type: string
+ *         partido:
+ *           type: string
+ *           format: ObjectId
+ *         equipo:
+ *           type: string
+ *           format: ObjectId
+ *         equipoCompetencia:
+ *           type: string
+ *           format: ObjectId
+ *         participacionTemporada:
+ *           type: string
+ *           format: ObjectId
+ *         participacionFase:
+ *           type: string
+ *           format: ObjectId
+ *         esLocal:
+ *           type: boolean
+ *         sePresento:
+ *           type: boolean
+ *           default: true
+ *         descalificado:
+ *           type: boolean
+ *           default: false
+ *         puntosObtenidos:
+ *           type: number
+ *           default: 0
+ *         resultado:
+ *           type: string
+ *           enum: [ganado, perdido, empate, pendiente]
+ *           default: pendiente
+ *         observaciones:
+ *           type: string
+ *         creadoPor:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // ✅ GET - Obtener todos (opcionalmente filtrados por partido o equipo)
+/**
+ * @swagger
+ * /api/equipo-partido:
+ *   get:
+ *     summary: Lista vínculos equipo-partido
+ *     tags: [EquipoPartido]
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de vínculos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EquipoPartido'
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   try {
     const filtro = {};
@@ -26,6 +117,31 @@ router.get('/', async (req, res) => {
 });
 
 // ✅ GET - Obtener uno por ID
+/**
+ * @swagger
+ * /api/equipo-partido/{id}:
+ *   get:
+ *     summary: Obtiene un vínculo equipo-partido por ID
+ *     tags: [EquipoPartido]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Vínculo obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EquipoPartido'
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const resultado = await EquipoPartido.findById(req.params.id)
@@ -43,6 +159,30 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // ✅ POST - Crear uno nuevo
+/**
+ * @swagger
+ * /api/equipo-partido:
+ *   post:
+ *     summary: Crea un vínculo equipo-partido
+ *     tags: [EquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EquipoPartido'
+ *     responses:
+ *       201:
+ *         description: Creado
+ *       400:
+ *         description: Duplicado o datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/', verificarToken, async (req, res) => {
   try {
     const nuevo = new EquipoPartido({
@@ -86,6 +226,37 @@ router.post('/', verificarToken, async (req, res) => {
 });
 
 // ✅ PUT - Editar uno existente
+/**
+ * @swagger
+ * /api/equipo-partido/{id}:
+ *   put:
+ *     summary: Actualiza un vínculo equipo-partido
+ *     tags: [EquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EquipoPartido'
+ *     responses:
+ *       200:
+ *         description: Actualizado
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const actualizado = await EquipoPartido.findByIdAndUpdate(
@@ -102,6 +273,31 @@ router.put('/:id', verificarToken, validarObjectId, async (req, res) => {
 });
 
 // ✅ DELETE - Eliminar uno
+/**
+ * @swagger
+ * /api/equipo-partido/{id}:
+ *   delete:
+ *     summary: Elimina un vínculo equipo-partido
+ *     tags: [EquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const equipoPartido = await EquipoPartido.findById(req.params.id);
@@ -128,6 +324,29 @@ router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
 });
 
 // ✅ GET - Obtener estadísticas de equipo por partido
+/**
+ * @swagger
+ * /api/equipo-partido/estadisticas/{partidoId}:
+ *   get:
+ *     summary: Obtiene estadísticas de equipos para un partido
+ *     tags: [EquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de estadísticas
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/estadisticas/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;

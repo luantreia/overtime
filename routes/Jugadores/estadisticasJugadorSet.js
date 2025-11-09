@@ -8,7 +8,111 @@ import { actualizarEstadisticasJugadorPartido, actualizarEstadisticasEquipoParti
 
 const router = express.Router();
 
-// GET /api/estadisticas/jugador-set
+/**
+ * @swagger
+ * tags:
+ *   name: EstadisticasJugadorSet
+ *   description: Gestión de estadísticas por jugador en cada set del partido
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EstadisticasJugadorSet:
+ *       type: object
+ *       required:
+ *         - set
+ *         - jugadorPartido
+ *         - jugador
+ *         - equipo
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: ID único de las estadísticas por set
+ *         set:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al set del partido
+ *         jugadorPartido:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia a la relación Jugador-Partido
+ *         jugador:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al jugador
+ *         equipo:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia al equipo
+ *         throws:
+ *           type: number
+ *           default: 0
+ *         hits:
+ *           type: number
+ *           default: 0
+ *         outs:
+ *           type: number
+ *           default: 0
+ *         catches:
+ *           type: number
+ *           default: 0
+ *         creadoPor:
+ *           type: string
+ *           description: ID del usuario que creó el registro
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set:
+ *   get:
+ *     summary: Lista estadísticas por jugador para cada set
+ *     description: Permite filtrar por set, jugadorPartido, jugador o equipo.
+ *     tags: [EstadisticasJugadorSet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: set
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: jugadorPartido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: jugador
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de estadísticas obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EstadisticasJugadorSet'
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get(
   '/',
   verificarToken,
@@ -59,7 +163,60 @@ router.get(
   }
 );
 
-// POST /api/estadisticas/jugador-set
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set:
+ *   post:
+ *     summary: Crea estadísticas por jugador en un set
+ *     tags: [EstadisticasJugadorSet]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - set
+ *               - jugadorPartido
+ *               - jugador
+ *               - equipo
+ *             properties:
+ *               set:
+ *                 type: string
+ *                 format: ObjectId
+ *               jugadorPartido:
+ *                 type: string
+ *                 format: ObjectId
+ *               jugador:
+ *                 type: string
+ *                 format: ObjectId
+ *               equipo:
+ *                 type: string
+ *                 format: ObjectId
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Estadísticas creadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EstadisticasJugadorSet'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post(
   '/',
   verificarToken,
@@ -109,7 +266,46 @@ router.post(
   }
 );
 
-// PUT /api/estadisticas/jugador-set/:id
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set/{id}:
+ *   put:
+ *     summary: Actualiza estadísticas de set de un jugador
+ *     tags: [EstadisticasJugadorSet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Estadísticas actualizadas
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -153,7 +349,31 @@ router.put(
   }
 );
 
-// DELETE /api/estadisticas/jugador-set/:id
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set/{id}:
+ *   delete:
+ *     summary: Elimina estadísticas de set de un jugador
+ *     tags: [EstadisticasJugadorSet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error al eliminar
+ */
 router.delete(
   '/:id',
   validarObjectId,
@@ -194,7 +414,56 @@ router.delete(
   }
 );
 
-// GET /api/estadisticas/jugador-set/resumen-partido/:partidoId
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set/resumen-partido/{partidoId}:
+ *   get:
+ *     summary: Obtiene el resumen por sets de un partido
+ *     tags: [EstadisticasJugadorSet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Resumen de sets
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 partido:
+ *                   type: string
+ *                 sets:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       numeroSet:
+ *                         type: number
+ *                       ganadorSet:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           nombre:
+ *                             type: string
+ *                       estadisticas:
+ *                         type: array
+ *                         items:
+ *                           $ref: '#/components/schemas/EstadisticasJugadorSet'
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;

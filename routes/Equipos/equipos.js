@@ -12,7 +12,111 @@ import Usuario from '../../models/Usuario.js';
 const router = express.Router();
 const { Types } = mongoose;
 
+/**
+ * @swagger
+ * tags:
+ *   name: Equipos
+ *   description: Gestión de equipos
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Equipo:
+ *       type: object
+ *       required:
+ *         - nombre
+ *       properties:
+ *         _id:
+ *           type: string
+ *         nombre:
+ *           type: string
+ *           description: Nombre del equipo
+ *           example: "Equipo Rojo"
+ *         escudo:
+ *           type: string
+ *           example: "https://ejemplo.com/escudos/rojo.png"
+ *         foto:
+ *           type: string
+ *         colores:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["#FF0000", "#FFFFFF"]
+ *         fechaFormacion:
+ *           type: string
+ *           format: date
+ *         fechaDisolucion:
+ *           type: string
+ *           format: date
+ *         tipo:
+ *           type: string
+ *           enum: [club, seleccion, academia, otro]
+ *           default: club
+ *         esSeleccionNacional:
+ *           type: boolean
+ *           default: false
+ *         pais:
+ *           type: string
+ *         federacion:
+ *           type: string
+ *           format: ObjectId
+ *         descripcion:
+ *           type: string
+ *         sitioWeb:
+ *           type: string
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // Crear nuevo equipo
+/**
+ * @swagger
+ * /api/equipos:
+ *   post:
+ *     summary: Crea un nuevo equipo
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre]
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               escudo:
+ *                 type: string
+ *               foto:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Equipo creado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Equipo'
+ *       400:
+ *         description: Datos inválidos o equipo ya existente
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error al crear equipo
+ */
 router.post('/', verificarToken, async (req, res) => {
   const { nombre, escudo, foto } = req.body;
 
@@ -43,6 +147,28 @@ router.post('/', verificarToken, async (req, res) => {
 });
 
 // GET /equipos/admin - equipos que el usuario puede administrar
+/**
+ * @swagger
+ * /api/equipos/admin:
+ *   get:
+ *     summary: Lista equipos administrables por el usuario
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de equipos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Equipo'
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -69,6 +195,24 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 });
 
 // Obtener todos los equipos
+/**
+ * @swagger
+ * /api/equipos:
+ *   get:
+ *     summary: Lista todos los equipos
+ *     tags: [Equipos]
+ *     responses:
+ *       200:
+ *         description: Lista de equipos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Equipo'
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   try {
     const equipos = await Equipo.find();
@@ -80,6 +224,31 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener un equipo por ID
+/**
+ * @swagger
+ * /api/equipos/{id}:
+ *   get:
+ *     summary: Obtiene un equipo por ID
+ *     tags: [Equipos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Equipo obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Equipo'
+ *       404:
+ *         description: Equipo no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   const { id } = req.params;
 
@@ -99,6 +268,41 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Actualizar equipo (solo admins de ese equipo)
+/**
+ * @swagger
+ * /api/equipos/{id}:
+ *   put:
+ *     summary: Actualiza un equipo existente
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Equipo'
+ *     responses:
+ *       200:
+ *         description: Equipo actualizado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Equipo no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
   const datosActualizar = { ...req.body };
@@ -156,6 +360,27 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos/{id}/administradores:
+ *   get:
+ *     summary: Lista administradores de un equipo
+ *     tags: [Equipos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de administradores
+ *       404:
+ *         description: Equipo no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
     let admins = req.equipo.administradores || [];
@@ -173,6 +398,47 @@ router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), asy
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos/{id}/administradores:
+ *   post:
+ *     summary: Agrega un administrador a un equipo
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminUid:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Administrador agregado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Usuario o equipo no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -214,6 +480,38 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos/{id}/administradores/{adminUid}:
+ *   delete:
+ *     summary: Quita un administrador de un equipo
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: path
+ *         name: adminUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Administrador quitado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Equipo o admin no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD, verificarEntidad(Equipo, 'id', 'equipo'), async (req, res) => {
   try {
     const uid = req.user.uid;

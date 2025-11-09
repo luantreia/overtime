@@ -8,7 +8,106 @@ import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de i
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Partidos
+ *   description: Gestión de partidos
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Partido:
+ *       type: object
+ *       required:
+ *         - modalidad
+ *         - categoria
+ *         - fecha
+ *         - equipoLocal
+ *         - equipoVisitante
+ *       properties:
+ *         _id:
+ *           type: string
+ *         competencia:
+ *           type: string
+ *           format: ObjectId
+ *         fase:
+ *           type: string
+ *           format: ObjectId
+ *         etapa:
+ *           type: string
+ *           enum: [octavos, cuartos, semifinal, final, tercer_puesto, repechaje, otro]
+ *         grupo:
+ *           type: string
+ *         division:
+ *           type: string
+ *         nombrePartido:
+ *           type: string
+ *         modalidad:
+ *           type: string
+ *           enum: [Foam, Cloth]
+ *         categoria:
+ *           type: string
+ *           enum: [Masculino, Femenino, Mixto, Libre]
+ *         fecha:
+ *           type: string
+ *           format: date-time
+ *         ubicacion:
+ *           type: string
+ *         equipoLocal:
+ *           type: string
+ *           format: ObjectId
+ *         equipoVisitante:
+ *           type: string
+ *           format: ObjectId
+ *         participacionFaseLocal:
+ *           type: string
+ *           format: ObjectId
+ *         participacionFaseVisitante:
+ *           type: string
+ *           format: ObjectId
+ *         marcadorLocal:
+ *           type: number
+ *         marcadorVisitante:
+ *           type: number
+ *         marcadorModificadoManualmente:
+ *           type: boolean
+ *         modoEstadisticas:
+ *           type: string
+ *           enum: [automatico, manual]
+ *         modoVisualizacion:
+ *           type: string
+ *           enum: [automatico, manual, mixto]
+ *         estado:
+ *           type: string
+ *           enum: [programado, en_juego, finalizado, cancelado]
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ */
+
 // GET /api/partidos/admin - partidos que el usuario puede administrar
+/**
+ * @swagger
+ * /api/partidos/admin:
+ *   get:
+ *     summary: Lista partidos administrables por el usuario
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de partidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -35,6 +134,46 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 });
 
 // GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
+/**
+ * @swagger
+ * /api/partidos:
+ *   get:
+ *     summary: Lista partidos
+ *     description: Permite filtrar por fase, competencia, tipo=amistoso y equipo.
+ *     tags: [Partidos]
+ *     parameters:
+ *       - in: query
+ *         name: fase
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: competencia
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: string
+ *           enum: [amistoso]
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de partidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Partido'
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   try {
     const { fase, competencia, tipo, equipo } = req.query;
@@ -74,6 +213,35 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/partidos/:id - Obtener partido por ID
+/**
+ * @swagger
+ * /api/partidos/{id}:
+ *   get:
+ *     summary: Obtiene un partido por ID
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Partido obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Partido'
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id)
@@ -96,6 +264,30 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
 });
 
 // POST /api/partidos
+/**
+ * @swagger
+ * /api/partidos:
+ *   post:
+ *     summary: Crea un nuevo partido
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Partido'
+ *     responses:
+ *       201:
+ *         description: Partido creado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { participacionFaseLocal, participacionFaseVisitante } = req.body;
@@ -186,6 +378,41 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
 import mongoose from 'mongoose';
 
 // PUT /api/partidos/:id - Actualizar partido
+/**
+ * @swagger
+ * /api/partidos/{id}:
+ *   put:
+ *     summary: Actualiza un partido
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Partido'
+ *     responses:
+ *       200:
+ *         description: Partido actualizado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put(
   '/:id',
   verificarToken,
@@ -254,6 +481,33 @@ router.put(
 );
 
 // PUT /api/partidos/:id/recalcular-marcador - Recalcular marcador desde sets
+/**
+ * @swagger
+ * /api/partidos/{id}/recalcular-marcador:
+ *   put:
+ *     summary: Recalcula el marcador del partido desde sus sets
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Marcador recalculado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put(
   '/:id/recalcular-marcador',
   verificarToken,
@@ -289,6 +543,33 @@ router.put(
 );
 
 // DELETE /api/partidos/:id - Eliminar partido
+/**
+ * @swagger
+ * /api/partidos/{id}:
+ *   delete:
+ *     summary: Elimina un partido
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Partido eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id);

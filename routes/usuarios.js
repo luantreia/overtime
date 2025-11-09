@@ -4,16 +4,73 @@ import express from 'express';
 import verificarToken from '../middlewares/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Usuarios
+ *   description: Gestión de usuarios (perfil autenticado y utilidades)
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Usuario:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         nombre:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         rol:
+ *           type: string
+ *           enum: [admin, editor, lector]
+ */
 
 const router = express.Router();
 
-
 // Crear usuario (deprecado en modo JWT-only)
+/**
+ * @swagger
+ * /api/usuarios:
+ *   post:
+ *     summary: [DEPRECADO] Crear usuario
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     deprecated: true
+ *     responses:
+ *       400:
+ *         description: Usar /api/auth/registro para crear usuarios (JWT)
+ */
 router.post('/', verificarToken, async (req, res) => {
   return res.status(400).json({ error: 'Usar /api/auth/registro para crear usuarios (JWT)' });
 });
 
 // Obtener datos del usuario autenticado
+/**
+ * @swagger
+ * /api/usuarios/mi-perfil:
+ *   get:
+ *     summary: Obtiene el perfil del usuario autenticado
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Perfil del usuario
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.get('/mi-perfil', verificarToken, async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.user.id);
@@ -34,6 +91,35 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
 });
 
 // Buscar usuario por email (para gestión de administradores)
+/**
+ * @swagger
+ * /api/usuarios:
+ *   get:
+ *     summary: Busca un usuario por email
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: email
+ *     responses:
+ *       200:
+ *         description: Usuario encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
+ *       400:
+ *         description: Email requerido
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.get('/', verificarToken, async (req, res) => {
   try {
     const { email } = req.query;
@@ -61,6 +147,32 @@ router.get('/', verificarToken, async (req, res) => {
 });
 
 // Obtener usuario por ID
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   get:
+ *     summary: Obtiene un usuario por ID
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Usuario encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.get('/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -84,6 +196,34 @@ router.get('/:id', verificarToken, async (req, res) => {
 });
 
 // Actualizar perfil del usuario autenticado
+/**
+ * @swagger
+ * /api/usuarios/actualizar:
+ *   put:
+ *     summary: Actualiza el perfil del usuario autenticado
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre]
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Perfil actualizado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
     const { id } = req.user;
@@ -116,6 +256,20 @@ router.put('/actualizar', verificarToken, async (req, res) => {
 });
 
 // Eliminar usuario autenticado
+/**
+ * @swagger
+ * /api/usuarios/eliminar:
+ *   delete:
+ *     summary: Elimina la cuenta del usuario autenticado
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cuenta eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ */
 router.delete('/eliminar', verificarToken, async (req, res) => {
   try {
     const { id } = req.user;

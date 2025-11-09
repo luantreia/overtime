@@ -7,7 +7,111 @@ import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 
 const router = express.Router();
 
-// GET /api/estadisticas/jugador-partido-manual
+/**
+ * @swagger
+ * tags:
+ *   name: EstadisticasJugadorPartidoManual
+ *   description: Gestión de estadísticas ingresadas manualmente por jugador en un partido
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EstadisticasJugadorPartidoManual:
+ *       type: object
+ *       required:
+ *         - jugadorPartido
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: ID único del registro manual
+ *         jugadorPartido:
+ *           type: string
+ *           format: ObjectId
+ *           description: Referencia a la relación Jugador-Partido
+ *         throws:
+ *           type: number
+ *           default: 0
+ *         hits:
+ *           type: number
+ *           default: 0
+ *         outs:
+ *           type: number
+ *           default: 0
+ *         catches:
+ *           type: number
+ *           default: 0
+ *         fuente:
+ *           type: string
+ *           description: Origen de los datos (p. ej. ingreso-manual)
+ *           example: ingreso-manual
+ *         ultimaActualizacion:
+ *           type: string
+ *           format: date-time
+ *         notas:
+ *           type: string
+ *           description: Notas o comentarios adicionales
+ *         version:
+ *           type: number
+ *           description: Versión del registro
+ *           default: 1
+ *         creadoPor:
+ *           type: string
+ *           description: ID del usuario que creó el registro
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual:
+ *   get:
+ *     summary: Lista estadísticas manuales por jugador en un partido
+ *     description: Permite filtrar por partido, jugadorPartido, jugador o equipo.
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID del partido para buscar estadísticas manuales
+ *       - in: query
+ *         name: jugadorPartido
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: jugador
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de estadísticas manuales obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EstadisticasJugadorPartidoManual'
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get(
   '/',
   verificarToken,
@@ -59,7 +163,53 @@ router.get(
   }
 );
 
-// POST /api/estadisticas/jugador-partido-manual
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual:
+ *   post:
+ *     summary: Crea estadísticas manuales de un jugador en un partido
+ *     description: Evita duplicados por jugadorPartido; devuelve 409 si ya existe.
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jugadorPartido
+ *             properties:
+ *               jugadorPartido:
+ *                 type: string
+ *                 format: ObjectId
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *               notas:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Estadísticas manuales creadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EstadisticasJugadorPartidoManual'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       409:
+ *         description: Duplicado - ya existe una estadística manual para ese jugadorPartido
+ *       500:
+ *         description: Error del servidor
+ */
 router.post(
   '/',
   verificarToken,
@@ -111,8 +261,47 @@ router.post(
   }
 );
 
-// PUT /api/estadisticas/jugador-partido-manual/upsert
-// Crear o actualizar estadísticas manuales (upsert)
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual/upsert:
+ *   put:
+ *     summary: Crea o actualiza estadísticas manuales (upsert)
+ *     description: Si no existe, crea (201); si existe, actualiza (200).
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jugadorPartido
+ *             properties:
+ *               jugadorPartido:
+ *                 type: string
+ *                 format: ObjectId
+ *               throws:
+ *                 type: number
+ *               hits:
+ *                 type: number
+ *               outs:
+ *                 type: number
+ *               catches:
+ *                 type: number
+ *               notas:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Estadísticas manuales actualizadas
+ *       201:
+ *         description: Estadísticas manuales creadas
+ *       400:
+ *         description: Solicitud inválida
+ *       401:
+ *         description: No autorizado
+ */
 router.put('/upsert', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { jugadorPartido, throws, hits, outs, catches, notas } = req.body;
@@ -163,6 +352,48 @@ router.put(
   verificarToken,
   cargarRolDesdeBD,
   async (req, res) => {
+    /**
+     * @swagger
+     * /api/estadisticas/jugador-partido-manual/{id}:
+     *   put:
+     *     summary: Actualiza estadísticas manuales por ID
+     *     tags: [EstadisticasJugadorPartidoManual]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *           format: ObjectId
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               throws:
+     *                 type: number
+     *               hits:
+     *                 type: number
+     *               outs:
+     *                 type: number
+     *               catches:
+     *                 type: number
+     *               notas:
+     *                 type: string
+     *     responses:
+     *       200:
+     *         description: Actualizado correctamente
+     *       400:
+     *         description: Solicitud inválida
+     *       401:
+     *         description: No autorizado
+     *       404:
+     *         description: No encontrado
+     */
     try {
       const item = await EstadisticasJugadorPartidoManual.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'Estadísticas manuales no encontradas' });
@@ -190,7 +421,31 @@ router.put(
   }
 );
 
-// DELETE /api/estadisticas/jugador-partido-manual/:id
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual/{id}:
+ *   delete:
+ *     summary: Elimina estadísticas manuales por ID
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error al eliminar
+ */
 router.delete(
   '/:id',
   validarObjectId,
@@ -209,7 +464,29 @@ router.delete(
   }
 );
 
-// GET /api/estadisticas/jugador-partido-manual/resumen-partido/:partidoId
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual/resumen-partido/{partidoId}:
+ *   get:
+ *     summary: Obtiene un resumen de estadísticas manuales por partido
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Resumen obtenido
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;

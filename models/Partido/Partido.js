@@ -197,7 +197,7 @@ PartidoSchema.post('save', async function () {
   await this.recalcularMarcador();
 
   // 2. Actualizar tabla de posiciones
-  const actualizarParticipacionFase = require('../../utils/actualizarParticipacionFase').actualizarParticipacionFase;
+  const { actualizarParticipacionFase } = await import('../../services/participacionFaseService.js');
   if (this.participacionFaseLocal) {
     await actualizarParticipacionFase(this.participacionFaseLocal.toString(), this.fase.toString());
   }

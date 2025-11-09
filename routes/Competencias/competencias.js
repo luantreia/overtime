@@ -10,7 +10,87 @@ import Usuario from '../../models/Usuario.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Competencias
+ *   description: Gestión de competencias
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Competencia:
+ *       type: object
+ *       required:
+ *         - organizacion
+ *         - modalidad
+ *         - categoria
+ *         - fechaInicio
+ *       properties:
+ *         _id:
+ *           type: string
+ *         nombre:
+ *           type: string
+ *         descripcion:
+ *           type: string
+ *         organizacion:
+ *           type: string
+ *           format: ObjectId
+ *         modalidad:
+ *           type: string
+ *           enum: [Foam, Cloth]
+ *         categoria:
+ *           type: string
+ *           enum: [Masculino, Femenino, Mixto, Libre]
+ *         tipo:
+ *           type: string
+ *           enum: [liga, torneo, otro]
+ *         foto:
+ *           type: string
+ *         fechaInicio:
+ *           type: string
+ *           format: date-time
+ *         fechaFin:
+ *           type: string
+ *           format: date-time
+ *         estado:
+ *           type: string
+ *           enum: [programada, en_curso, finalizada, cancelada, en_creacion]
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // Obtener todas las competencias (público)
+/**
+ * @swagger
+ * /api/competencias:
+ *   get:
+ *     summary: Lista todas las competencias
+ *     tags: [Competencias]
+ *     responses:
+ *       200:
+ *         description: Lista de competencias
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Competencia'
+ *       500:
+ *         description: Error al obtener competencias
+ */
 router.get('/', 
   async (req, res) => {
   try {
@@ -22,6 +102,22 @@ router.get('/',
 });
 
 // GET /competencias/admin - competencias que el usuario puede administrar
+/**
+ * @swagger
+ * /api/competencias/admin:
+ *   get:
+ *     summary: Lista competencias administrables por el usuario
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de competencias
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/admin', 
   verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -49,6 +145,27 @@ router.get('/admin',
 });
 
 // Obtener competencia por ID (público)
+/**
+ * @swagger
+ * /api/competencias/{id}:
+ *   get:
+ *     summary: Obtiene una competencia por ID
+ *     tags: [Competencias]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Competencia encontrada (incluye esAdmin si autenticado)
+ *       404:
+ *         description: No encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get( '/:id',
   validarObjectId,
   async (req, res, next) => {
@@ -76,6 +193,26 @@ router.get( '/:id',
 );
 
 // Crear competencia (solo usuario autenticado)
+/**
+ * @swagger
+ * /api/competencias:
+ *   post:
+ *     summary: Crea una nueva competencia
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Competencia'
+ *     responses:
+ *       201:
+ *         description: Competencia creada
+ *       400:
+ *         description: Datos inválidos o sin permisos
+ */
 router.post( '/',
   verificarToken,
   cargarRolDesdeBD,
@@ -111,6 +248,37 @@ router.post( '/',
 );
 
 // Actualizar competencia (solo admins o creadores)
+/**
+ * @swagger
+ * /api/competencias/{id}:
+ *   put:
+ *     summary: Actualiza una competencia existente
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Competencia'
+ *     responses:
+ *       200:
+ *         description: Actualizada
+ *       400:
+ *         description: Error al actualizar
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ */
 router.put( '/:id',
   validarObjectId,
   verificarToken,
@@ -127,6 +295,27 @@ router.put( '/:id',
   }
 );
 
+/**
+ * @swagger
+ * /api/competencias/{id}/administradores:
+ *   get:
+ *     summary: Lista administradores de una competencia
+ *     tags: [Competencias]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de administradores
+ *       404:
+ *         description: No encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get( '/:id/administradores',
   verificarEntidad(Competencia, 'id', 'competencia'),
   async (req, res) => {
@@ -140,6 +329,45 @@ router.get( '/:id/administradores',
   }
 );
 
+/**
+ * @swagger
+ * /api/competencias/{id}/administradores:
+ *   post:
+ *     summary: Agrega un administrador a una competencia
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminUid:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Administrador agregado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.post( '/:id/administradores',
   verificarToken,
   cargarRolDesdeBD,
@@ -189,6 +417,36 @@ router.post( '/:id/administradores',
   }
 );
 
+/**
+ * @swagger
+ * /api/competencias/{id}/administradores/{adminUid}:
+ *   delete:
+ *     summary: Quita un administrador de una competencia
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: path
+ *         name: adminUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Administrador quitado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ */
 router.delete( '/:id/administradores/:adminUid',
   verificarToken,
   cargarRolDesdeBD,
@@ -224,6 +482,31 @@ router.delete( '/:id/administradores/:adminUid',
 );
 
 // Eliminar competencia (solo admins o creadores)
+/**
+ * @swagger
+ * /api/competencias/{id}:
+ *   delete:
+ *     summary: Elimina una competencia
+ *     tags: [Competencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrada
+ */
 router.delete(
   '/:id',
   validarObjectId,

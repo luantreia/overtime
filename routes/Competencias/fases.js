@@ -12,7 +12,87 @@ import { generarFixturePorTipo } from '../../utils/generadorFixturePorTipo.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Fases
+ *   description: Gestión de fases dentro de competencias/temporadas
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Fase:
+ *       type: object
+ *       required:
+ *         - temporada
+ *         - nombre
+ *         - tipo
+ *       properties:
+ *         _id:
+ *           type: string
+ *         temporada:
+ *           type: string
+ *           format: ObjectId
+ *         nombre:
+ *           type: string
+ *         tipo:
+ *           type: string
+ *           enum: [grupo, liga, playoff, promocion, otro]
+ *         orden:
+ *           type: number
+ *           default: 0
+ *         descripcion:
+ *           type: string
+ *         fechaInicio:
+ *           type: string
+ *           format: date-time
+ *         fechaFin:
+ *           type: string
+ *           format: date-time
+ *         numeroClasificados:
+ *           type: number
+ *         faseOrigenA:
+ *           type: string
+ *           format: ObjectId
+ *         faseOrigenB:
+ *           type: string
+ *           format: ObjectId
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ */
+
 // Obtener todas las fases (opcionalmente filtrar por temporada)
+/**
+ * @swagger
+ * /api/fases:
+ *   get:
+ *     summary: Lista fases
+ *     description: Permite filtrar por temporada.
+ *     tags: [Fases]
+ *     parameters:
+ *       - in: query
+ *         name: temporada
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de fases
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Fase'
+ *       500:
+ *         description: Error al obtener fases
+ */
 router.get('/', async (req, res) => {
   try {
     const filter = {};
@@ -29,6 +109,33 @@ router.get('/', async (req, res) => {
 });
 
 // Generar fixture para una fase (solo admins de la fase)
+/**
+ * @swagger
+ * /api/fases/{id}/generar-fixture:
+ *   post:
+ *     summary: Genera el fixture de la fase
+ *     tags: [Fases]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       201:
+ *         description: Fixture generado con éxito
+ *       400:
+ *         description: Datos inválidos o insuficientes
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Fase/Competencia no encontrada
+ *       500:
+ *         description: Error al generar fixture
+ */
 router.post(
   '/:id/generar-fixture',
   validarObjectId,
@@ -137,6 +244,31 @@ router.post(
 );
 
 // Obtener fase por ID
+/**
+ * @swagger
+ * /api/fases/{id}:
+ *   get:
+ *     summary: Obtiene una fase por ID
+ *     tags: [Fases]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Fase obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Fase'
+ *       404:
+ *         description: Fase no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const fase = await Fase.findById(req.params.id).populate('competencia', 'nombre').lean();
@@ -148,6 +280,26 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Crear fase (usuario autenticado)
+/**
+ * @swagger
+ * /api/fases:
+ *   post:
+ *     summary: Crea una nueva fase
+ *     tags: [Fases]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Fase'
+ *     responses:
+ *       201:
+ *         description: Fase creada
+ *       400:
+ *         description: Datos inválidos
+ */
 router.post(
   '/',
   verificarToken,
@@ -179,6 +331,37 @@ router.post(
 
 
 // Actualizar fase (solo admins o creadores)
+/**
+ * @swagger
+ * /api/fases/{id}:
+ *   put:
+ *     summary: Actualiza una fase
+ *     tags: [Fases]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Fase'
+ *     responses:
+ *       200:
+ *         description: Fase actualizada
+ *       400:
+ *         description: Error al actualizar fase
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Fase no encontrada
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -197,6 +380,29 @@ router.put(
 );
 
 // Eliminar fase (solo admins o creadores)
+/**
+ * @swagger
+ * /api/fases/{id}:
+ *   delete:
+ *     summary: Elimina una fase
+ *     tags: [Fases]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Fase eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Fase no encontrada
+ */
 router.delete(
   '/:id',
   validarObjectId,

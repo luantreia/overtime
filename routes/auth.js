@@ -7,7 +7,82 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Autenticación de usuarios (registro, login, refresh)
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AuthUser:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         nombre:
+ *           type: string
+ *         rol:
+ *           type: string
+ *     AuthTokens:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *         refreshToken:
+ *           type: string
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         user:
+ *           $ref: '#/components/schemas/AuthUser'
+ *         accessToken:
+ *           type: string
+ *         refreshToken:
+ *           type: string
+ */
+
 // Registro local
+/**
+ * @swagger
+ * /api/auth/registro:
+ *   post:
+ *     summary: Registro de usuario (modo local)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password, nombre]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               nombre:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Usuario registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Datos inválidos o email ya registrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/registro', async (req, res) => {
   try {
     const { email, password, nombre } = req.body || {};
@@ -41,6 +116,40 @@ router.post('/registro', async (req, res) => {
 });
 
 // Login local
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Inicio de sesión (modo local)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Sesión iniciada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Faltan credenciales
+ *       401:
+ *         description: Credenciales inválidas
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -71,6 +180,34 @@ router.post('/login', async (req, res) => {
 });
 
 // Refresh token
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresca el access token usando un refresh token válido
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Tokens actualizados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthTokens'
+ *       400:
+ *         description: Faltan datos
+ *       401:
+ *         description: refreshToken inválido
+ */
 router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body || {};

@@ -1,0 +1,74 @@
+components:
+  schemas:
+    Jugador:
+      type: object
+      required:
+        - nombre
+        - fechaNacimiento
+      properties:
+        _id:
+          type: string
+          description: ID único del jugador
+          example: 5f8d0f3d7b1e3d2a1c8f3d5a
+        nombre:
+          type: string
+          description: Nombre completo del jugador
+          example: "Juan Pérez"
+        alias:
+          type: string
+          description: Apodo o alias del jugador
+          example: "El Toro"
+        fechaNacimiento:
+          type: string
+          format: date
+          description: Fecha de nacimiento del jugador (YYYY-MM-DD)
+          example: "1990-01-15"
+        genero:
+          type: string
+          enum: [masculino, femenino, otro]
+          description: Género del jugador
+          example: "masculino"
+        foto:
+          type: string
+          description: URL de la foto del jugador
+          example: "https://example.com/fotos/juan-perez.jpg"
+        creadoPor:
+          type: string
+          description: ID del usuario que creó el registro
+          example: "5f8d0f3d7b1e3d2a1c8f3d5a"
+        administradores:
+          type: array
+          items:
+            type: string
+          description: Lista de IDs de usuarios que pueden administrar este jugador
+          example: ["5f8d0f3d7b1e3d2a1c8f3d5a"]
+        fechaCreacion:
+          type: string
+          format: date-time
+          description: Fecha de creación del registro
+          example: "2023-01-15T12:00:00.000Z"
+        fechaActualizacion:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+          example: "2023-01-15T12:30:00.000Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Mensaje de error
+          example: "Error al procesar la solicitud"
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Jugador'

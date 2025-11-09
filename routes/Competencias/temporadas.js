@@ -8,7 +8,74 @@ import { esAdminDeEntidad } from '../../middlewares/esAdminDeEntidad.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Temporadas
+ *   description: Gestión de temporadas dentro de una competencia
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Temporada:
+ *       type: object
+ *       required:
+ *         - competencia
+ *         - nombre
+ *       properties:
+ *         _id:
+ *           type: string
+ *         competencia:
+ *           type: string
+ *           format: ObjectId
+ *         nombre:
+ *           type: string
+ *         descripcion:
+ *           type: string
+ *         fechaInicio:
+ *           type: string
+ *           format: date-time
+ *         fechaFin:
+ *           type: string
+ *           format: date-time
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ */
+
 // Listar temporadas de una competencia (público)
+/**
+ * @swagger
+ * /api/temporadas:
+ *   get:
+ *     summary: Lista temporadas de una competencia
+ *     tags: [Temporadas]
+ *     parameters:
+ *       - in: query
+ *         name: competencia
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de temporadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Temporada'
+ *       400:
+ *         description: Falta el parámetro competencia
+ *       500:
+ *         description: Error al obtener temporadas
+ */
 router.get('/', async (req, res) => {
   const { competencia } = req.query;
   if (!competencia) return res.status(400).json({ error: 'Falta el parámetro competencia' });
@@ -22,6 +89,31 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener temporada por ID (público)
+/**
+ * @swagger
+ * /api/temporadas/{id}:
+ *   get:
+ *     summary: Obtiene una temporada por ID
+ *     tags: [Temporadas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Temporada obtenida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Temporada'
+ *       404:
+ *         description: Temporada no encontrada
+ *       500:
+ *         description: Error al obtener temporada
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const temporada = await Temporada.findById(req.params.id).lean();
@@ -33,6 +125,41 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Crear temporada (solo usuarios autenticados y admins/administradores competencia)
+/**
+ * @swagger
+ * /api/temporadas:
+ *   post:
+ *     summary: Crea una nueva temporada
+ *     tags: [Temporadas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [competencia, nombre]
+ *             properties:
+ *               competencia:
+ *                 type: string
+ *                 format: ObjectId
+ *               nombre:
+ *                 type: string
+ *               descripcion:
+ *                 type: string
+ *               fechaInicio:
+ *                 type: string
+ *                 format: date-time
+ *               fechaFin:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Temporada creada
+ *       400:
+ *         description: Datos inválidos o sin permisos
+ */
 router.post('/',
   verificarToken,
   cargarRolDesdeBD,
@@ -106,6 +233,39 @@ async function cargarTemporadaYValidarAdmin(req, res, next) {
 }
 
 // Actualizar temporada
+/**
+ * @swagger
+ * /api/temporadas/{id}:
+ *   put:
+ *     summary: Actualiza una temporada
+ *     tags: [Temporadas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Temporada'
+ *     responses:
+ *       200:
+ *         description: Temporada actualizada
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrada
+ */
 router.put('/:id',
   validarObjectId,
   verificarToken,
@@ -123,6 +283,31 @@ router.put('/:id',
 );
 
 // Eliminar temporada
+/**
+ * @swagger
+ * /api/temporadas/{id}:
+ *   delete:
+ *     summary: Elimina una temporada
+ *     tags: [Temporadas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Temporada eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrada
+ */
 router.delete('/:id',
   validarObjectId,
   verificarToken,

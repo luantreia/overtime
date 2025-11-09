@@ -3,6 +3,56 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJSDoc from 'swagger-jsdoc';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES Modules fix for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Swagger configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Overtime API',
+      version: '1.0.0',
+      description: 'Documentation for Overtime API',
+      contact: {
+        name: 'API Support',
+        email: 'support@overtime.com',
+      },
+    },
+    servers: [
+      {
+        url: process.env.API_BASE_URL || 'http://localhost:5000',
+        description: 'Development server',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  apis: [
+    path.join(__dirname, 'routes/**/*.js'),
+    path.join(__dirname, 'models/**/*.js'),
+  ],
+};
+
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
 import usuariosRoutes from './routes/usuarios.js';
 import authRoutes from './routes/auth.js';
 
@@ -55,6 +105,9 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:3004',
+  'http://localhost:3005',
   'https://overtime-dodgeball.vercel.app',
   'https://overtime-dodgeball.vercel.app/',
   'https://dodgeballmanager.vercel.app',
@@ -81,7 +134,21 @@ app.use(cors({
 
 app.use(express.json());
 
-  // Rutas
+// Serve Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Overtime API Documentation',
+  customfavIcon: '/favicon.ico',
+}));
+
+// Add route to serve the raw JSON spec
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 

@@ -1,61 +1,87 @@
+import Partido from '../models/Partido/Partido.js'
+import ParticipacionFase from '../models/Equipo/ParticipacionFase.js'
+import Fase from '../models/Competencia/Fase.js'
+import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js'
 
+export async function actualizarParticipacionFase(id, faseId) {
+  // id puede ser: ParticipacionFaseId o EquipoId
+  let pf = null;
+  try {
+    pf = await ParticipacionFase.findById(id).populate({
+      path: 'participacionTemporada',
+      select: 'equipo temporada',
+    });
+  } catch (_) {
+    // Ignorar si no es ObjectId válido
+  }
 
-export async function actualizarParticipacionFase(equipoCompetenciaId, faseId) {
-  // 1. Buscar partidos finalizados de esa fase donde participe el equipo
-  // (Suponiendo que el partido tiene referencia a fase, o a competencia que tiene fases)
-  const partidos = await Partido.find({
-    fase: faseId,
-    estado: 'finalizado',
-    $or: [{ equipoLocal: equipoCompetenciaId }, { equipoVisitante: equipoCompetenciaId }]
-  }).lean();
+  let equipoId = null;
 
-  // 2. Calcular estadisticas sumando resultados
-  let puntos = 0,
-      partidosJugados = 0,
-      partidosGanados = 0,
-      partidosPerdidos = 0,
-      partidosEmpatados = 0,
-      diferenciaPuntos = 0;
+  if (!pf) {
+    // Interpretar id como EquipoId y obtener/crear la ParticipacionFase correspondiente
+    equipoId = id;
+    const fase = await Fase.findById(faseId).lean();
+    if (!fase) return;
+
+    const pt = await ParticipacionTemporada.findOne({ equipo: equipoId, temporada: fase.temporada });
+    if (!pt) return; // No hay participación de temporada; no se puede actualizar tabla
+
+    pf = await ParticipacionFase.findOne({ participacionTemporada: pt._id, fase: faseId });
+    if (!pf) {
+      pf = new ParticipacionFase({ participacionTemporada: pt._id, fase: faseId });
+    }
+  } else {
+    equipoId = pf.participacionTemporada?.equipo?.toString?.() || null;
+  }
+
+  // Buscar partidos finalizados de la fase en los que participa el PF (o el equipo, como fallback)
+  const orConds = [];
+  if (pf?._id) {
+    orConds.push({ participacionFaseLocal: pf._id }, { participacionFaseVisitante: pf._id });
+  }
+  if (equipoId) {
+    orConds.push({ equipoLocal: equipoId }, { equipoVisitante: equipoId });
+  }
+  if (orConds.length === 0) return;
+
+  const partidos = await Partido.find({ fase: faseId, estado: 'finalizado', $or: orConds }).lean();
+
+  let puntos = 0;
+  let partidosJugados = 0;
+  let partidosGanados = 0;
+  let partidosPerdidos = 0;
+  let partidosEmpatados = 0;
+  let diferenciaPuntos = 0;
 
   for (const p of partidos) {
     partidosJugados++;
-    const esLocal = p.equipoLocal.toString() === equipoCompetenciaId.toString();
-    const marcadorEquipo = esLocal ? p.marcadorLocal : p.marcadorVisitante;
-    const marcadorRival = esLocal ? p.marcadorVisitante : p.marcadorLocal;
 
-    diferenciaPuntos += marcadorEquipo - marcadorRival;
+    let esLocal = false;
+    if (pf?._id && (p?.participacionFaseLocal?.toString?.() === pf._id.toString())) esLocal = true;
+    else if (equipoId && (p?.equipoLocal?.toString?.() === equipoId.toString())) esLocal = true;
+
+    const marcadorEquipo = esLocal ? (p.marcadorLocal ?? 0) : (p.marcadorVisitante ?? 0);
+    const marcadorRival = esLocal ? (p.marcadorVisitante ?? 0) : (p.marcadorLocal ?? 0);
+
+    diferenciaPuntos += (marcadorEquipo - marcadorRival);
 
     if (marcadorEquipo > marcadorRival) {
       partidosGanados++;
-      puntos += 3; // Ejemplo: 3 puntos por victoria
+      puntos += 3; // 3 por victoria
     } else if (marcadorEquipo < marcadorRival) {
       partidosPerdidos++;
     } else {
       partidosEmpatados++;
-      puntos += 1; // Ejemplo: 1 punto por empate
+      puntos += 1; // 1 por empate
     }
   }
 
-  // 3. Buscar o crear el documento ParticipacionFase
-  let participacion = await ParticipacionFase.findOne({
-    equipoCompetencia: equipoCompetenciaId,
-    fase: faseId
-  });
+  pf.puntos = puntos;
+  pf.partidosJugados = partidosJugados;
+  pf.partidosGanados = partidosGanados;
+  pf.partidosPerdidos = partidosPerdidos;
+  pf.partidosEmpatados = partidosEmpatados;
+  pf.diferenciaPuntos = diferenciaPuntos;
 
-  if (!participacion) {
-    participacion = new ParticipacionFase({
-      equipoCompetencia: equipoCompetenciaId,
-      fase: faseId,
-    });
-  }
-
-  // 4. Actualizar estadísticas
-  participacion.puntos = puntos;
-  participacion.partidosJugados = partidosJugados;
-  participacion.partidosGanados = partidosGanados;
-  participacion.partidosPerdidos = partidosPerdidos;
-  participacion.partidosEmpatados = partidosEmpatados;
-  participacion.diferenciaPuntos = diferenciaPuntos;
-
-  await participacion.save();
+  await pf.save();
 }

@@ -4,21 +4,136 @@ import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import verificarToken from '../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middlewares/validacionObjectId.js';
-import  validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js';
+import validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js';
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
-
-// Importa modelos necesarios para obtener administradores
 import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
 import Equipo from '../models/Equipo/Equipo.js';
-// importa otros modelos que puedas necesitar...
+
+/**
+ * @swagger
+ * tags:
+ *   name: Solicitudes de Edición
+ *   description: Gestión de solicitudes de edición para cambios que requieren aprobación
+ * 
+ * components:
+ *   schemas:
+ *     SolicitudEdicion:
+ *       type: object
+ *       required:
+ *         - tipo
+ *         - datosPropuestos
+ *         - creadoPor
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: ID único de la solicitud
+ *         tipo:
+ *           type: string
+ *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, estadisticasJugadorSet, 
+ *                 estadisticasEquipoPartido, estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar]
+ *           description: Tipo de solicitud
+ *         entidad:
+ *           type: string
+ *           format: ObjectId
+ *           description: ID de la entidad relacionada (opcional)
+ *         datosPropuestos:
+ *           type: object
+ *           description: Datos propuestos para la edición
+ *           example: {}
+ *         estado:
+ *           type: string
+ *           enum: [pendiente, aceptado, rechazado, cancelado]
+ *           default: pendiente
+ *         aceptadoPor:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: ObjectId
+ *             description: IDs de usuarios que han aprobado la solicitud
+ *         requiereDobleConfirmacion:
+ *           type: boolean
+ *           default: false
+ *         motivoRechazo:
+ *           type: string
+ *           description: Motivo del rechazo si es aplicable
+ *         fechaAceptacion:
+ *           type: string
+ *           format: date-time
+ *         fechaRechazo:
+ *           type: string
+ *           format: date-time
+ *         creadoPor:
+ *           type: string
+ *           format: ObjectId
+ *           description: ID del usuario que creó la solicitud
+ *         aprobadoPor:
+ *           type: string
+ *           format: ObjectId
+ *           description: ID del usuario que aprobó la solicitud
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
 
 const router = express.Router();
 const { Types } = mongoose;
 
-// --- GET /api/solicitudes-edicion
+/**
+ * @swagger
+ * /api/solicitudes-edicion:
+ *   get:
+ *     summary: Obtiene todas las solicitudes de edición con filtros opcionales
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: string
+ *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
+ *                 estadisticasJugadorSet, estadisticasEquipoPartido, 
+ *                 estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                 contratoEquipoCompetencia, jugador-equipo-crear, 
+ *                 jugador-equipo-eliminar]
+ *         description: Filtro por tipo de solicitud
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [pendiente, aceptado, rechazado, cancelado]
+ *         description: Filtro por estado de la solicitud
+ *       - in: query
+ *         name: creadoPor
+ *         schema:
+ *           type: string
+ *         description: Filtro por ID del usuario que creó la solicitud
+ *       - in: query
+ *         name: entidad
+ *         schema:
+ *           type: string
+ *         description: Filtro por ID de la entidad relacionada
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes de edición
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/SolicitudEdicion'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Error al obtener las solicitudes
+ */
 router.get('/', verificarToken, async (req, res) => {
   try {
     const { tipo, estado, creadoPor, entidad } = req.query;
@@ -36,7 +151,33 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
-// --- GET /api/solicitudes-edicion/:id
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   get:
+ *     summary: Obtiene una solicitud de edición por ID
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Solicitud encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudEdicion'
+ *       404:
+ *         description: Solicitud no encontrada
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
     const solicitud = await SolicitudEdicion.findById(req.params.id).lean();
@@ -47,7 +188,53 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   }
 });
 
-// --- POST /api/solicitudes-edicion
+/**
+ * @swagger
+ * /api/solicitudes-edicion:
+ *   post:
+ *     summary: Crea una nueva solicitud de edición
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tipo
+ *               - datosPropuestos
+ *             properties:
+ *               tipo:
+ *                 type: string
+ *                 enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
+ *                       estadisticasJugadorSet, estadisticasEquipoPartido, 
+ *                       estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                       contratoEquipoCompetencia, jugador-equipo-crear, 
+ *                       jugador-equipo-eliminar]
+ *                 description: Tipo de solicitud
+ *               entidad:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID de la entidad relacionada (opcional)
+ *               datosPropuestos:
+ *                 type: object
+ *                 description: Datos propuestos para la edición
+ *     responses:
+ *       201:
+ *         description: Solicitud creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudEdicion'
+ *       400:
+ *         description: Faltan campos requeridos o tipo de solicitud no válido
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Error al crear la solicitud
+ */
 router.post('/', verificarToken, async (req, res) => {
   try {
     const { tipo, entidad, datosPropuestos } = req.body;
@@ -100,6 +287,56 @@ router.post('/', verificarToken, async (req, res) => {
 });
 
 
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   put:
+ *     summary: Actualiza una solicitud de edición (aprobar/rechazar)
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la solicitud a actualizar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - estado
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [aceptado, rechazado]
+ *                 description: Nuevo estado de la solicitud
+ *               motivoRechazo:
+ *                 type: string
+ *                 description: Motivo del rechazo (requerido si estado es 'rechazado')
+ *               datosPropuestos:
+ *                 type: object
+ *                 description: Datos propuestos actualizados (opcional)
+ *     responses:
+ *       200:
+ *         description: Solicitud actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudEdicion'
+ *       400:
+ *         description: Estado inválido o solicitud ya procesada
+ *       403:
+ *         description: No autorizado para gestionar esta solicitud
+ *       404:
+ *         description: Solicitud no encontrada
+ *       500:
+ *         description: Error al actualizar la solicitud
+ */
 router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const { estado, motivoRechazo, datosPropuestos } = req.body;
@@ -281,7 +518,39 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
   }
 });
 
-// --- DELETE /api/solicitudes-edicion/:id
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   delete:
+ *     summary: Elimina una solicitud de edición (cancelar)
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la solicitud a eliminar
+ *     responses:
+ *       200:
+ *         description: Solicitud cancelada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Solicitud cancelada correctamente
+ *       403:
+ *         description: No autorizado para eliminar esta solicitud o la solicitud no está en estado pendiente
+ *       404:
+ *         description: Solicitud no encontrada
+ *       500:
+ *         description: Error al eliminar la solicitud
+ */
 router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const solicitud = await SolicitudEdicion.findById(req.params.id);

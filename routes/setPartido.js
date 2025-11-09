@@ -9,7 +9,76 @@ import { validarObjectId } from '../middlewares/validacionObjectId.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: SetPartido
+ *   description: Gestión de sets dentro de un partido
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SetPartido:
+ *       type: object
+ *       required:
+ *         - partido
+ *         - numeroSet
+ *       properties:
+ *         _id:
+ *           type: string
+ *         partido:
+ *           type: string
+ *           format: ObjectId
+ *         numeroSet:
+ *           type: number
+ *         ganadorSet:
+ *           type: string
+ *           enum: [local, visitante, empate, pendiente]
+ *           default: pendiente
+ *         estadoSet:
+ *           type: string
+ *           enum: [en_juego, finalizado]
+ *           default: en_juego
+ *         creadoPor:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // GET /api/set-partido?partido=...
+/**
+ * @swagger
+ * /api/set-partido:
+ *   get:
+ *     summary: Lista los sets de un partido
+ *     tags: [SetPartido]
+ *     parameters:
+ *       - in: query
+ *         name: partido
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de sets
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/SetPartido'
+ *       400:
+ *         description: Falta parámetro partido
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   const { partido } = req.query;
   if (!partido) return res.status(400).json({ error: 'Falta el parámetro partido' });
@@ -23,6 +92,31 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/set-partido/:id
+/**
+ * @swagger
+ * /api/set-partido/{id}:
+ *   get:
+ *     summary: Obtiene un set por ID
+ *     tags: [SetPartido]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Set obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SetPartido'
+ *       404:
+ *         description: Set no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const set = await SetPartido.findById(req.params.id).lean();
@@ -34,6 +128,49 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // POST /api/set-partido
+/**
+ * @swagger
+ * /api/set-partido:
+ *   post:
+ *     summary: Crea un nuevo set para un partido
+ *     tags: [SetPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [partido, numeroSet]
+ *             properties:
+ *               partido:
+ *                 type: string
+ *                 format: ObjectId
+ *               numeroSet:
+ *                 type: number
+ *               ganadorSet:
+ *                 type: string
+ *                 enum: [local, visitante, empate, pendiente]
+ *               estadoSet:
+ *                 type: string
+ *                 enum: [en_juego, finalizado]
+ *     responses:
+ *       201:
+ *         description: Set creado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SetPartido'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Partido no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post(
   '/',
   verificarToken,
@@ -63,6 +200,37 @@ router.post(
 );
 
 // PUT /api/set-partido/:id
+/**
+ * @swagger
+ * /api/set-partido/{id}:
+ *   put:
+ *     summary: Actualiza un set
+ *     tags: [SetPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SetPartido'
+ *     responses:
+ *       200:
+ *         description: Set actualizado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Set no encontrado
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -85,6 +253,31 @@ router.put(
 );
 
 // DELETE /api/set-partido/:id
+/**
+ * @swagger
+ * /api/set-partido/{id}:
+ *   delete:
+ *     summary: Elimina un set
+ *     tags: [SetPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Set eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Set no encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete(
   '/:id',
   validarObjectId,

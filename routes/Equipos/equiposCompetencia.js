@@ -52,6 +52,40 @@ function fueHechaPorEquipo(relacion, equipo) {
 }
 
 // Obtener todos los equipos de competencia (filtros opcionales)
+/**
+ * @swagger
+ * /api/equipos-competencia:
+ *   get:
+ *     summary: Lista vínculos equipo-competencia
+ *     tags: [EquiposCompetencia]
+ *     parameters:
+ *       - in: query
+ *         name: competencia
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: fase
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de vínculos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EquipoCompetencia'
+ *       500:
+ *         description: Error al obtener equipos de competencia
+ */
 router.get('/', async (req, res) => {
   try {
     const filter = {};
@@ -71,6 +105,49 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos-competencia/solicitar-equipo:
+ *   post:
+ *     summary: Crea solicitud de equipo para ingresar a una competencia
+ *     description: Solo administradores del equipo pueden realizar esta acción.
+ *     tags: [EquiposCompetencia]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [equipo, competencia]
+ *             properties:
+ *               equipo:
+ *                 type: string
+ *                 format: ObjectId
+ *               competencia:
+ *                 type: string
+ *                 format: ObjectId
+ *     responses:
+ *       201:
+ *         description: Solicitud creada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EquipoCompetencia'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Equipo o competencia no encontrados
+ *       409:
+ *         description: Solicitud o vínculo ya existente
+ *       500:
+ *         description: Error al crear solicitud
+ */
 router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { equipo, competencia } = req.body;
@@ -118,6 +195,45 @@ router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, r
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos-competencia/solicitar-competencia:
+ *   post:
+ *     summary: Crea solicitud de competencia para invitar a un equipo
+ *     description: Solo administradores de la competencia pueden realizar esta acción.
+ *     tags: [EquiposCompetencia]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [equipo, competencia]
+ *             properties:
+ *               equipo:
+ *                 type: string
+ *                 format: ObjectId
+ *               competencia:
+ *                 type: string
+ *                 format: ObjectId
+ *     responses:
+ *       201:
+ *         description: Solicitud creada
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Equipo o competencia no encontrados
+ *       409:
+ *         description: Solicitud o vínculo ya existente
+ *       500:
+ *         description: Error al crear solicitud
+ */
 router.post('/solicitar-competencia', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const { equipo, competencia } = req.body;
@@ -165,6 +281,39 @@ router.post('/solicitar-competencia', verificarToken, cargarRolDesdeBD, async (r
   }
 });
 
+/**
+ * @swagger
+ * /api/equipos-competencia/solicitudes:
+ *   get:
+ *     summary: Lista solicitudes equipo-competencia
+ *     description: Filtra por estado, equipo o competencia y limita por permisos del usuario.
+ *     tags: [EquiposCompetencia]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [pendiente, aceptado, rechazado, cancelado, finalizado]
+ *       - in: query
+ *         name: equipo
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: competencia
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const usuarioId = req.user.uid;
@@ -207,6 +356,27 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
 
 
 // Obtener equipo competencia por ID
+/**
+ * @swagger
+ * /api/equipos-competencia/{id}:
+ *   get:
+ *     summary: Obtiene un vínculo equipo-competencia por ID
+ *     tags: [EquiposCompetencia]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Vínculo obtenido
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const equipoCompetencia = await EquipoCompetencia.findById(req.params.id)
@@ -222,6 +392,54 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // Actualizar equipo competencia (solo admins o creadores)
+/**
+ * @swagger
+ * /api/equipos-competencia/{id}:
+ *   put:
+ *     summary: Actualiza una solicitud o contrato equipo-competencia
+ *     description: Permite aceptar/rechazar/cancelar solicitudes o editar contratos activos/finalizados.
+ *     tags: [EquiposCompetencia]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [pendiente, aceptado, rechazado, cancelado, finalizado]
+ *               motivoRechazo:
+ *                 type: string
+ *               desde:
+ *                 type: string
+ *                 format: date
+ *               hasta:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       200:
+ *         description: Actualizado
+ *       400:
+ *         description: Estado inválido o no editable
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -301,6 +519,33 @@ router.put(
 );
 
 // Eliminar equipo competencia (solo admins o creadores)
+/**
+ * @swagger
+ * /api/equipos-competencia/{id}:
+ *   delete:
+ *     summary: Elimina una solicitud/relación equipo-competencia (no activa)
+ *     tags: [EquiposCompetencia]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido si es contrato activo
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete(
   '/:id',
   validarObjectId,

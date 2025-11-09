@@ -12,10 +12,123 @@ import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: ParticipacionFase
+ *   description: Gestión de la participación de equipos en fases de competencia
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ParticipacionFase:
+ *       type: object
+ *       required:
+ *         - participacionTemporada
+ *         - fase
+ *       properties:
+ *         _id:
+ *           type: string
+ *         participacionTemporada:
+ *           type: string
+ *           format: ObjectId
+ *         fase:
+ *           type: string
+ *           format: ObjectId
+ *         grupo:
+ *           type: string
+ *           nullable: true
+ *         division:
+ *           type: string
+ *           nullable: true
+ *         puntos:
+ *           type: number
+ *           default: 0
+ *         partidosJugados:
+ *           type: number
+ *           default: 0
+ *         partidosGanados:
+ *           type: number
+ *           default: 0
+ *         partidosPerdidos:
+ *           type: number
+ *           default: 0
+ *         partidosEmpatados:
+ *           type: number
+ *           default: 0
+ *         diferenciaPuntos:
+ *           type: number
+ *           default: 0
+ *         clasificado:
+ *           type: boolean
+ *           default: false
+ *         eliminado:
+ *           type: boolean
+ *           default: false
+ *         seed:
+ *           type: number
+ *           nullable: true
+ *         posicion:
+ *           type: number
+ *           nullable: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // GET /participaciones - listar todas o filtrar por fase, equipoCompetencia, grupo, etc
 
 // ...
 
+/**
+ * @swagger
+ * /api/participacion-fase:
+ *   get:
+ *     summary: Lista participaciones de equipos en fases
+ *     tags: [ParticipacionFase]
+ *     parameters:
+ *       - in: query
+ *         name: fase
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: equipoCompetencia
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: grupo
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: division
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: competenciaId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de participaciones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ParticipacionFase'
+ *       400:
+ *         description: Parámetros inválidos
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   try {
     const filter = {};
@@ -108,6 +221,31 @@ router.get('/', async (req, res) => {
 
 
 // GET /participaciones/:id - obtener participación por id
+/**
+ * @swagger
+ * /api/participacion-fase/{id}:
+ *   get:
+ *     summary: Obtiene una participación de fase por ID
+ *     tags: [ParticipacionFase]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Participación encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ParticipacionFase'
+ *       404:
+ *         description: No encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const participacion = await ParticipacionFase.findById(req.params.id)
@@ -130,6 +268,44 @@ router.get('/:id', validarObjectId, async (req, res) => {
 });
 
 // POST /participaciones - crear nueva participación (autenticado)
+/**
+ * @swagger
+ * /api/participacion-fase:
+ *   post:
+ *     summary: Crea una nueva participación en fase
+ *     tags: [ParticipacionFase]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [participacionTemporada, fase]
+ *             properties:
+ *               participacionTemporada:
+ *                 type: string
+ *                 format: ObjectId
+ *               fase:
+ *                 type: string
+ *                 format: ObjectId
+ *               grupo:
+ *                 type: string
+ *               division:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Creado
+ *       400:
+ *         description: Datos inválidos o fase incompatible
+ *       401:
+ *         description: No autorizado
+ *       409:
+ *         description: Duplicado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post(
   '/',
   verificarToken,
@@ -187,6 +363,22 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /api/participacion-fase/sincronizar-fases-faltantes:
+ *   post:
+ *     summary: Sincroniza participaciones de fase faltantes
+ *     tags: [ParticipacionFase]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sincronización completada
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.post('/sincronizar-fases-faltantes', verificarToken, async (req, res) => {
   try {
     const resultado = await sincronizarParticipacionesFaseFaltantes();
@@ -198,6 +390,39 @@ router.post('/sincronizar-fases-faltantes', verificarToken, async (req, res) => 
 });
 
 // PUT /participaciones/:id - actualizar participación (solo admin o creador)
+/**
+ * @swagger
+ * /api/participacion-fase/{id}:
+ *   put:
+ *     summary: Actualiza una participación de fase
+ *     tags: [ParticipacionFase]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ParticipacionFase'
+ *     responses:
+ *       200:
+ *         description: Actualizado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -217,6 +442,31 @@ router.put(
 );
 
 // DELETE /participaciones/:id - eliminar participación (solo admin o creador)
+/**
+ * @swagger
+ * /api/participacion-fase/{id}:
+ *   delete:
+ *     summary: Elimina una participación de fase
+ *     tags: [ParticipacionFase]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminado
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: No encontrado
+ *       500:
+ *         description: Error del servidor
+ */
 router.delete(
   '/:id',
   validarObjectId,

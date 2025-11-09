@@ -9,8 +9,81 @@ import { verificarEntidad } from '../middlewares/verificarEntidad.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Organizaciones
+ *   description: Gestión de organizaciones
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Organizacion:
+ *       type: object
+ *       required:
+ *         - nombre
+ *       properties:
+ *         _id:
+ *           type: string
+ *         nombre:
+ *           type: string
+ *         descripcion:
+ *           type: string
+ *         logo:
+ *           type: string
+ *         sitioWeb:
+ *           type: string
+ *         creadoPor:
+ *           type: string
+ *         administradores:
+ *           type: array
+ *           items:
+ *             type: string
+ *         activa:
+ *           type: boolean
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
 
 // Crear organización (usuario autenticado)
+/**
+ * @swagger
+ * /api/organizaciones:
+ *   post:
+ *     summary: Crea una nueva organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre]
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               descripcion:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Organización creada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Organizacion'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autenticado
+ */
 router.post(
   '/',
   verificarToken,
@@ -39,6 +112,24 @@ router.post(
 );
 
 // Listar todas las organizaciones (público)
+/**
+ * @swagger
+ * /api/organizaciones:
+ *   get:
+ *     summary: Lista todas las organizaciones
+ *     tags: [Organizaciones]
+ *     responses:
+ *       200:
+ *         description: Lista de organizaciones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Organizacion'
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/', async (req, res) => {
   try {
     const organizaciones = await Organizacion.find().sort({ nombre: 1 }).lean();
@@ -49,6 +140,22 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener organizaciones que el usuario puede administrar
+/**
+ * @swagger
+ * /api/organizaciones/admin:
+ *   get:
+ *     summary: Lista organizaciones administrables por el usuario
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de organizaciones
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
 router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -75,6 +182,27 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 });
 
 // Obtener organización por ID (público)
+/**
+ * @swagger
+ * /api/organizaciones/{id}:
+ *   get:
+ *     summary: Obtiene una organización por ID
+ *     tags: [Organizaciones]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Organización obtenida
+ *       404:
+ *         description: No encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get(
   '/:id',
   validarObjectId,
@@ -90,6 +218,39 @@ router.get(
 );
 
 // Actualizar organización (solo admins o creador)
+/**
+ * @swagger
+ * /api/organizaciones/{id}:
+ *   put:
+ *     summary: Actualiza una organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Organizacion'
+ *     responses:
+ *       200:
+ *         description: Organización actualizada
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrada
+ */
 router.put(
   '/:id',
   validarObjectId,
@@ -108,6 +269,27 @@ router.put(
   }
 );
 
+/**
+ * @swagger
+ * /api/organizaciones/{id}/administradores:
+ *   get:
+ *     summary: Lista administradores de una organización
+ *     tags: [Organizaciones]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de administradores
+ *       404:
+ *         description: Organización no encontrada
+ *       500:
+ *         description: Error del servidor
+ */
 router.get(
   '/:id/administradores',
   verificarEntidad(Organizacion, 'id', 'organizacion'),
@@ -122,6 +304,45 @@ router.get(
   }
 );
 
+/**
+ * @swagger
+ * /api/organizaciones/{id}/administradores:
+ *   post:
+ *     summary: Agrega un administrador a una organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminUid:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Administrador agregado
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: Usuario u organización no encontrados
+ */
 router.post(
   '/:id/administradores',
   verificarToken,
@@ -172,6 +393,36 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /api/organizaciones/{id}/administradores/{adminUid}:
+ *   delete:
+ *     summary: Quita un administrador de una organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: path
+ *         name: adminUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Administrador quitado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrado
+ */
 router.delete(
   '/:id/administradores/:adminUid',
   verificarToken,
@@ -208,6 +459,31 @@ router.delete(
 );
 
 // Eliminar organización (solo admins o creador)
+/**
+ * @swagger
+ * /api/organizaciones/{id}:
+ *   delete:
+ *     summary: Elimina una organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Prohibido
+ *       404:
+ *         description: No encontrada
+ */
 router.delete(
   '/:id',
   validarObjectId,
