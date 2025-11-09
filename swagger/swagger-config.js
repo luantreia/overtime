@@ -15,7 +15,11 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:5000/api', // Update with your server URL
+        url: 'https://overtime-ddyl.onrender.com', // Base URL; path definitions include /api
+        description: 'Production server',
+      },
+      {
+        url: 'http://localhost:5000', // Base URL; path definitions include /api
         description: 'Development server',
       },
     ],
@@ -36,7 +40,7 @@ const options = {
   },
   apis: [
     path.join(__dirname, '../routes/**/*.js'),
-    path.join(__dirname, './schemas/*.yaml'),
+    path.join(__dirname, './schemas/**/*.yaml'),
   ],
 };
 

@@ -52,23 +52,3 @@ components:
           format: date-time
           description: Fecha de última actualización
           example: "2023-01-15T12:30:00.000Z"
-
-    ErrorResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          description: Mensaje de error
-          example: "Error al procesar la solicitud"
-
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          $ref: '#/components/schemas/Jugador'
