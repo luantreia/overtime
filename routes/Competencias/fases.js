@@ -19,53 +19,6 @@ const router = express.Router();
  *   description: Gestión de fases dentro de competencias/temporadas
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Fase:
- *       type: object
- *       required:
- *         - temporada
- *         - nombre
- *         - tipo
- *       properties:
- *         _id:
- *           type: string
- *         temporada:
- *           type: string
- *           format: ObjectId
- *         nombre:
- *           type: string
- *         tipo:
- *           type: string
- *           enum: [grupo, liga, playoff, promocion, otro]
- *         orden:
- *           type: number
- *           default: 0
- *         descripcion:
- *           type: string
- *         fechaInicio:
- *           type: string
- *           format: date-time
- *         fechaFin:
- *           type: string
- *           format: date-time
- *         numeroClasificados:
- *           type: number
- *         faseOrigenA:
- *           type: string
- *           format: ObjectId
- *         faseOrigenB:
- *           type: string
- *           format: ObjectId
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- */
 
 // Obtener todas las fases (opcionalmente filtrar por temporada)
 /**
@@ -128,11 +81,11 @@ router.get('/', async (req, res) => {
  *       201:
  *         description: Fixture generado con éxito
  *       400:
- *         description: Datos inválidos o insuficientes
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Fase/Competencia no encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error al generar fixture
  */
@@ -265,7 +218,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Fase'
  *       404:
- *         description: Fase no encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -298,7 +251,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       201:
  *         description: Fase creada
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  */
 router.post(
   '/',
@@ -356,11 +309,11 @@ router.post(
  *       200:
  *         description: Fase actualizada
  *       400:
- *         description: Error al actualizar fase
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Fase no encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.put(
   '/:id',
@@ -399,9 +352,9 @@ router.put(
  *       200:
  *         description: Fase eliminada correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Fase no encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete(
   '/:id',

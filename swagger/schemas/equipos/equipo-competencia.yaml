@@ -1,0 +1,39 @@
+components:
+  schemas:
+    EquipoCompetencia:
+      type: object
+      required:
+        - equipo
+        - competencia
+      properties:
+        _id:
+          type: string
+        nombre:
+          type: string
+        equipo:
+          type: string
+          format: ObjectId
+        competencia:
+          type: string
+          format: ObjectId
+        estado:
+          type: string
+          enum: [suspendido, aceptado, baja]
+          default: aceptado
+        solicitadoPor:
+          type: string
+        activo:
+          type: boolean
+          default: true
+        creadoPor:
+          type: string
+        administradores:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

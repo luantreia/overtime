@@ -15,94 +15,6 @@ const router = express.Router();
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     JugadorCompetencia:
- *       type: object
- *       required:
- *         - jugador
- *         - competencia
- *       properties:
- *         _id:
- *           type: string
- *           description: ID único de la relación jugador-competencia
- *         jugador:
- *           type: string
- *           format: ObjectId
- *           description: Referencia al jugador
- *           example: 5f8d0f3b5d7a8e4c3c8d4f5b
- *         competencia:
- *           type: string
- *           format: ObjectId
- *           description: Referencia a la competencia
- *           example: 5f8d0f3b5d7a8e4c3c8d4f5c
- *         posicion:
- *           type: string
- *           description: Posición del jugador en la competencia (opcional)
- *           example: "Delantero"
- *         dorsal:
- *           type: number
- *           description: Número de dorsal del jugador en la competencia (opcional)
- *           example: 10
- *         titular:
- *           type: boolean
- *           description: Indica si el jugador es titular en la competencia
- *           default: false
- *         goles:
- *           type: number
- *           description: Cantidad de goles anotados en la competencia
- *           default: 0
- *         asistencias:
- *           type: number
- *           description: Cantidad de asistencias en la competencia
- *           default: 0
- *         tarjetasAmarillas:
- *           type: number
- *           description: Cantidad de tarjetas amarillas en la competencia
- *           default: 0
- *         tarjetasRojas:
- *           type: number
- *           description: Cantidad de tarjetas rojas en la competencia
- *           default: 0
- *         minutosJugados:
- *           type: number
- *           description: Minutos jugados en la competencia
- *           default: 0
- *         activo:
- *           type: boolean
- *           description: Indica si la relación está activa
- *           default: true
- *         creadoPor:
- *           type: string
- *           description: ID del usuario que creó el registro
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Fecha de creación
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Fecha de última actualización
- *       example:
- *         _id: 5f8d0f3b5d7a8e4c3c8d4f5a
- *         jugador: 5f8d0f3b5d7a8e4c3c8d4f5b
- *         competencia: 5f8d0f3b5d7a8e4c3c8d4f5c
- *         posicion: "Delantero"
- *         dorsal: 10
- *         titular: true
- *         goles: 5
- *         asistencias: 3
- *         tarjetasAmarillas: 1
- *         tarjetasRojas: 0
- *         minutosJugados: 450
- *         activo: true
- *         creadoPor: "auth0|1234567890"
- *         createdAt: "2023-01-10T08:15:00.000Z"
- *         updatedAt: "2023-01-15T10:30:00.000Z"
- */
-
-/**
- * @swagger
  * /api/jugador-competencia:
  *   get:
  *     summary: Obtiene las relaciones entre jugadores y competencias
@@ -217,17 +129,9 @@ router.get('/', async (req, res) => {
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-15T10:30:00.000Z"
  *       400:
- *         description: ID inválido
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
  *       404:
- *         description: Relación no encontrada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor al obtener la relación
  *         content:
@@ -312,23 +216,11 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-10T08:15:00.000Z"
  *       400:
- *         description: Datos de entrada inválidos o faltantes
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido - No tiene permisos para realizar esta acción
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/ForbiddenError'
  *       500:
  *         description: Error del servidor al crear la relación
  *         content:
@@ -436,29 +328,13 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-16T14:30:00.000Z"
  *       400:
- *         description: ID inválido o datos de entrada incorrectos
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido - No tiene permisos para actualizar esta relación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Relación no encontrada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor al actualizar la relación
  *         content:
@@ -512,29 +388,13 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *                   description: Mensaje de confirmación
  *                   example: Relación eliminada correctamente
  *       400:
- *         description: ID inválido
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido - No tiene permisos para eliminar esta relación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Relación no encontrada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor al eliminar la relación
  *         content:

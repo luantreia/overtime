@@ -1,0 +1,46 @@
+components:
+  schemas:
+    JugadorEquipo:
+      type: object
+      required: [jugador, equipo, estado, origen, solicitadoPor]
+      properties:
+        _id:
+          type: string
+        jugador:
+          type: string
+          format: ObjectId
+        equipo:
+          type: string
+          format: ObjectId
+        estado:
+          type: string
+          enum: [pendiente, aceptado, rechazado, cancelado, baja]
+        rol:
+          type: string
+        desde:
+          type: string
+          format: date
+        hasta:
+          type: string
+          format: date
+        activo:
+          type: boolean
+          default: false
+        origen:
+          type: string
+          enum: [jugador, equipo]
+        solicitadoPor:
+          type: string
+        motivoRechazo:
+          type: string
+        fechaAceptacion:
+          type: string
+          format: date-time
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

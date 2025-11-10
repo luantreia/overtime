@@ -1,0 +1,47 @@
+components:
+  schemas:
+    JugadorCompetencia:
+      type: object
+      required: [jugador, competencia]
+      properties:
+        _id:
+          type: string
+        jugador:
+          type: string
+          format: ObjectId
+        competencia:
+          type: string
+          format: ObjectId
+        posicion:
+          type: string
+        dorsal:
+          type: number
+        titular:
+          type: boolean
+          default: false
+        goles:
+          type: number
+          default: 0
+        asistencias:
+          type: number
+          default: 0
+        tarjetasAmarillas:
+          type: number
+          default: 0
+        tarjetasRojas:
+          type: number
+          default: 0
+        minutosJugados:
+          type: number
+          default: 0
+        activo:
+          type: boolean
+          default: true
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

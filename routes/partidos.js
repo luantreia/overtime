@@ -12,84 +12,9 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Partidos
- *   description: Gestión de partidos
- */
+  *   description: Gestión de partidos
+  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Partido:
- *       type: object
- *       required:
- *         - modalidad
- *         - categoria
- *         - fecha
- *         - equipoLocal
- *         - equipoVisitante
- *       properties:
- *         _id:
- *           type: string
- *         competencia:
- *           type: string
- *           format: ObjectId
- *         fase:
- *           type: string
- *           format: ObjectId
- *         etapa:
- *           type: string
- *           enum: [octavos, cuartos, semifinal, final, tercer_puesto, repechaje, otro]
- *         grupo:
- *           type: string
- *         division:
- *           type: string
- *         nombrePartido:
- *           type: string
- *         modalidad:
- *           type: string
- *           enum: [Foam, Cloth]
- *         categoria:
- *           type: string
- *           enum: [Masculino, Femenino, Mixto, Libre]
- *         fecha:
- *           type: string
- *           format: date-time
- *         ubicacion:
- *           type: string
- *         equipoLocal:
- *           type: string
- *           format: ObjectId
- *         equipoVisitante:
- *           type: string
- *           format: ObjectId
- *         participacionFaseLocal:
- *           type: string
- *           format: ObjectId
- *         participacionFaseVisitante:
- *           type: string
- *           format: ObjectId
- *         marcadorLocal:
- *           type: number
- *         marcadorVisitante:
- *           type: number
- *         marcadorModificadoManualmente:
- *           type: boolean
- *         modoEstadisticas:
- *           type: string
- *           enum: [automatico, manual]
- *         modoVisualizacion:
- *           type: string
- *           enum: [automatico, manual, mixto]
- *         estado:
- *           type: string
- *           enum: [programado, en_juego, finalizado, cancelado]
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- */
 
 // GET /api/partidos/admin - partidos que el usuario puede administrar
 /**
@@ -104,7 +29,7 @@ const router = express.Router();
  *       200:
  *         description: Lista de partidos
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -236,9 +161,9 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Partido'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -282,9 +207,9 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *       201:
  *         description: Partido creado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -403,13 +328,13 @@ import mongoose from 'mongoose';
  *       200:
  *         description: Partido actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -500,11 +425,11 @@ router.put(
  *       200:
  *         description: Marcador recalculado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -562,11 +487,11 @@ router.put(
  *       200:
  *         description: Partido eliminado correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */

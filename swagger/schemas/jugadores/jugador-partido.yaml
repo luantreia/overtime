@@ -1,0 +1,62 @@
+components:
+  schemas:
+    JugadorPartido:
+      type: object
+      required: [jugador, partido, equipo, jugadorTemporada]
+      properties:
+        _id:
+          type: string
+        jugador:
+          type: string
+          description: Referencia al jugador
+        partido:
+          type: string
+          description: Referencia al partido
+        equipo:
+          type: string
+          description: Referencia al equipo del jugador en este partido
+        jugadorTemporada:
+          type: string
+          description: Referencia a la relación jugador-temporada
+        titular:
+          type: boolean
+          default: false
+        posicionInicial:
+          type: string
+        sustitutoDe:
+          type: string
+        minutoEntrada:
+          type: number
+        minutoSalida:
+          type: number
+        motivoCambio:
+          type: string
+        tarjetaAmarilla:
+          type: boolean
+          default: false
+        tarjetaRoja:
+          type: boolean
+          default: false
+        goles:
+          type: number
+          default: 0
+        autogoles:
+          type: number
+          default: 0
+        asistencias:
+          type: number
+          default: 0
+        atajadas:
+          type: number
+          default: 0
+        golesRecibidos:
+          type: number
+          default: 0
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

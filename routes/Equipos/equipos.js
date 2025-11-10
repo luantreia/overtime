@@ -19,67 +19,6 @@ const { Types } = mongoose;
  *   description: Gestión de equipos
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Equipo:
- *       type: object
- *       required:
- *         - nombre
- *       properties:
- *         _id:
- *           type: string
- *         nombre:
- *           type: string
- *           description: Nombre del equipo
- *           example: "Equipo Rojo"
- *         escudo:
- *           type: string
- *           example: "https://ejemplo.com/escudos/rojo.png"
- *         foto:
- *           type: string
- *         colores:
- *           type: array
- *           items:
- *             type: string
- *           example: ["#FF0000", "#FFFFFF"]
- *         fechaFormacion:
- *           type: string
- *           format: date
- *         fechaDisolucion:
- *           type: string
- *           format: date
- *         tipo:
- *           type: string
- *           enum: [club, seleccion, academia, otro]
- *           default: club
- *         esSeleccionNacional:
- *           type: boolean
- *           default: false
- *         pais:
- *           type: string
- *         federacion:
- *           type: string
- *           format: ObjectId
- *         descripcion:
- *           type: string
- *         sitioWeb:
- *           type: string
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
 // Crear nuevo equipo
 /**
  * @swagger
@@ -111,9 +50,9 @@ const { Types } = mongoose;
  *             schema:
  *               $ref: '#/components/schemas/Equipo'
  *       400:
- *         description: Datos inválidos o equipo ya existente
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error al crear equipo
  */
@@ -165,7 +104,7 @@ router.post('/', verificarToken, async (req, res) => {
  *               items:
  *                 $ref: '#/components/schemas/Equipo'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -245,7 +184,7 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Equipo'
  *       404:
- *         description: Equipo no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -293,13 +232,13 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       200:
  *         description: Equipo actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Equipo no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -377,7 +316,7 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
  *       200:
  *         description: Lista de administradores
  *       404:
- *         description: Equipo no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -429,13 +368,13 @@ router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), asy
  *       200:
  *         description: Administrador agregado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Usuario o equipo no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -504,11 +443,11 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
  *       200:
  *         description: Administrador quitado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Equipo o admin no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */

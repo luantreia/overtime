@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { sincronizarParticipacionesFaseFaltantes } from '../../utils/sincronizarParticipacionesFaseFaltantes.js';
 
 import Fase from '../../models/Competencia/Fase.js'; // asegúrate de importar
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 
 const router = express.Router();
 
@@ -19,67 +20,6 @@ const router = express.Router();
  *   description: Gestión de la participación de equipos en fases de competencia
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     ParticipacionFase:
- *       type: object
- *       required:
- *         - participacionTemporada
- *         - fase
- *       properties:
- *         _id:
- *           type: string
- *         participacionTemporada:
- *           type: string
- *           format: ObjectId
- *         fase:
- *           type: string
- *           format: ObjectId
- *         grupo:
- *           type: string
- *           nullable: true
- *         division:
- *           type: string
- *           nullable: true
- *         puntos:
- *           type: number
- *           default: 0
- *         partidosJugados:
- *           type: number
- *           default: 0
- *         partidosGanados:
- *           type: number
- *           default: 0
- *         partidosPerdidos:
- *           type: number
- *           default: 0
- *         partidosEmpatados:
- *           type: number
- *           default: 0
- *         diferenciaPuntos:
- *           type: number
- *           default: 0
- *         clasificado:
- *           type: boolean
- *           default: false
- *         eliminado:
- *           type: boolean
- *           default: false
- *         seed:
- *           type: number
- *           nullable: true
- *         posicion:
- *           type: number
- *           nullable: true
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
 
 // GET /participaciones - listar todas o filtrar por fase, equipoCompetencia, grupo, etc
 
@@ -125,7 +65,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/ParticipacionFase'
  *       400:
- *         description: Parámetros inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       500:
  *         description: Error del servidor
  */
@@ -219,6 +159,109 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/participacion-fase/opciones:
+ *   get:
+ *     summary: Opciones de ParticipacionTemporada para una fase
+ *     description: Devuelve ParticipacionTemporada según el filtro: si se pasa fase devuelve opciones de la temporada asociada a esa fase excluyendo las ya registradas en la fase; si se pasa temporada devuelve todas las ParticipacionTemporada de esa temporada.
+ *     tags: [ParticipacionFase]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: fase
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: temporada
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre de equipo
+ *     responses:
+ *       200:
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/opciones', verificarToken, async (req, res) => {
+  try {
+    const { fase, temporada, q } = req.query;
+    const tieneFase = !!fase;
+    const tieneTemporada = !!temporada;
+    if ((tieneFase && tieneTemporada) || (!tieneFase && !tieneTemporada)) {
+      return res.status(400).json({ message: 'Debe indicar solo fase o temporada' });
+    }
+
+    // Caso 1: opciones por temporada (sin exclusión)
+    if (tieneTemporada) {
+      if (!mongoose.Types.ObjectId.isValid(temporada)) return res.status(400).json({ message: 'temporada inválida' });
+      const pts = await ParticipacionTemporada.find({ temporada })
+        .populate('equipo', 'nombre escudo tipo pais')
+        .populate('temporada', 'nombre')
+        .lean();
+
+      let opciones = pts.map(pt => ({
+        _id: pt._id,
+        equipo: pt.equipo ? { _id: pt.equipo._id, nombre: pt.equipo.nombre, escudo: pt.equipo.escudo, tipo: pt.equipo.tipo, pais: pt.equipo.pais } : null,
+        temporada: pt.temporada ? { _id: pt.temporada._id, nombre: pt.temporada.nombre } : null,
+      }));
+
+      if (q) {
+        const regex = new RegExp(q, 'i');
+        opciones = opciones.filter(o => o.equipo?.nombre && regex.test(o.equipo.nombre));
+      }
+
+      return res.json(opciones);
+    }
+
+    // Caso 2: opciones por fase (excluye las ya registradas)
+    if (!mongoose.Types.ObjectId.isValid(fase)) return res.status(400).json({ message: 'fase inválida' });
+
+    const faseDoc = await Fase.findById(fase).select('temporada nombre');
+    if (!faseDoc) return res.status(404).json({ message: 'Fase no encontrada' });
+
+    const yaEnFase = await ParticipacionFase.find({ fase }).select('participacionTemporada').lean();
+    const ocupadas = new Set(yaEnFase.map(p => p.participacionTemporada?.toString()));
+
+    const pts = await ParticipacionTemporada.find({ temporada: faseDoc.temporada })
+      .populate('equipo', 'nombre escudo tipo pais')
+      .populate('temporada', 'nombre')
+      .lean();
+
+    let opciones = pts
+      .filter(pt => pt?._id && !ocupadas.has(pt._id.toString()))
+      .map(pt => ({
+        _id: pt._id,
+        equipo: pt.equipo ? { _id: pt.equipo._id, nombre: pt.equipo.nombre, escudo: pt.equipo.escudo, tipo: pt.equipo.tipo, pais: pt.equipo.pais } : null,
+        temporada: pt.temporada ? { _id: pt.temporada._id, nombre: pt.temporada.nombre } : null,
+      }));
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => o.equipo?.nombre && regex.test(o.equipo.nombre));
+    }
+
+    return res.json(opciones);
+  } catch (error) {
+    console.error('Error en GET /participacion-fase/opciones:', error);
+    res.status(500).json({ message: 'Error al obtener opciones', error: error.message });
+  }
+});
+
 
 // GET /participaciones/:id - obtener participación por id
 /**
@@ -242,7 +285,7 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ParticipacionFase'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -298,9 +341,9 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       201:
  *         description: Creado
  *       400:
- *         description: Datos inválidos o fase incompatible
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       409:
  *         description: Duplicado
  *       500:
@@ -375,7 +418,7 @@ router.post(
  *       200:
  *         description: Sincronización completada
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -415,11 +458,11 @@ router.post('/sincronizar-fases-faltantes', verificarToken, async (req, res) => 
  *       200:
  *         description: Actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -461,9 +504,9 @@ router.put(
  *       200:
  *         description: Eliminado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */

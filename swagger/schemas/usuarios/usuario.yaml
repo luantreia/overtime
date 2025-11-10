@@ -1,0 +1,15 @@
+components:
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum: [admin, editor, lector]

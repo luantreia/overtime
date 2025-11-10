@@ -15,39 +15,6 @@ const router = express.Router();
  *   description: Gestión de temporadas dentro de una competencia
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Temporada:
- *       type: object
- *       required:
- *         - competencia
- *         - nombre
- *       properties:
- *         _id:
- *           type: string
- *         competencia:
- *           type: string
- *           format: ObjectId
- *         nombre:
- *           type: string
- *         descripcion:
- *           type: string
- *         fechaInicio:
- *           type: string
- *           format: date-time
- *         fechaFin:
- *           type: string
- *           format: date-time
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- */
-
 // Listar temporadas de una competencia (público)
 /**
  * @swagger
@@ -72,7 +39,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/Temporada'
  *       400:
- *         description: Falta el parámetro competencia
+ *         $ref: '#/components/responses/BadRequest'
  *       500:
  *         description: Error al obtener temporadas
  */
@@ -110,7 +77,7 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Temporada'
  *       404:
- *         description: Temporada no encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error al obtener temporada
  */
@@ -158,7 +125,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       201:
  *         description: Temporada creada
  *       400:
- *         description: Datos inválidos o sin permisos
+ *         $ref: '#/components/responses/BadRequest'
  */
 router.post('/',
   verificarToken,
@@ -258,13 +225,13 @@ async function cargarTemporadaYValidarAdmin(req, res, next) {
  *       200:
  *         description: Temporada actualizada
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.put('/:id',
   validarObjectId,
@@ -302,11 +269,11 @@ router.put('/:id',
  *       200:
  *         description: Temporada eliminada correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete('/:id',
   validarObjectId,

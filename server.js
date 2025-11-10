@@ -27,6 +27,10 @@ const swaggerOptions = {
     },
     servers: [
       {
+        url: 'https://overtime-ddyl.onrender.com',
+        description: 'Production server',
+      },
+      {
         url: process.env.API_BASE_URL || 'http://localhost:5000',
         description: 'Development server',
       },
@@ -49,6 +53,7 @@ const swaggerOptions = {
   apis: [
     path.join(__dirname, 'routes/**/*.js'),
     path.join(__dirname, 'models/**/*.js'),
+    path.join(__dirname, 'swagger/schemas/**/*.yaml'),
   ],
 };
 

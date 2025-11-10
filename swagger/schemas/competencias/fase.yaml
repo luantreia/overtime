@@ -1,0 +1,41 @@
+components:
+  schemas:
+    Fase:
+      type: object
+      required: [temporada, nombre, tipo]
+      properties:
+        _id:
+          type: string
+        temporada:
+          type: string
+          format: ObjectId
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum: [grupo, liga, playoff, promocion, otro]
+        orden:
+          type: number
+          default: 0
+        descripcion:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+        numeroClasificados:
+          type: number
+        faseOrigenA:
+          type: string
+          format: ObjectId
+        faseOrigenB:
+          type: string
+          format: ObjectId
+        creadoPor:
+          type: string
+        administradores:
+          type: array
+          items:
+            type: string

@@ -1,0 +1,67 @@
+components:
+  schemas:
+    Partido:
+      type: object
+      required: [modalidad, categoria, fecha, equipoLocal, equipoVisitante]
+      properties:
+        _id:
+          type: string
+        competencia:
+          type: string
+          format: ObjectId
+        fase:
+          type: string
+          format: ObjectId
+        etapa:
+          type: string
+          enum: [octavos, cuartos, semifinal, final, tercer_puesto, repechaje, otro]
+        grupo:
+          type: string
+        division:
+          type: string
+        nombrePartido:
+          type: string
+        modalidad:
+          type: string
+          enum: [Foam, Cloth]
+        categoria:
+          type: string
+          enum: [Masculino, Femenino, Mixto, Libre]
+        fecha:
+          type: string
+          format: date-time
+        ubicacion:
+          type: string
+        equipoLocal:
+          type: string
+          format: ObjectId
+        equipoVisitante:
+          type: string
+          format: ObjectId
+        participacionFaseLocal:
+          type: string
+          format: ObjectId
+        participacionFaseVisitante:
+          type: string
+          format: ObjectId
+        marcadorLocal:
+          type: number
+        marcadorVisitante:
+          type: number
+        marcadorModificadoManualmente:
+          type: boolean
+        modoEstadisticas:
+          type: string
+          enum: [automatico, manual]
+        modoVisualizacion:
+          type: string
+          enum: [automatico, manual, mixto]
+        estado:
+          type: string
+          enum: [programado, en_juego, finalizado, cancelado]
+        creadoPor:
+          type: string
+        administradores:
+          type: array
+          items:
+            type: string

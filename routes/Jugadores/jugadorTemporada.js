@@ -7,6 +7,7 @@ import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import mongoose from 'mongoose';
+import Equipo from '../../models/Equipo/Equipo.js';
 
 const router = express.Router();
 
@@ -161,6 +162,90 @@ router.get('/', async (req, res) => {
 
 /**
  * @swagger
+ * /api/jugador-temporada/opciones:
+ *   get:
+ *     summary: Opciones de JugadorEquipo para una ParticipacionTemporada
+ *     description: Lista JugadorEquipo del equipo de la ParticipacionTemporada indicada, excluyendo los ya asignados en esa ParticipacionTemporada.
+ *     tags: [JugadorTemporada]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: participacionTemporada
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre o alias del jugador
+ *     responses:
+ *       200:
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { participacionTemporada, q } = req.query;
+    if (!participacionTemporada || !mongoose.Types.ObjectId.isValid(participacionTemporada)) {
+      return res.status(400).json({ message: 'participacionTemporada inválida' });
+    }
+
+    const pt = await ParticipacionTemporada.findById(participacionTemporada).populate('equipo', 'creadoPor administradores nombre');
+    if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
+
+    const uid = req.user?.uid;
+    const rol = (req.user?.rol || '').toLowerCase?.();
+    const equipo = pt.equipo;
+    const esAdminEquipo = rol === 'admin' || equipo.creadoPor?.toString() === uid || (equipo.administradores || []).map(id => id?.toString?.()).includes(uid);
+    if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
+
+    // Jugadores ya asignados en esta PT
+    const asignados = await JugadorTemporada.find({ participacionTemporada }).select('jugadorEquipo').lean();
+    const usados = new Set(asignados.map(jt => jt.jugadorEquipo?.toString()));
+
+    // Jugadores del equipo con contrato aceptado
+    const filtroJE = { equipo: equipo._id, estado: 'aceptado' };
+    let queryJE = JugadorEquipo.find(filtroJE)
+      .populate('jugador', 'nombre alias foto nacionalidad')
+      .sort({ 'jugador.nombre': 1 })
+      .lean();
+    const lista = await queryJE;
+
+    let opciones = lista
+      .filter(je => je?._id && !usados.has(je._id.toString()))
+      .map(je => ({
+        _id: je._id,
+        jugador: je.jugador ? { _id: je.jugador._id, nombre: je.jugador.nombre, alias: je.jugador.alias, foto: je.jugador.foto, nacionalidad: je.jugador.nacionalidad } : null,
+        rol: je.rol,
+      }));
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => (o.jugador?.nombre && regex.test(o.jugador.nombre)) || (o.jugador?.alias && regex.test(o.jugador.alias)));
+    }
+
+    return res.json(opciones);
+  } catch (error) {
+    console.error('Error en GET /jugador-temporada/opciones:', error);
+    res.status(500).json({ message: 'Error al obtener opciones', error: error.message });
+  }
+});
+
+
+/**
+ * @swagger
  * /api/jugador-temporada/{id}:
  *   get:
  *     summary: Obtiene una relación jugador-temporada por su ID
@@ -292,11 +377,6 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -407,16 +487,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: Prohibido - No tiene permisos para realizar esta acción
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: No se encontró la relación con el ID proporcionado
  *         content:
@@ -429,11 +501,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -489,16 +556,8 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: Prohibido - No tiene permisos para realizar esta acción
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: No se encontró la relación con el ID proporcionado
  *         content:
@@ -511,11 +570,6 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {

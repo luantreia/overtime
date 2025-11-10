@@ -1,0 +1,58 @@
+components:
+  schemas:
+    ParticipacionFase:
+      type: object
+      required:
+        - participacionTemporada
+        - fase
+      properties:
+        _id:
+          type: string
+        participacionTemporada:
+          type: string
+          format: ObjectId
+        fase:
+          type: string
+          format: ObjectId
+        grupo:
+          type: string
+          nullable: true
+        division:
+          type: string
+          nullable: true
+        puntos:
+          type: number
+          default: 0
+        partidosJugados:
+          type: number
+          default: 0
+        partidosGanados:
+          type: number
+          default: 0
+        partidosPerdidos:
+          type: number
+          default: 0
+        partidosEmpatados:
+          type: number
+          default: 0
+        diferenciaPuntos:
+          type: number
+          default: 0
+        clasificado:
+          type: boolean
+          default: false
+        eliminado:
+          type: boolean
+          default: false
+        seed:
+          type: number
+          nullable: true
+        posicion:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

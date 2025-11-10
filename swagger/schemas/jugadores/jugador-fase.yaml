@@ -1,0 +1,62 @@
+components:
+  schemas:
+    JugadorFase:
+      type: object
+      required: [jugadorTemporada, participacionFase, estado]
+      properties:
+        _id:
+          type: string
+          description: ID único de la relación jugador-fase
+        jugadorTemporada:
+          type: string
+          format: ObjectId
+          description: Referencia a la relación jugador-temporada
+        participacionFase:
+          type: string
+          format: ObjectId
+          description: Referencia a la participación del equipo en la fase
+        estado:
+          type: string
+          enum: [activo, inactivo, lesionado, suspendido]
+          description: Estado del jugador en la fase
+        rol:
+          type: string
+          description: Rol del jugador en el equipo durante la fase
+        goles:
+          type: number
+          default: 0
+        asistencias:
+          type: number
+          default: 0
+        tarjetasAmarillas:
+          type: number
+          default: 0
+        tarjetasRojas:
+          type: number
+          default: 0
+        partidosJugados:
+          type: number
+          default: 0
+        partidosTitular:
+          type: number
+          default: 0
+        minutosJugados:
+          type: number
+          default: 0
+        golesRecibidos:
+          type: number
+          default: 0
+        vallasInvictas:
+          type: number
+          default: 0
+        atajadas:
+          type: number
+          default: 0
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

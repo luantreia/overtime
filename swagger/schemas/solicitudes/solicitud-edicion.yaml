@@ -1,0 +1,67 @@
+components:
+  schemas:
+    SolicitudEdicion:
+      type: object
+      required:
+        - tipo
+        - datosPropuestos
+        - creadoPor
+      properties:
+        _id:
+          type: string
+          description: ID único de la solicitud
+        tipo:
+          type: string
+          enum:
+            - resultadoPartido
+            - resultadoSet
+            - estadisticasJugadorPartido
+            - estadisticasJugadorSet
+            - estadisticasEquipoPartido
+            - estadisticasEquipoSet
+            - contratoJugadorEquipo
+            - contratoEquipoCompetencia
+            - jugador-equipo-crear
+            - jugador-equipo-eliminar
+          description: Tipo de solicitud
+        entidad:
+          type: string
+          format: ObjectId
+          description: ID de la entidad relacionada (opcional)
+        datosPropuestos:
+          type: object
+          description: Datos propuestos para la edición
+          example: { }
+        estado:
+          type: string
+          enum: [pendiente, aceptado, rechazado, cancelado]
+          default: pendiente
+        aceptadoPor:
+          type: array
+          items:
+            type: string
+            description: IDs de usuarios que han aprobado la solicitud
+        requiereDobleConfirmacion:
+          type: boolean
+          default: false
+        motivoRechazo:
+          type: string
+          description: Motivo del rechazo si es aplicable
+        fechaAceptacion:
+          type: string
+          format: date-time
+        fechaRechazo:
+          type: string
+          format: date-time
+        creadoPor:
+          type: string
+          description: ID del usuario que creó la solicitud
+        aprobadoPor:
+          type: string
+          description: ID del usuario que aprobó la solicitud
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

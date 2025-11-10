@@ -1,5 +1,7 @@
 import express from 'express';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
+import JugadorFase from '../../models/Jugador/JugadorFase.js';
+import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
@@ -220,6 +222,106 @@ router.get('/', async (req, res) => {
 
 /**
  * @swagger
+ * /api/jugador-partido/opciones:
+ *   get:
+ *     summary: Opciones de JugadorFase desde un EquipoPartido
+ *     description: Lista JugadorFase asociados a la ParticipacionFase del EquipoPartido indicado, excluyendo los ya agregados al mismo partido y equipo.
+ *     tags: [JugadorPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: equipoPartido
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre o alias del jugador
+ *     responses:
+ *       200:
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { equipoPartido, q } = req.query;
+    const mongoose = await import('mongoose');
+    if (!equipoPartido || !mongoose.default.Types.ObjectId.isValid(equipoPartido)) {
+      return res.status(400).json({ message: 'equipoPartido inválido' });
+    }
+
+    const ep = await EquipoPartido.findById(equipoPartido)
+      .populate('equipo', 'creadoPor administradores nombre')
+      .populate('partido', 'creadoPor administradores nombrePartido fecha')
+      .populate('participacionFase', '_id');
+    if (!ep) return res.status(404).json({ message: 'EquipoPartido no encontrado' });
+    if (!ep.participacionFase) return res.status(400).json({ message: 'EquipoPartido sin participacionFase' });
+
+    const uid = req.user?.uid;
+    const rol = (req.user?.rol || '').toLowerCase?.();
+    const esAdminEquipo = ep.equipo?.creadoPor?.toString() === uid || (ep.equipo?.administradores || []).map(id => id?.toString?.()).includes(uid);
+    const esAdminPartido = ep.partido?.creadoPor?.toString() === uid || (ep.partido?.administradores || []).map(id => id?.toString?.()).includes(uid);
+    if (!(esAdminEquipo || esAdminPartido || rol === 'admin')) {
+      return res.status(403).json({ message: 'No autorizado' });
+    }
+
+    // Ya agregados en este partido-equipo
+    const ya = await JugadorPartido.find({ partido: ep.partido._id, equipo: ep.equipo._id }).select('jugadorTemporada').lean();
+    const usados = new Set(ya.map(x => x.jugadorTemporada?.toString()));
+
+    const lista = await JugadorFase.find({ participacionFase: ep.participacionFase._id })
+      .populate({
+        path: 'jugadorTemporada',
+        populate: {
+          path: 'jugadorEquipo',
+          populate: { path: 'jugador', select: 'nombre alias foto nacionalidad' }
+        }
+      })
+      .lean();
+
+    let opciones = lista
+      .filter(jf => jf?.jugadorTemporada?._id && !usados.has(jf.jugadorTemporada._id.toString()))
+      .map(jf => ({
+        _id: jf._id,
+        jugadorTemporada: jf.jugadorTemporada?._id,
+        jugador: jf.jugadorTemporada?.jugadorEquipo?.jugador ? {
+          _id: jf.jugadorTemporada.jugadorEquipo.jugador._id,
+          nombre: jf.jugadorTemporada.jugadorEquipo.jugador.nombre,
+          alias: jf.jugadorTemporada.jugadorEquipo.jugador.alias,
+          foto: jf.jugadorTemporada.jugadorEquipo.jugador.foto,
+          nacionalidad: jf.jugadorTemporada.jugadorEquipo.jugador.nacionalidad
+        } : null,
+        rol: jf.rol,
+        estado: jf.estado,
+      }));
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => (o.jugador?.nombre && regex.test(o.jugador.nombre)) || (o.jugador?.alias && regex.test(o.jugador.alias)));
+    }
+
+    return res.json(opciones);
+  } catch (err) {
+    console.error('Error en GET /jugador-partido/opciones:', err);
+    res.status(500).json({ message: 'Error al obtener opciones', error: err.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/jugador-partido:
  *   post:
  *     summary: Crea una nueva participación de jugador en un partido
@@ -303,11 +405,6 @@ router.get('/', async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -421,16 +518,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: Prohibido - No tiene permisos para realizar esta acción
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: No se encontró la participación con el ID proporcionado
  *         content:
@@ -443,11 +532,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -501,16 +585,8 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autorizado - Se requiere autenticación
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: Prohibido - No tiene permisos para realizar esta acción
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: No se encontró la participación con el ID proporcionado
  *         content:
@@ -523,11 +599,6 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {

@@ -181,11 +181,6 @@ router.post('/', verificarToken, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -321,11 +316,6 @@ router.get('/', async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
@@ -509,11 +499,6 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeE
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
   try {

@@ -1,0 +1,28 @@
+components:
+  schemas:
+    ParticipacionTemporada:
+      type: object
+      required: [equipo, temporada]
+      properties:
+        _id:
+          type: string
+        equipo:
+          type: string
+          format: ObjectId
+        temporada:
+          type: string
+          format: ObjectId
+        estado:
+          type: string
+          enum: [activo, baja, expulsado]
+          default: activo
+        observaciones:
+          type: string
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

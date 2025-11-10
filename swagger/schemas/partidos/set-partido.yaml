@@ -1,0 +1,29 @@
+components:
+  schemas:
+    SetPartido:
+      type: object
+      required: [partido, numeroSet]
+      properties:
+        _id:
+          type: string
+        partido:
+          type: string
+          format: ObjectId
+        numeroSet:
+          type: number
+        ganadorSet:
+          type: string
+          enum: [local, visitante, empate, pendiente]
+          default: pendiente
+        estadoSet:
+          type: string
+          enum: [en_juego, finalizado]
+          default: en_juego
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

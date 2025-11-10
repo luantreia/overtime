@@ -2,6 +2,8 @@ import express from 'express';
 import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
 import Equipo from '../../models/Equipo/Equipo.js';
 import Competencia from '../../models/Competencia/Competencia.js';
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
+import Temporada from '../../models/Competencia/Temporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
@@ -107,252 +109,81 @@ router.get('/', async (req, res) => {
 
 /**
  * @swagger
- * /api/equipos-competencia/solicitar-equipo:
- *   post:
- *     summary: Crea solicitud de equipo para ingresar a una competencia
- *     description: Solo administradores del equipo pueden realizar esta acción.
- *     tags: [EquiposCompetencia]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [equipo, competencia]
- *             properties:
- *               equipo:
- *                 type: string
- *                 format: ObjectId
- *               competencia:
- *                 type: string
- *                 format: ObjectId
- *     responses:
- *       201:
- *         description: Solicitud creada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/EquipoCompetencia'
- *       400:
- *         description: Datos inválidos
- *       401:
- *         description: No autorizado
- *       403:
- *         description: Prohibido
- *       404:
- *         description: Equipo o competencia no encontrados
- *       409:
- *         description: Solicitud o vínculo ya existente
- *       500:
- *         description: Error al crear solicitud
- */
-router.post('/solicitar-equipo', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  try {
-    const { equipo, competencia } = req.body;
-    const usuarioId = req.user.uid;
-    
-    if (!equipo || !competencia || !mongoose.Types.ObjectId.isValid(equipo) || !mongoose.Types.ObjectId.isValid(competencia)) {
-      return res.status(400).json({ message: 'Equipo y competencia válidos requeridos' });
-    }
-
-    const [equipoDB, competenciaDB] = await Promise.all([
-      Equipo.findById(equipo),
-      Competencia.findById(competencia),
-    ]);
-
-    if (!equipoDB || !competenciaDB) return res.status(404).json({ message: 'Equipo o competencia no encontrados' });
-
-    const esAdminEquipo =
-      equipoDB.creadoPor?.toString() === usuarioId || (equipoDB.administradores || []).includes(usuarioId) || req.user.rol === 'admin';
-
-    if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
-
-    const existe = await EquipoCompetencia.findOne({
-      equipo,
-      competencia,
-      estado: { $in: ['baja', 'aceptado'] },
-    });
-
-    if (existe) return res.status(409).json({ message: 'Ya existe una solicitud o vínculo activo' });
-
-    const solicitud = new EquipoCompetencia({
-      equipo,
-      competencia,
-      estado: 'aceptado',
-      activo: false,
-      creadoPor: usuarioId,
-      solicitadoPor: usuarioId,
-      origen: 'equipo',
-      administradores: [usuarioId],
-    });
-
-    await solicitud.save();
-    res.status(201).json(solicitud);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al crear solicitud', error: error.message });
-  }
-});
-
-/**
- * @swagger
- * /api/equipos-competencia/solicitar-competencia:
- *   post:
- *     summary: Crea solicitud de competencia para invitar a un equipo
- *     description: Solo administradores de la competencia pueden realizar esta acción.
- *     tags: [EquiposCompetencia]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [equipo, competencia]
- *             properties:
- *               equipo:
- *                 type: string
- *                 format: ObjectId
- *               competencia:
- *                 type: string
- *                 format: ObjectId
- *     responses:
- *       201:
- *         description: Solicitud creada
- *       400:
- *         description: Datos inválidos
- *       401:
- *         description: No autorizado
- *       403:
- *         description: Prohibido
- *       404:
- *         description: Equipo o competencia no encontrados
- *       409:
- *         description: Solicitud o vínculo ya existente
- *       500:
- *         description: Error al crear solicitud
- */
-router.post('/solicitar-competencia', verificarToken, cargarRolDesdeBD, async (req, res) => {
-  try {
-    const { equipo, competencia } = req.body;
-    const usuarioId = req.user.uid;
-
-    if (!equipo || !competencia || !mongoose.Types.ObjectId.isValid(equipo) || !mongoose.Types.ObjectId.isValid(competencia)) {
-      return res.status(400).json({ message: 'Equipo y competencia válidos requeridos' });
-    }
-
-    const [equipoDB, competenciaDB] = await Promise.all([
-      Equipo.findById(equipo),
-      Competencia.findById(competencia),
-    ]);
-    
-    if (!equipoDB || !competenciaDB) return res.status(404).json({ message: 'Equipo o competencia no encontrados' });
-    
-    const esAdminCompetencia =
-      competenciaDB.creadoPor?.toString() === usuarioId || (competenciaDB.administradores || []).includes(usuarioId) || req.user.rol === 'admin';
-
-    if (!esAdminCompetencia) return res.status(403).json({ message: 'No autorizado' });
-
-    const existe = await EquipoCompetencia.findOne({
-      equipo,
-      competencia,
-      estado: { $in: ['pendiente', 'aceptado'] },
-    });
-
-    if (existe) return res.status(409).json({ message: 'Ya existe una solicitud o vínculo activo' });
-
-    const solicitud = new EquipoCompetencia({
-      equipo,
-      competencia,
-      estado: 'pendiente',
-      activo: false,
-      creadoPor: usuarioId,
-      solicitadoPor: usuarioId,
-      origen: 'competencia',
-      administradores: [usuarioId],
-    });
-
-    await solicitud.save();
-    res.status(201).json(solicitud);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al crear solicitud', error: error.message });
-  }
-});
-
-/**
- * @swagger
- * /api/equipos-competencia/solicitudes:
+ * /api/equipos-competencia/opciones:
  *   get:
- *     summary: Lista solicitudes equipo-competencia
- *     description: Filtra por estado, equipo o competencia y limita por permisos del usuario.
+ *     summary: Opciones de equipos para una competencia
+ *     description: Lista equipos disponibles para crear vínculo equipo-competencia, basados en ParticipacionTemporada de cualquiera de las temporadas de la competencia. Excluye equipos que ya tienen vínculo aceptado con la competencia.
  *     tags: [EquiposCompetencia]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: estado
- *         schema:
- *           type: string
- *           enum: [pendiente, aceptado, rechazado, cancelado, finalizado]
- *       - in: query
- *         name: equipo
- *         schema:
- *           type: string
- *           format: ObjectId
- *       - in: query
  *         name: competencia
+ *         required: true
  *         schema:
  *           type: string
  *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre/tipo/pais del equipo
  *     responses:
  *       200:
- *         description: Lista de solicitudes
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
-router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.get('/opciones', verificarToken, async (req, res) => {
   try {
-    const usuarioId = req.user.uid;
-    const rol = req.user.rol;
-    const { estado, equipo, competencia } = req.query;
+    const { competencia, q } = req.query;
+    if (!competencia || !mongoose.Types.ObjectId.isValid(competencia)) {
+      return res.status(400).json({ message: 'competencia inválida' });
+    }
 
-    // Construir filtro base
-    const filtro = {
-      ...(estado ? { estado } : { estado: 'pendiente' }),
-      ...(equipo ? { equipo } : {}),
-      ...(competencia ? { competencia } : {}),
-    };
+    const comp = await Competencia.findById(competencia).select('_id nombre');
+    if (!comp) return res.status(404).json({ message: 'Competencia no encontrada' });
 
-    const solicitudes = await EquipoCompetencia.find(filtro)
-      .populate('equipo', 'nombre creadoPor administradores')
-      .populate('competencia', 'nombre creadoPor administradores')
+    const temps = await Temporada.find({ competencia }).select('_id').lean();
+    const tempIds = temps.map(t => t._id);
+
+    const pts = await ParticipacionTemporada.find({ temporada: { $in: tempIds } })
+      .populate('equipo', 'nombre escudo tipo pais')
       .lean();
 
-    console.log('Solicitudes recibidas:', solicitudes.length);
+    const equipoIdsDesdePT = new Set(pts.map(pt => pt.equipo?._id?.toString()).filter(Boolean));
 
-    // Filtrar por permisos (opcional si ya limitás por equipo/competencia)
-    const solicitudesFiltradas = solicitudes.filter(s => {
-      const uid = usuarioId.toString();
-      const adminsEquipo = (s.equipo?.administradores || []).map(id => id?.toString?.());
-      const adminsCompetencia = (s.competencia?.administradores || []).map(id => id?.toString?.());
+    // Excluir equipos que ya tengan vínculo aceptado con la competencia
+    const existentes = await EquipoCompetencia.find({ competencia, estado: 'aceptado' }).select('equipo').lean();
+    const yaVinculados = new Set(existentes.map(ec => ec.equipo?.toString()));
 
-      const esAdminEquipo = s.equipo?.creadoPor?.toString?.() === uid || adminsEquipo.includes(uid);
-      const esAdminCompetencia = s.competencia?.creadoPor?.toString?.() === uid || adminsCompetencia.includes(uid);
-      const esSolicitante = s.solicitadoPor?.toString?.() === uid;
+    let opciones = [];
+    for (const id of equipoIdsDesdePT) {
+      if (!yaVinculados.has(id)) {
+        const e = pts.find(pt => pt.equipo?._id?.toString() === id)?.equipo;
+        if (e) opciones.push({ _id: e._id, nombre: e.nombre, tipo: e.tipo, pais: e.pais, escudo: e.escudo });
+      }
+    }
 
-      return esAdminEquipo || esAdminCompetencia || esSolicitante || rol === 'admin';
-    });
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => regex.test(o.nombre) || regex.test(o.tipo || '') || regex.test(o.pais || ''));
+    }
 
-    res.status(200).json(solicitudesFiltradas);
+    opciones.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return res.json(opciones);
   } catch (error) {
-    console.error('Error en GET /solicitudes:', error);
-    res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
+    console.error('Error en GET /equipos-competencia/opciones:', error);
+    res.status(500).json({ message: 'Error al obtener opciones', error: error.message });
   }
 });
+
 
 
 // Obtener equipo competencia por ID
@@ -373,7 +204,7 @@ router.get('/solicitudes', verificarToken, cargarRolDesdeBD, async (req, res) =>
  *       200:
  *         description: Vínculo obtenido
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -430,13 +261,13 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       200:
  *         description: Actualizado
  *       400:
- *         description: Estado inválido o no editable
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -538,11 +369,11 @@ router.put(
  *       200:
  *         description: Eliminado correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido si es contrato activo
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */

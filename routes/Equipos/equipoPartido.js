@@ -1,5 +1,7 @@
 import express from 'express';
 import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
+import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
+import mongoose from 'mongoose';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
 
@@ -12,60 +14,6 @@ const router = express.Router();
  *   description: Vínculos entre equipos y partidos
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     EquipoPartido:
- *       type: object
- *       required:
- *         - partido
- *         - equipo
- *         - esLocal
- *       properties:
- *         _id:
- *           type: string
- *         partido:
- *           type: string
- *           format: ObjectId
- *         equipo:
- *           type: string
- *           format: ObjectId
- *         equipoCompetencia:
- *           type: string
- *           format: ObjectId
- *         participacionTemporada:
- *           type: string
- *           format: ObjectId
- *         participacionFase:
- *           type: string
- *           format: ObjectId
- *         esLocal:
- *           type: boolean
- *         sePresento:
- *           type: boolean
- *           default: true
- *         descalificado:
- *           type: boolean
- *           default: false
- *         puntosObtenidos:
- *           type: number
- *           default: 0
- *         resultado:
- *           type: string
- *           enum: [ganado, perdido, empate, pendiente]
- *           default: pendiente
- *         observaciones:
- *           type: string
- *         creadoPor:
- *           type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
 
 // ✅ GET - Obtener todos (opcionalmente filtrados por partido o equipo)
 /**
@@ -116,6 +64,78 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/equipo-partido/opciones:
+ *   get:
+ *     summary: Opciones de ParticipacionFase para una Fase
+ *     description: Lista las participaciones de equipos en la fase indicada. Permite filtrar por nombre de equipo.
+ *     tags: [EquipoPartido]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: fase
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre de equipo
+ *     responses:
+ *       200:
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/opciones', verificarToken, async (req, res) => {
+  try {
+    const { fase, q } = req.query;
+    if (!fase || !mongoose.Types.ObjectId.isValid(fase)) {
+      return res.status(400).json({ message: 'fase inválida' });
+    }
+
+    const lista = await ParticipacionFase.find({ fase })
+      .populate({
+        path: 'participacionTemporada',
+        populate: { path: 'equipo', select: 'nombre escudo tipo pais' }
+      })
+      .lean();
+
+    let opciones = lista.map(pf => ({
+      _id: pf._id,
+      equipo: pf.participacionTemporada?.equipo ? {
+        _id: pf.participacionTemporada.equipo._id,
+        nombre: pf.participacionTemporada.equipo.nombre,
+        escudo: pf.participacionTemporada.equipo.escudo,
+        tipo: pf.participacionTemporada.equipo.tipo,
+        pais: pf.participacionTemporada.equipo.pais,
+      } : null,
+      grupo: pf.grupo,
+      division: pf.division,
+    }));
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => o.equipo?.nombre && regex.test(o.equipo.nombre));
+    }
+
+    return res.json(opciones);
+  } catch (err) {
+    console.error('Error en GET /equipo-partido/opciones:', err);
+    res.status(500).json({ message: 'Error al obtener opciones', error: err.message });
+  }
+});
+
 // ✅ GET - Obtener uno por ID
 /**
  * @swagger
@@ -138,7 +158,7 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/EquipoPartido'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -177,9 +197,9 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       201:
  *         description: Creado
  *       400:
- *         description: Duplicado o datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -251,9 +271,9 @@ router.post('/', verificarToken, async (req, res) => {
  *       200:
  *         description: Actualizado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -292,9 +312,9 @@ router.put('/:id', verificarToken, validarObjectId, async (req, res) => {
  *       200:
  *         description: Eliminado correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -343,7 +363,7 @@ router.delete('/:id', verificarToken, validarObjectId, async (req, res) => {
  *       200:
  *         description: Lista de estadísticas
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */

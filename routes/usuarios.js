@@ -11,24 +11,6 @@ import Usuario from '../models/Usuario.js';
  *   description: Gestión de usuarios (perfil autenticado y utilidades)
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Usuario:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *         nombre:
- *           type: string
- *         email:
- *           type: string
- *           format: email
- *         rol:
- *           type: string
- *           enum: [admin, editor, lector]
- */
 
 const router = express.Router();
 
@@ -44,7 +26,7 @@ const router = express.Router();
  *     deprecated: true
  *     responses:
  *       400:
- *         description: Usar /api/auth/registro para crear usuarios (JWT)
+ *         $ref: '#/components/responses/BadRequest'
  */
 router.post('/', verificarToken, async (req, res) => {
   return res.status(400).json({ error: 'Usar /api/auth/registro para crear usuarios (JWT)' });
@@ -67,9 +49,9 @@ router.post('/', verificarToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Usuario no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.get('/mi-perfil', verificarToken, async (req, res) => {
   try {
@@ -114,11 +96,11 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Email requerido
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Usuario no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.get('/', verificarToken, async (req, res) => {
   try {
@@ -169,9 +151,9 @@ router.get('/', verificarToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Usuario no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.get('/:id', verificarToken, async (req, res) => {
   try {
@@ -218,11 +200,11 @@ router.get('/:id', verificarToken, async (req, res) => {
  *       200:
  *         description: Perfil actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Usuario no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.put('/actualizar', verificarToken, async (req, res) => {
   try {
@@ -268,7 +250,7 @@ router.put('/actualizar', verificarToken, async (req, res) => {
  *       200:
  *         description: Cuenta eliminada correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.delete('/eliminar', verificarToken, async (req, res) => {
   try {

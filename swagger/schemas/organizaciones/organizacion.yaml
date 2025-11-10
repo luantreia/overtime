@@ -1,0 +1,30 @@
+components:
+  schemas:
+    Organizacion:
+      type: object
+      required: [nombre]
+      properties:
+        _id:
+          type: string
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        logo:
+          type: string
+        sitioWeb:
+          type: string
+        creadoPor:
+          type: string
+        administradores:
+          type: array
+          items:
+            type: string
+        activa:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

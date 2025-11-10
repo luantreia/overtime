@@ -16,41 +16,6 @@ const router = express.Router();
  *   description: Gestión de organizaciones
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Organizacion:
- *       type: object
- *       required:
- *         - nombre
- *       properties:
- *         _id:
- *           type: string
- *         nombre:
- *           type: string
- *         descripcion:
- *           type: string
- *         logo:
- *           type: string
- *         sitioWeb:
- *           type: string
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- *         activa:
- *           type: boolean
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
 // Crear organización (usuario autenticado)
 /**
  * @swagger
@@ -80,9 +45,9 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Organizacion'
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autenticado
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.post(
   '/',
@@ -152,7 +117,7 @@ router.get('/', async (req, res) => {
  *       200:
  *         description: Lista de organizaciones
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -199,7 +164,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *       200:
  *         description: Organización obtenida
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -243,13 +208,13 @@ router.get(
  *       200:
  *         description: Organización actualizada
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.put(
   '/:id',
@@ -286,7 +251,7 @@ router.put(
  *       200:
  *         description: Lista de administradores
  *       404:
- *         description: Organización no encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -335,13 +300,13 @@ router.get(
  *       200:
  *         description: Administrador agregado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Usuario u organización no encontrados
+ *         $ref: '#/components/responses/NotFound'
  */
 router.post(
   '/:id/administradores',
@@ -417,11 +382,11 @@ router.post(
  *       200:
  *         description: Administrador quitado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete(
   '/:id/administradores/:adminUid',
@@ -478,11 +443,11 @@ router.delete(
  *       200:
  *         description: Eliminada correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete(
   '/:id',

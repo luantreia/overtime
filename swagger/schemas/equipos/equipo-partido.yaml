@@ -1,0 +1,48 @@
+components:
+  schemas:
+    EquipoPartido:
+      type: object
+      required: [partido, equipo, esLocal]
+      properties:
+        _id:
+          type: string
+        partido:
+          type: string
+          format: ObjectId
+        equipo:
+          type: string
+          format: ObjectId
+        equipoCompetencia:
+          type: string
+          format: ObjectId
+        participacionTemporada:
+          type: string
+          format: ObjectId
+        participacionFase:
+          type: string
+          format: ObjectId
+        esLocal:
+          type: boolean
+        sePresento:
+          type: boolean
+          default: true
+        descalificado:
+          type: boolean
+          default: false
+        puntosObtenidos:
+          type: number
+          default: 0
+        resultado:
+          type: string
+          enum: [ganado, perdido, empate, pendiente]
+          default: pendiente
+        observaciones:
+          type: string
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

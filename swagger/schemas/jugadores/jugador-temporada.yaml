@@ -1,0 +1,30 @@
+components:
+  schemas:
+    JugadorTemporada:
+      type: object
+      required: [jugadorEquipo, participacionTemporada, estado, rol]
+      properties:
+        _id:
+          type: string
+        jugadorEquipo:
+          type: string
+          description: Referencia al jugador en el equipo
+        participacionTemporada:
+          type: string
+          description: Referencia a la participación en la temporada
+        estado:
+          type: string
+          enum: [activo, inactivo, lesionado, suspendido]
+        rol:
+          type: string
+        jugador:
+          type: string
+          description: Referencia al jugador
+        creadoPor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

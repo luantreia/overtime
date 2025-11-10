@@ -16,41 +16,6 @@ const router = express.Router();
  *   description: Gestión de sets dentro de un partido
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     SetPartido:
- *       type: object
- *       required:
- *         - partido
- *         - numeroSet
- *       properties:
- *         _id:
- *           type: string
- *         partido:
- *           type: string
- *           format: ObjectId
- *         numeroSet:
- *           type: number
- *         ganadorSet:
- *           type: string
- *           enum: [local, visitante, empate, pendiente]
- *           default: pendiente
- *         estadoSet:
- *           type: string
- *           enum: [en_juego, finalizado]
- *           default: en_juego
- *         creadoPor:
- *           type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
 // GET /api/set-partido?partido=...
 /**
  * @swagger
@@ -75,7 +40,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/SetPartido'
  *       400:
- *         description: Falta parámetro partido
+ *         $ref: '#/components/responses/BadRequest'
  *       500:
  *         description: Error del servidor
  */
@@ -113,7 +78,7 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/SetPartido'
  *       404:
- *         description: Set no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -163,11 +128,11 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/SetPartido'
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Partido no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -225,11 +190,11 @@ router.post(
  *       200:
  *         description: Set actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Set no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.put(
   '/:id',
@@ -272,9 +237,9 @@ router.put(
  *       200:
  *         description: Set eliminado correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Set no encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */

@@ -17,61 +17,6 @@ const router = express.Router();
  *   description: Gestión de competencias
  */
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Competencia:
- *       type: object
- *       required:
- *         - organizacion
- *         - modalidad
- *         - categoria
- *         - fechaInicio
- *       properties:
- *         _id:
- *           type: string
- *         nombre:
- *           type: string
- *         descripcion:
- *           type: string
- *         organizacion:
- *           type: string
- *           format: ObjectId
- *         modalidad:
- *           type: string
- *           enum: [Foam, Cloth]
- *         categoria:
- *           type: string
- *           enum: [Masculino, Femenino, Mixto, Libre]
- *         tipo:
- *           type: string
- *           enum: [liga, torneo, otro]
- *         foto:
- *           type: string
- *         fechaInicio:
- *           type: string
- *           format: date-time
- *         fechaFin:
- *           type: string
- *           format: date-time
- *         estado:
- *           type: string
- *           enum: [programada, en_curso, finalizada, cancelada, en_creacion]
- *         creadoPor:
- *           type: string
- *         administradores:
- *           type: array
- *           items:
- *             type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
 // Obtener todas las competencias (público)
 /**
  * @swagger
@@ -114,7 +59,7 @@ router.get('/',
  *       200:
  *         description: Lista de competencias
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -162,7 +107,7 @@ router.get('/admin',
  *       200:
  *         description: Competencia encontrada (incluye esAdmin si autenticado)
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -211,7 +156,7 @@ router.get( '/:id',
  *       201:
  *         description: Competencia creada
  *       400:
- *         description: Datos inválidos o sin permisos
+ *         $ref: '#/components/responses/BadRequest'
  */
 router.post( '/',
   verificarToken,
@@ -273,11 +218,11 @@ router.post( '/',
  *       200:
  *         description: Actualizada
  *       400:
- *         description: Error al actualizar
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  */
 router.put( '/:id',
   validarObjectId,
@@ -312,7 +257,7 @@ router.put( '/:id',
  *       200:
  *         description: Lista de administradores
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -360,13 +305,13 @@ router.get( '/:id/administradores',
  *       200:
  *         description: Administrador agregado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: Usuario no encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.post( '/:id/administradores',
   verificarToken,
@@ -441,11 +386,11 @@ router.post( '/:id/administradores',
  *       200:
  *         description: Administrador quitado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete( '/:id/administradores/:adminUid',
   verificarToken,
@@ -501,11 +446,11 @@ router.delete( '/:id/administradores/:adminUid',
  *       200:
  *         description: Eliminada correctamente
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  */
 router.delete(
   '/:id',

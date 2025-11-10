@@ -1,8 +1,11 @@
 import express from 'express';
 import  JugadorFase  from '../../models/Jugador/JugadorFase.js';
+import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 import verificarToken from '../../middlewares/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middlewares/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middlewares/validacionObjectId.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -211,6 +214,102 @@ router.get('/', async (req, res) => {
 
 /**
  * @swagger
+ * /api/jugador-fase/opciones:
+ *   get:
+ *     summary: Opciones de JugadorTemporada para una ParticipacionTemporada
+ *     description: Lista JugadorTemporada del equipo de la ParticipacionTemporada indicada. Si se provee participacionFase, excluye los jugadores ya asignados a esa fase.
+ *     tags: [JugadorFase]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: participacionTemporada
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: participacionFase
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filtro por nombre o alias del jugador
+ *     responses:
+ *       200:
+ *         description: Lista de opciones
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { participacionTemporada, participacionFase, q } = req.query;
+    if (!participacionTemporada) return res.status(400).json({ message: 'participacionTemporada requerida' });
+    if (!mongoose.Types.ObjectId.isValid(participacionTemporada)) {
+      return res.status(400).json({ message: 'participacionTemporada inválida' });
+    }
+
+    // Validar permisos admin sobre el equipo de la PT
+    const pt = await ParticipacionTemporada.findById(participacionTemporada).populate('equipo', 'creadoPor administradores nombre');
+    if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
+    const uid = req.user?.uid;
+    const rol = (req.user?.rol || '').toLowerCase?.();
+    const esAdminEquipo = rol === 'admin' || pt.equipo?.creadoPor?.toString() === uid || (pt.equipo?.administradores || []).map(id => id?.toString?.()).includes(uid);
+    if (!esAdminEquipo) return res.status(403).json({ message: 'No autorizado' });
+
+    // Excluir los ya asignados a la fase si se provee
+    let usados = new Set();
+    if (participacionFase && mongoose.Types.ObjectId.isValid(participacionFase)) {
+      const asignados = await JugadorFase.find({ participacionFase }).select('jugadorTemporada').lean();
+      usados = new Set(asignados.map(x => x.jugadorTemporada?.toString()));
+    }
+
+    const lista = await JugadorTemporada.find({ participacionTemporada })
+      .populate({
+        path: 'jugadorEquipo',
+        populate: { path: 'jugador', select: 'nombre alias foto nacionalidad' }
+      })
+      .lean();
+
+    let opciones = lista
+      .filter(jt => jt?._id && !usados.has(jt._id.toString()))
+      .map(jt => ({
+        _id: jt._id,
+        jugador: jt.jugadorEquipo?.jugador ? {
+          _id: jt.jugadorEquipo.jugador._id,
+          nombre: jt.jugadorEquipo.jugador.nombre,
+          alias: jt.jugadorEquipo.jugador.alias,
+          foto: jt.jugadorEquipo.jugador.foto,
+          nacionalidad: jt.jugadorEquipo.jugador.nacionalidad
+        } : null,
+        rol: jt.rol,
+      }));
+
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      opciones = opciones.filter(o => (o.jugador?.nombre && regex.test(o.jugador.nombre)) || (o.jugador?.alias && regex.test(o.jugador.alias)));
+    }
+
+    return res.json(opciones);
+  } catch (err) {
+    console.error('Error en GET /jugador-fase/opciones:', err);
+    res.status(500).json({ message: 'Error al obtener opciones', error: err.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/jugador-fase/{id}:
  *   get:
  *     summary: Obtiene una relación jugador-fase por su ID
@@ -353,11 +452,6 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -473,11 +567,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {
@@ -553,11 +642,6 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *     securitySchemes:
- *       bearerAuth:
- *         type: http
- *         scheme: bearer
- *         bearerFormat: JWT
  */
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
   try {

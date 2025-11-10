@@ -1,0 +1,47 @@
+components:
+  schemas:
+    Competencia:
+      type: object
+      required: [organizacion, modalidad, categoria, fechaInicio]
+      properties:
+        _id:
+          type: string
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        organizacion:
+          type: string
+          format: ObjectId
+        modalidad:
+          type: string
+          enum: [Foam, Cloth]
+        categoria:
+          type: string
+          enum: [Masculino, Femenino, Mixto, Libre]
+        tipo:
+          type: string
+          enum: [liga, torneo, otro]
+        foto:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+        estado:
+          type: string
+          enum: [programada, en_curso, finalizada, cancelada, en_creacion]
+        creadoPor:
+          type: string
+        administradores:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

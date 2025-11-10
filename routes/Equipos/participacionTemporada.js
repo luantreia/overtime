@@ -78,9 +78,9 @@ function validarCamposManual(req, res, next) {
  *               items:
  *                 $ref: '#/components/schemas/ParticipacionTemporada'
  *       400:
- *         description: Parámetros inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
  *         description: Error del servidor
  */
@@ -142,13 +142,13 @@ router.get('/', verificarToken, validarCamposManual, async (req, res) => {
  *       200:
  *         description: Lista de opciones
  *       400:
- *         description: Parámetros inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Prohibido
+ *         $ref: '#/components/responses/ForbiddenError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -254,9 +254,9 @@ router.get('/opciones', verificarToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ParticipacionTemporada'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrada
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -311,11 +311,11 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *       201:
  *         description: Creado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: Entidades no encontradas
+ *         $ref: '#/components/responses/NotFound'
  *       409:
  *         description: Ya existe participación para ese equipo y temporada
  *       500:
@@ -418,11 +418,11 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
  *       200:
  *         description: Actualizado
  *       400:
- *         description: Datos inválidos
+ *         $ref: '#/components/responses/BadRequest'
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
@@ -471,9 +471,9 @@ router.put('/:id', verificarToken, validarObjectId, validarCamposManual, async (
  *       200:
  *         description: Eliminado
  *       401:
- *         description: No autorizado
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: No encontrado
+ *         $ref: '#/components/responses/NotFound'
  *       500:
  *         description: Error del servidor
  */
