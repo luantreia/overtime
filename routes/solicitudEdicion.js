@@ -15,6 +15,7 @@ import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js';
 import JugadorTemporada from '../models/Jugador/JugadorTemporada.js';
 import Temporada from '../models/Competencia/Temporada.js';
 import Competencia from '../models/Competencia/Competencia.js';
+import Organizacion from '../models/Organizacion.js';
 
 /**
  * @swagger
@@ -39,7 +40,10 @@ import Competencia from '../models/Competencia/Competencia.js';
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, estadisticasJugadorSet, 
  *                 estadisticasEquipoPartido, estadisticasEquipoSet, contratoJugadorEquipo, 
  *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar,
- *                 participacion-temporada-crear, jugador-temporada-crear]
+ *                 participacion-temporada-crear, participacion-temporada-actualizar, participacion-temporada-eliminar,
+ *                 jugador-temporada-crear, jugador-temporada-actualizar, jugador-temporada-eliminar,
+ *                 usuario-crear-jugador, usuario-crear-equipo, usuario-crear-organizacion,
+ *                 usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
  *           description: Tipo de solicitud
  *         entidad:
  *           type: string
@@ -106,8 +110,10 @@ const { Types } = mongoose;
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                 estadisticasJugadorSet, estadisticasEquipoPartido, 
  *                 estadisticasEquipoSet, contratoJugadorEquipo, 
- *                 contratoEquipoCompetencia, jugador-equipo-crear, 
- *                 jugador-equipo-eliminar, participacion-temporada-crear, jugador-temporada-crear]
+ *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
+ *                 participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
+ *                 jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
+ *                 usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
  *         description: Filtro por tipo de solicitud
  *       - in: query
  *         name: estado
@@ -153,6 +159,85 @@ router.get('/', verificarToken, async (req, res) => {
     res.status(200).json(solicitudes);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/solicitudes-edicion/opciones:
+ *   get:
+ *     summary: Tipos de solicitud disponibles para un contexto
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: contexto
+ *         schema:
+ *           type: string
+ *           enum: [usuario, jugador, equipo, organizacion, competencia, temporada, fase, partido]
+ *         required: true
+ *       - in: query
+ *         name: entidadId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         required: false
+ *     responses:
+ *       200:
+ *         description: Lista de tipos disponibles con metadatos
+ */
+router.get('/opciones', verificarToken, async (req, res) => {
+  try {
+    const { contexto, entidadId } = req.query;
+    if (!contexto) return res.status(400).json({ message: 'contexto requerido' });
+
+    // Mapa básico de tipos por contexto. Se puede refinar por permisos/entidad
+    const porContexto = {
+      usuario: [
+        'usuario-crear-jugador', 'usuario-crear-equipo', 'usuario-crear-organizacion',
+      ],
+      jugador: [
+        'jugador-equipo-crear', 'jugador-equipo-eliminar', 'usuario-solicitar-admin-jugador',
+      ],
+      equipo: [
+        'jugador-equipo-crear', 'jugador-equipo-eliminar',
+        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+        'usuario-solicitar-admin-equipo',
+      ],
+      organizacion: [
+        'usuario-solicitar-admin-organizacion',
+      ],
+      competencia: [
+        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+      ],
+      temporada: [
+        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+      ],
+      fase: [
+        'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+      ],
+      partido: [
+        'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+      ],
+    };
+
+    let tipos = porContexto[contexto] || [];
+    // Filtrar por los realmente definidos en meta (defensa)
+    tipos = tipos.filter(t => !!tiposSolicitudMeta[t]);
+
+    const resultado = tipos.map(t => ({
+      tipo: t,
+      meta: tiposSolicitudMeta[t],
+    }));
+
+    return res.json({ contexto, entidadId: entidadId || null, tiposDisponibles: resultado });
+  } catch (error) {
+    console.error('Error en GET /solicitudes-edicion/opciones:', error);
+    res.status(500).json({ message: 'Error al obtener opciones', error: error.message });
   }
 });
 
@@ -216,8 +301,10 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *                 enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                       estadisticasJugadorSet, estadisticasEquipoPartido, 
  *                       estadisticasEquipoSet, contratoJugadorEquipo, 
- *                       contratoEquipoCompetencia, jugador-equipo-crear, 
- *                       jugador-equipo-eliminar, participacion-temporada-crear, jugador-temporada-crear]
+ *                       contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
+ *                       participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
+ *                       jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
+ *                       usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
  *                 description: Tipo de solicitud
  *               entidad:
  *                 type: string
@@ -255,12 +342,7 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ message: 'Faltan campos requeridos: tipo y datosPropuestos' });
     }
 
-    const tiposPermitidos = [
-      'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet',
-      'estadisticasEquipoPartido', 'estadisticasEquipoSet', 'contratoJugadorEquipo',
-      'contratoEquipoCompetencia', 'jugador-equipo-crear', 'jugador-equipo-eliminar',
-      'participacion-temporada-crear', 'jugador-temporada-crear'
-    ];
+    const tiposPermitidos = Object.keys(tiposSolicitudMeta);
 
     if (!tiposPermitidos.includes(tipo)) {
       return res.status(400).json({ message: `Tipo de solicitud no válido: ${tipo}` });
@@ -355,8 +437,49 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     // Obtener admins responsables (de tu función existente)
     let admins = [];
     if (solicitud.entidad) {
-      // Si hay entidad, usar la lógica normal
-      admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
+      // Si hay entidad, determinar admins según tipo, con soportes adicionales
+      if (solicitud.tipo.startsWith('participacion-temporada')) {
+        const pt = await ParticipacionTemporada.findById(solicitud.entidad)
+          .populate('equipo', 'administradores creadoPor')
+          .populate('temporada', 'competencia');
+        if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
+        const comp = await Competencia.findById(pt.temporada?.competencia).select('administradores creadoPor');
+        const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
+        admins = [...new Set([
+          ...toIds(pt.equipo?.creadoPor, pt.equipo?.administradores),
+          ...toIds(comp?.creadoPor, comp?.administradores)
+        ])];
+      } else if (solicitud.tipo.startsWith('jugador-temporada')) {
+        const jt = await JugadorTemporada.findById(solicitud.entidad);
+        if (!jt) return res.status(404).json({ message: 'JugadorTemporada no encontrada' });
+        const pt = await ParticipacionTemporada.findById(jt.participacionTemporada)
+          .populate('equipo', 'administradores creadoPor')
+          .populate('temporada', 'competencia');
+        const comp = await Competencia.findById(pt.temporada?.competencia).select('administradores creadoPor');
+        const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
+        admins = [...new Set([
+          ...toIds(pt.equipo?.creadoPor, pt.equipo?.administradores),
+          ...toIds(comp?.creadoPor, comp?.administradores)
+        ])];
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-jugador') {
+        const entity = await Jugador.findById(solicitud.entidad).select('administradores creadoPor');
+        if (!entity) return res.status(404).json({ message: 'Jugador no encontrado' });
+        const ids = new Set([entity.creadoPor?.toString(), ...(entity.administradores || []).map(x => x?.toString?.())]);
+        admins = Array.from(ids).filter(Boolean);
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-equipo') {
+        const entity = await Equipo.findById(solicitud.entidad).select('administradores creadoPor');
+        if (!entity) return res.status(404).json({ message: 'Equipo no encontrado' });
+        const ids = new Set([entity.creadoPor?.toString(), ...(entity.administradores || []).map(x => x?.toString?.())]);
+        admins = Array.from(ids).filter(Boolean);
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-organizacion') {
+        const entity = await Organizacion.findById(solicitud.entidad).select('administradores creadoPor');
+        if (!entity) return res.status(404).json({ message: 'Organización no encontrada' });
+        const ids = new Set([entity.creadoPor?.toString(), ...(entity.administradores || []).map(x => x?.toString?.())]);
+        admins = Array.from(ids).filter(Boolean);
+      } else {
+        // Fallback: usar servicio existente
+        admins = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad);
+      }
     } else {
       // Para solicitudes donde entidad es null
       if (solicitud.tipo === 'jugador-equipo-crear') {
@@ -446,6 +569,12 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           const creadorEsCompetencia = adminsCompetencia.includes(creador);
           admins = creadorEsEquipo ? adminsCompetencia : creadorEsCompetencia ? adminsEquipo : adminsCompetencia;
         }
+      } else if (solicitud.tipo.startsWith('usuario-crear-')) {
+        // Requiere admin del sistema
+        if (req.user.rol !== 'admin') {
+          return res.status(403).json({ message: 'Solo admin puede gestionar estas solicitudes' });
+        }
+        admins = [uid];
       }
     }
 
@@ -591,15 +720,115 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           console.error('Error creando JugadorTemporada desde solicitud:', e);
           return res.status(500).json({ message: 'Error al crear jugador-temporada', error: e.message });
         }
-      }
-    } else if (estado === 'rechazado') {
-      solicitud.estado = 'rechazado';
-      solicitud.motivoRechazo = motivoRechazo || '';
-      solicitud.aprobadoPor = uid;
-      solicitud.fechaRechazo = new Date();
-    } else {
-      return res.status(400).json({ message: 'Estado inválido' });
-    }
+      } else if (solicitud.tipo === 'participacion-temporada-actualizar') {
+        try {
+          const { participacionTemporadaId, estado, observaciones } = solicitud.datosPropuestos || {};
+          const pt = await ParticipacionTemporada.findById(participacionTemporadaId);
+          if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
+          if (estado !== undefined) pt.estado = estado;
+          if (observaciones !== undefined) pt.observaciones = observaciones;
+          await pt.save();
+        } catch (e) {
+          console.error('Error actualizando ParticipacionTemporada:', e);
+          return res.status(500).json({ message: 'Error al actualizar participación', error: e.message });
+        }
+      } else if (solicitud.tipo === 'participacion-temporada-eliminar') {
+        try {
+          const { participacionTemporadaId } = solicitud.datosPropuestos || {};
+          const pt = await ParticipacionTemporada.findById(participacionTemporadaId);
+          if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
+          await pt.deleteOne();
+        } catch (e) {
+          console.error('Error eliminando ParticipacionTemporada:', e);
+          return res.status(500).json({ message: 'Error al eliminar participación', error: e.message });
+        }
+      } else if (solicitud.tipo === 'jugador-temporada-actualizar') {
+        try {
+          const { jugadorTemporadaId, estado, rol } = solicitud.datosPropuestos || {};
+          const jt = await JugadorTemporada.findById(jugadorTemporadaId);
+          if (!jt) return res.status(404).json({ message: 'JugadorTemporada no encontrada' });
+          if (estado !== undefined) jt.estado = estado;
+          if (rol !== undefined) jt.rol = rol;
+          await jt.save();
+        } catch (e) {
+          console.error('Error actualizando JugadorTemporada:', e);
+          return res.status(500).json({ message: 'Error al actualizar jugador-temporada', error: e.message });
+        }
+      } else if (solicitud.tipo === 'jugador-temporada-eliminar') {
+        try {
+          const { jugadorTemporadaId } = solicitud.datosPropuestos || {};
+          const jt = await JugadorTemporada.findById(jugadorTemporadaId);
+          if (!jt) return res.status(404).json({ message: 'JugadorTemporada no encontrada' });
+          await jt.deleteOne();
+        } catch (e) {
+          console.error('Error eliminando JugadorTemporada:', e);
+          return res.status(500).json({ message: 'Error al eliminar jugador-temporada', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-crear-jugador') {
+        try {
+          const { nombre, alias, fechaNacimiento, genero, foto, nacionalidad } = solicitud.datosPropuestos || {};
+          if (!nombre || !fechaNacimiento) return res.status(400).json({ message: 'nombre y fechaNacimiento requeridos' });
+          const nuevo = new Jugador({ nombre, alias, fechaNacimiento, genero, foto, nacionalidad, creadoPor: solicitud.creadoPor });
+          await nuevo.save();
+        } catch (e) {
+          console.error('Error creando Jugador desde solicitud:', e);
+          return res.status(500).json({ message: 'Error al crear jugador', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-crear-equipo') {
+        try {
+          const { nombre, escudo, foto, colores, tipo, pais, descripcion, sitioWeb } = solicitud.datosPropuestos || {};
+          if (!nombre) return res.status(400).json({ message: 'nombre requerido' });
+          const nuevo = new Equipo({ nombre, escudo, foto, colores, tipo, pais, descripcion, sitioWeb, creadoPor: solicitud.creadoPor });
+          await nuevo.save();
+        } catch (e) {
+          console.error('Error creando Equipo desde solicitud:', e);
+          return res.status(500).json({ message: 'Error al crear equipo', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-crear-organizacion') {
+        try {
+          const { nombre, descripcion, logo, sitioWeb } = solicitud.datosPropuestos || {};
+          if (!nombre) return res.status(400).json({ message: 'nombre requerido' });
+          const nuevo = new Organizacion({ nombre, descripcion, logo, sitioWeb, creadoPor: solicitud.creadoPor });
+          await nuevo.save();
+        } catch (e) {
+          console.error('Error creando Organización desde solicitud:', e);
+          return res.status(500).json({ message: 'Error al crear organización', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-jugador') {
+        try {
+          const jugador = await Jugador.findById(solicitud.entidad || solicitud.datosPropuestos?.jugadorId);
+          if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado' });
+          const uidSolicitante = solicitud.creadoPor?.toString();
+          if (!jugador.administradores.includes(uidSolicitante)) {
+            jugador.administradores.push(uidSolicitante);
+            await jugador.save();
+          }
+        } catch (e) {
+          console.error('Error asignando admin a Jugador:', e);
+          return res.status(500).json({ message: 'Error al asignar admin a jugador', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-equipo') {
+        try {
+          const equipo = await Equipo.findById(solicitud.entidad || solicitud.datosPropuestos?.equipoId);
+          if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado' });
+          const uidSolicitante = solicitud.creadoPor?.toString();
+          if (!equipo.administradores.includes(uidSolicitante)) {
+            equipo.administradores.push(uidSolicitante);
+            await equipo.save();
+          }
+        } catch (e) {
+          console.error('Error asignando admin a Equipo:', e);
+          return res.status(500).json({ message: 'Error al asignar admin a equipo', error: e.message });
+        }
+      } else if (solicitud.tipo === 'usuario-solicitar-admin-organizacion') {
+        try {
+          const org = await Organizacion.findById(solicitud.entidad || solicitud.datosPropuestos?.organizacionId);
+          if (!org) return res.status(404).json({ message: 'Organización no encontrada' });
+          const uidSolicitante = solicitud.creadoPor?.toString();
+          if (!org.administradores.includes(uidSolicitante)) {
+            org.administradores.push(uidSolicitante);
+            await org.save();
+          }
 
     await solicitud.save();
     res.status(200).json(solicitud);

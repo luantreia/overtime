@@ -25,6 +25,44 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],
   },
+  // Contratos temporada
+  'participacion-temporada-crear': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['equipoId', 'temporadaId'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+  'participacion-temporada-actualizar': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['estado', 'observaciones'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+  'participacion-temporada-eliminar': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['participacionTemporadaId'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+  // Jugador-Temporada
+  'jugador-temporada-crear': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['jugadorEquipoId', 'participacionTemporadaId', 'rol', 'estado'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+  'jugador-temporada-actualizar': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['rol', 'estado'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+  'jugador-temporada-eliminar': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['jugadorTemporadaId'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
   resultadoPartido: {
     requiereDobleConfirmacion: false,
     camposCriticos: [],
@@ -36,6 +74,12 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
   estadisticasJugadorPartido: {
+    requiereDobleConfirmacion: false,
+    camposCriticos: [],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
+  // Alias opcional para modo manual
+  estadisticasJugadorPartidoManual: {
     requiereDobleConfirmacion: false,
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
@@ -54,6 +98,37 @@ export const tiposSolicitudMeta = {
     requiereDobleConfirmacion: false,
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
+  // Usuario / Entidades
+  'usuario-crear-jugador': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['nombre', 'fechaNacimiento'],
+    rolesAprobadores: ['adminSistema'],
+  },
+  'usuario-crear-equipo': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['nombre'],
+    rolesAprobadores: ['adminSistema'],
+  },
+  'usuario-crear-organizacion': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['nombre'],
+    rolesAprobadores: ['adminSistema'],
+  },
+  'usuario-solicitar-admin-jugador': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['jugadorId'],
+    rolesAprobadores: ['adminJugador'],
+  },
+  'usuario-solicitar-admin-equipo': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['equipoId'],
+    rolesAprobadores: ['adminEquipo'],
+  },
+  'usuario-solicitar-admin-organizacion': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['organizacionId'],
+    rolesAprobadores: ['adminOrganizacion'],
   },
   // Agregá más tipos si necesitás
 };

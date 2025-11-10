@@ -1,21 +1,11 @@
 import mongoose from 'mongoose';
+import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 const { Schema, model } = mongoose;
 
 const SolicitudEdicionSchema = new Schema({
     tipo: {
         type: String,
-        enum: [
-        'resultadoPartido',
-        'resultadoSet',
-        'estadisticasJugadorPartido',
-        'estadisticasJugadorSet',
-        'estadisticasEquipoPartido',
-        'estadisticasEquipoSet',
-        'contratoJugadorEquipo',
-        'contratoEquipoCompetencia',
-        'jugador-equipo-crear',
-        'jugador-equipo-eliminar',
-        ],
+        enum: Object.keys(tiposSolicitudMeta),
         required: true,
         index: true,
     },
