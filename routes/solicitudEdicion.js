@@ -829,11 +829,17 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             org.administradores.push(uidSolicitante);
             await org.save();
           }
-
+        } catch (e) {
+          console.error('Error asignando admin a Organización:', e);
+          return res.status(500).json({ message: 'Error al asignar admin a organización', error: e.message });
+        }
+      }
+    }
     await solicitud.save();
     res.status(200).json(solicitud);
 
   } catch (error) {
+    console.error('Error al actualizar solicitud:', error);
     res.status(500).json({ message: 'Error al actualizar solicitud', error: error.message });
   }
 });
