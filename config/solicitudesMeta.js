@@ -3,13 +3,13 @@
 export const tiposSolicitudMeta = {
   contratoJugadorEquipo: {
     requiereDobleConfirmacion: false,
-    camposCriticos: ['fechaInicio', 'fechaFin', 'estado', 'rol', 'numero'],
+    camposCriticos: ['fechaInicio', 'fechaFin', 'estado', 'rol'],
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: ['foto', 'alias'],
   },
   'jugador-equipo-crear': {
     requiereDobleConfirmacion: false,
-    camposCriticos: ['jugadorId', 'equipoId', 'fechaInicio', 'fechaFin', 'rol'],
+    camposCriticos: ['jugadorId', 'equipoId', 'fechaInicio', 'fechaFin', 'estado', 'rol'],
     rolesAprobadores: ['adminEquipo'],
     camposPermitidosSinConsenso: [],
   },
@@ -17,12 +17,6 @@ export const tiposSolicitudMeta = {
     requiereDobleConfirmacion: false,
     camposCriticos: ['contratoId'],
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
-    camposPermitidosSinConsenso: [],
-  },
-  contratoEquipoCompetencia: {
-    requiereDobleConfirmacion: false,
-    camposCriticos: ['fechaInicio', 'fechaFin', 'estado'],
-    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],
   },
   // Contratos temporada

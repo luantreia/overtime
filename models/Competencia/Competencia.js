@@ -36,6 +36,8 @@ const CompetenciaSchema = new mongoose.Schema({
   fechaInicio: { type: Date, required: true },
   fechaFin: { type: Date },
 
+
+  //Posible eliminar/editar y/o pasar a temporada
   estado: {
     type: String,
     enum: ['programada', 'en_curso', 'finalizada', 'cancelada', 'en_creacion'],

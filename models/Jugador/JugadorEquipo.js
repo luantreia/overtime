@@ -14,8 +14,8 @@ const jugadorEquipoSchema = new Schema({
 
   estado: {
     type: String,
-    enum: ['pendiente', 'aceptado', 'rechazado', 'cancelado', 'baja'],
-    default: 'pendiente',
+    enum: ['aceptado', 'baja'],
+    default: 'aceptado',
     index: true,
   },
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
