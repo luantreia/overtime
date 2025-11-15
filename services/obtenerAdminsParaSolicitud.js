@@ -32,6 +32,7 @@ function extraerAdmins(doc, campos = []) {
 
 export async function obtenerAdminsParaSolicitud(tipo, entidadId) {
   switch (tipo) {
+    case 'jugador-equipo-editar':
     case 'contratoJugadorEquipo': {
       const contrato = await JugadorEquipo.findById(entidadId)
         .populate('equipo', 'administradores creadoPor')

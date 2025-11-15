@@ -1,7 +1,9 @@
 // config/solicitudesMeta.js
 
 export const tiposSolicitudMeta = {
-  contratoJugadorEquipo: {
+
+  // Contratos jugador-Equipo
+  'jugador-equipo-editar': {
     requiereDobleConfirmacion: false,
     camposCriticos: ['fechaInicio', 'fechaFin', 'estado', 'rol'],
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
@@ -10,7 +12,7 @@ export const tiposSolicitudMeta = {
   'jugador-equipo-crear': {
     requiereDobleConfirmacion: false,
     camposCriticos: ['jugadorId', 'equipoId', 'fechaInicio', 'fechaFin', 'estado', 'rol'],
-    rolesAprobadores: ['adminEquipo'],
+    rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: [],
   },
   'jugador-equipo-eliminar': {
@@ -19,7 +21,8 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: [],
   },
-  // Contratos temporada
+
+  // Contratos (equipo) Participacion-Temporada
   'participacion-temporada-crear': {
     requiereDobleConfirmacion: false,
     camposCriticos: ['equipoId', 'temporadaId'],
@@ -38,7 +41,8 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],
   },
-  // Jugador-Temporada
+
+  // lista de buena fe Jugador-Temporada
   'jugador-temporada-crear': {
     requiereDobleConfirmacion: false,
     camposCriticos: ['jugadorEquipoId', 'participacionTemporadaId', 'rol', 'estado'],
@@ -57,6 +61,8 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],
   },
+
+  // datos partidos
   resultadoPartido: {
     requiereDobleConfirmacion: false,
     camposCriticos: [],
@@ -67,32 +73,12 @@ export const tiposSolicitudMeta = {
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
-  estadisticasJugadorPartido: {
-    requiereDobleConfirmacion: false,
-    camposCriticos: [],
-    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
-  },
-  // Alias opcional para modo manual
-  estadisticasJugadorPartidoManual: {
-    requiereDobleConfirmacion: false,
-    camposCriticos: [],
-    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
-  },
   estadisticasJugadorSet: {
     requiereDobleConfirmacion: false,
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
-  estadisticasEquipoPartido: {
-    requiereDobleConfirmacion: false,
-    camposCriticos: [],
-    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
-  },
-  estadisticasEquipoSet: {
-    requiereDobleConfirmacion: false,
-    camposCriticos: [],
-    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
-  },
+
   // Usuario / Entidades
   'usuario-crear-jugador': {
     requiereDobleConfirmacion: false,

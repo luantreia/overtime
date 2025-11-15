@@ -38,7 +38,7 @@ import Organizacion from '../models/Organizacion.js';
  *         tipo:
  *           type: string
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, estadisticasJugadorSet, 
- *                 estadisticasEquipoPartido, estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                 estadisticasEquipoPartido, estadisticasEquipoSet, jugador-equipo-editar, 
  *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar,
  *                 participacion-temporada-crear, participacion-temporada-actualizar, participacion-temporada-eliminar,
  *                 jugador-temporada-crear, jugador-temporada-actualizar, jugador-temporada-eliminar,
@@ -109,7 +109,7 @@ const { Types } = mongoose;
  *           type: string
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                 estadisticasJugadorSet, estadisticasEquipoPartido, 
- *                 estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                 estadisticasEquipoSet, jugador-equipo-editar, 
  *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                 participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                 jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
@@ -198,10 +198,10 @@ router.get('/opciones', verificarToken, async (req, res) => {
         'usuario-crear-jugador', 'usuario-crear-equipo', 'usuario-crear-organizacion',
       ],
       jugador: [
-        'jugador-equipo-crear', 'jugador-equipo-eliminar', 'usuario-solicitar-admin-jugador',
+        'jugador-equipo-crear', 'jugador-equipo-eliminar', 'jugador-equipo-editar', 'usuario-solicitar-admin-jugador',
       ],
       equipo: [
-        'jugador-equipo-crear', 'jugador-equipo-eliminar',
+        'jugador-equipo-crear', 'jugador-equipo-eliminar', 'jugador-equipo-editar',
         'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
         'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
         'usuario-solicitar-admin-equipo',
@@ -300,7 +300,7 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *                 type: string
  *                 enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                       estadisticasJugadorSet, estadisticasEquipoPartido, 
- *                       estadisticasEquipoSet, contratoJugadorEquipo, 
+ *                       estadisticasEquipoSet, jugador-equipo-editar, 
  *                       contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                       participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                       jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
@@ -354,6 +354,9 @@ router.post('/', verificarToken, async (req, res) => {
     }
     if (tipo === 'jugador-equipo-eliminar' && !datosPropuestos.contratoId) {
       return res.status(400).json({ message: 'contratoId requerido para solicitudes de eliminación' });
+    }
+    if (tipo === 'jugador-equipo-editar' && !entidad) {
+      return res.status(400).json({ message: 'entidad (contratoId) requerida para solicitudes de edición' });
     }
 
     const solicitud = new SolicitudEdicion({
@@ -621,6 +624,18 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       if (solicitud.tipo === 'jugador-equipo-crear') {
         try {
           const { jugadorId, equipoId, rol, numeroCamiseta, fechaInicio, fechaFin } = solicitud.datosPropuestos;
+          const [equipo, jugador] = await Promise.all([
+            equipoId ? Equipo.findById(equipoId).select('administradores creadoPor') : null,
+            jugadorId ? Jugador.findById(jugadorId).select('administradores creadoPor') : null,
+          ]);
+          const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
+          const adminsEquipo = equipo ? toIds(equipo.creadoPor, equipo.administradores) : [];
+          const adminsJugador = jugador ? toIds(jugador.creadoPor, jugador.administradores) : [];
+          const creador = solicitud.creadoPor?.toString();
+          const creadorEsEquipo = adminsEquipo.includes(creador);
+          const creadorEsJugador = adminsJugador.includes(creador);
+          const origen = creadorEsEquipo ? 'equipo' : (creadorEsJugador ? 'jugador' : 'equipo');
+
           const nuevaRelacion = new JugadorEquipo({
             jugador: jugadorId,
             equipo: equipoId,
@@ -629,7 +644,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             desde: fechaInicio,
             hasta: fechaFin,
             estado: 'aceptado',
-            origen: 'solicitud',
+            origen,
             creadoPor: solicitud.creadoPor
           });
           await nuevaRelacion.save();
@@ -651,15 +666,19 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           console.error('Error eliminando relación JugadorEquipo:', e);
           return res.status(500).json({ message: 'Error al eliminar la relación', error: e.message });
         }
-      } else if (solicitud.tipo === 'contratoJugadorEquipo' && solicitud.entidad) {
+      } else if (solicitud.tipo === 'jugador-equipo-editar' && solicitud.entidad) {
         try {
           const relacion = await JugadorEquipo.findById(solicitud.entidad);
           if (relacion) {
             const cambios = solicitud.datosPropuestos || {};
             if (cambios.rol !== undefined) relacion.rol = cambios.rol;
             if (cambios.foto !== undefined) relacion.foto = cambios.foto;
-            if (cambios.desde !== undefined) relacion.desde = cambios.desde;
-            if (cambios.hasta !== undefined) relacion.hasta = cambios.hasta;
+
+            // Soportar tanto 'desde/hasta' como 'fechaInicio/fechaFin' en payload
+            const desde = cambios.desde !== undefined ? cambios.desde : cambios.fechaInicio;
+            const hasta = cambios.hasta !== undefined ? cambios.hasta : cambios.fechaFin;
+            if (desde !== undefined) relacion.desde = desde;
+            if (hasta !== undefined) relacion.hasta = hasta;
 
             // Permitir finalizar contrato aceptado → baja
             if (cambios.estado === 'baja' && relacion.estado === 'aceptado') {
