@@ -33,6 +33,8 @@ function extraerAdmins(doc, campos = []) {
 export async function obtenerAdminsParaSolicitud(tipo, entidadId) {
   switch (tipo) {
     case 'jugador-equipo-editar':
+    case 'jugador-equipo-crear':
+    case 'jugador-equipo-eliminar':
     case 'contratoJugadorEquipo': {
       const contrato = await JugadorEquipo.findById(entidadId)
         .populate('equipo', 'administradores creadoPor')
@@ -69,7 +71,13 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId) {
       return extraerAdmins(doc.fase, ['competencia']);
     }
     case 'participacionTemporada':
-    case 'jugadorTemporada': {
+    case 'participacion-temporada-crear':
+    case 'participacion-temporada-actualizar':
+    case 'participacion-temporada-eliminar':
+    case 'jugadorTemporada':
+    case 'jugador-temporada-crear':
+    case 'jugador-temporada-actualizar':
+    case 'jugador-temporada-eliminar': {
       const doc = await ParticipacionTemporada.findById(entidadId)
         .populate({
           path: 'equipoCompetencia',
