@@ -629,23 +629,44 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     } else if (solicitud.entidad) {
       console.log('Solicitud tiene entidad:', solicitud.entidad);
       // Si hay entidad, determinar admins según tipo, con soportes adicionales
-      if (solicitud.tipo.startsWith('participacion-temporada')) {
-        if (contratoId) {
-          const contrato = await JugadorEquipo.findById(contratoId)
-            .populate('equipo', 'administradores creadoPor')
-            .populate('jugador', 'administradores creadoPor');
-          if (contrato) {
-            const ids = new Set();
-            if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
-            if (Array.isArray(contrato.equipo?.administradores)) {
-              contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
-            }
-            if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
-            if (Array.isArray(contrato.jugador?.administradores)) {
-              contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
-            }
-            admins = Array.from(ids);
+      if (solicitud.tipo === 'jugador-equipo-editar') {
+        // Para editar contrato, admins son del equipo y jugador relacionados con el contrato
+        const contrato = await JugadorEquipo.findById(solicitud.entidad)
+          .populate('equipo', 'administradores creadoPor')
+          .populate('jugador', 'administradores creadoPor');
+        if (contrato) {
+          const ids = new Set();
+          if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
+          if (Array.isArray(contrato.equipo?.administradores)) {
+            contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
           }
+          if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
+          if (Array.isArray(contrato.jugador?.administradores)) {
+            contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
+          }
+          admins = Array.from(ids);
+        }
+      } else if (solicitud.tipo.startsWith('participacion-temporada')) {
+        // Esta lógica parece tener un error - contratoId no está definido
+        // Asumiendo que se refiere al contrato de participacion-temporada
+        const participacion = await ParticipacionTemporada.findById(solicitud.entidad)
+          .populate('equipo', 'administradores creadoPor');
+        if (participacion) {
+          const ids = new Set();
+          if (participacion.equipo?.creadoPor) ids.add(participacion.equipo.creadoPor.toString());
+          if (Array.isArray(participacion.equipo?.administradores)) {
+            participacion.equipo.administradores.forEach(a => ids.add(a.toString()));
+          }
+          // También admins de la competencia
+          const temp = await Temporada.findById(participacion.temporada).select('competencia');
+          if (temp) {
+            const comp = await Competencia.findById(temp.competencia).select('administradores creadoPor');
+            if (comp?.creadoPor) ids.add(comp.creadoPor.toString());
+            if (Array.isArray(comp?.administradores)) {
+              comp.administradores.forEach(a => ids.add(a.toString()));
+            }
+          }
+          admins = Array.from(ids);
         }
       } else if (solicitud.tipo === 'participacion-temporada-crear') {
         const equipoId = solicitud.datosPropuestos?.equipoId;
