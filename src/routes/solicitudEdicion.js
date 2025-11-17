@@ -627,7 +627,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         admins = adminsEquipo;
       }
     } else if (solicitud.entidad) {
-        const contratoId = solicitud.datosPropuestos.contratoId;
+      console.log('Solicitud tiene entidad:', solicitud.entidad);
+      // Si hay entidad, determinar admins según tipo, con soportes adicionales
+      if (solicitud.tipo.startsWith('participacion-temporada')) {
         if (contratoId) {
           const contrato = await JugadorEquipo.findById(contratoId)
             .populate('equipo', 'administradores creadoPor')
