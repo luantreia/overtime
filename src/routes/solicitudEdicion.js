@@ -145,6 +145,29 @@ const { Types } = mongoose;
  *       500:
  *         description: Error al obtener las solicitudes
  */
+/**
+ * @swagger
+ * /api/solicitudes-edicion:
+ *   get:
+ *     summary: Lista solicitudes de edición del usuario
+ *     description: Obtiene todas las solicitudes de edición creadas por el usuario autenticado o que requieren su aprobación
+ *     tags: [SolicitudesEdicion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/SolicitudEdicion'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Error al obtener solicitudes
+ */
 router.get('/', verificarToken, async (req, res) => {
   try {
     const { tipo, estado, creadoPor, entidad } = req.query;
@@ -186,6 +209,32 @@ router.get('/', verificarToken, async (req, res) => {
  *     responses:
  *       200:
  *         description: Lista de tipos disponibles con metadatos
+ */
+/**
+ * @swagger
+ * /api/solicitudes-edicion/opciones:
+ *   get:
+ *     summary: Obtiene opciones para crear solicitudes
+ *     description: Retorna las entidades y campos disponibles para crear solicitudes de edición
+ *     tags: [SolicitudesEdicion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Opciones obtenidas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entidades:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 camposPorEntidad:
+ *                   type: object
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.get('/opciones', verificarToken, async (req, res) => {
   try {
@@ -267,6 +316,39 @@ router.get('/opciones', verificarToken, async (req, res) => {
  *         description: Solicitud no encontrada
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
+ */
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   get:
+ *     summary: Obtiene una solicitud específica
+ *     description: Retorna los detalles completos de una solicitud de edición por su ID
+ *     tags: [SolicitudesEdicion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Solicitud encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudEdicion'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         description: Solicitud no encontrada
+ *       500:
+ *         description: Error al obtener solicitud
  */
 router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
   try {
@@ -427,6 +509,57 @@ router.post('/', verificarToken, async (req, res) => {
  *         description: Solicitud no encontrada
  *       500:
  *         description: Error al actualizar la solicitud
+ */
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   put:
+ *     summary: Aprueba o rechaza una solicitud
+ *     description: Permite a un administrador aprobar o rechazar una solicitud de edición pendiente
+ *     tags: [SolicitudesEdicion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID de la solicitud
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - estado
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [aprobada, rechazada]
+ *                 description: Nueva estado de la solicitud
+ *               motivoRechazo:
+ *                 type: string
+ *                 description: Motivo del rechazo (requerido si estado=rechazada)
+ *     responses:
+ *       200:
+ *         description: Solicitud actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudEdicion'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: No autorizado para aprobar esta solicitud
+ *       404:
+ *         description: Solicitud no encontrada
+ *       500:
+ *         description: Error al procesar solicitud
  */
 router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
@@ -895,6 +1028,45 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
  *         description: Solicitud no encontrada
  *       500:
  *         description: Error al eliminar la solicitud
+ */
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}:
+ *   delete:
+ *     summary: Elimina una solicitud pendiente
+ *     description: Permite al creador eliminar una solicitud que aún esté pendiente
+ *     tags: [SolicitudesEdicion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Solicitud eliminada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Solicitud eliminada exitosamente
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: No se puede eliminar la solicitud (ya fue procesada o no es el creador)
+ *       404:
+ *         description: Solicitud no encontrada
+ *       500:
+ *         description: Error al eliminar solicitud
  */
 router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
