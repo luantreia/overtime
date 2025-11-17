@@ -566,13 +566,39 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     const { estado, motivoRechazo, datosPropuestos } = req.body;
     const uid = req.user.uid;
 
+    console.log('PUT /solicitudes-edicion/:id - Request:', {
+      id: req.params.id,
+      estado,
+      motivoRechazo,
+      datosPropuestos,
+      uid
+    });
+
     const solicitud = await SolicitudEdicion.findById(req.params.id);
-    if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
-    if (solicitud.estado !== 'pendiente') return res.status(400).json({ message: 'Solicitud ya procesada' });
+    if (!solicitud) {
+      console.log('Solicitud no encontrada:', req.params.id);
+      return res.status(404).json({ message: 'Solicitud no encontrada' });
+    }
+
+    console.log('Solicitud encontrada:', {
+      id: solicitud._id,
+      tipo: solicitud.tipo,
+      estado: solicitud.estado,
+      entidad: solicitud.entidad,
+      creadoPor: solicitud.creadoPor
+    });
+
+    if (solicitud.estado !== 'pendiente') {
+      console.log('Solicitud ya procesada:', solicitud.estado);
+      return res.status(400).json({ message: 'Solicitud ya procesada' });
+    }
 
     // Obtener admins responsables (de tu función existente)
     let admins = [];
+    console.log('Determinando admins para solicitud tipo:', solicitud.tipo);
+
     if (solicitud.entidad) {
+      console.log('Solicitud tiene entidad:', solicitud.entidad);
       // Si hay entidad, determinar admins según tipo, con soportes adicionales
       if (solicitud.tipo.startsWith('participacion-temporada')) {
         const pt = await ParticipacionTemporada.findById(solicitud.entidad)
@@ -715,9 +741,19 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     }
 
     // Autorización: sólo aprobadores (o admin global) pueden gestionar la solicitud
+    console.log('Verificando autorización:', {
+      admins: admins.map(id => id?.toString?.() || id),
+      uid,
+      userRol: req.user.rol,
+      isAdmin: req.user.rol === 'admin'
+    });
+
     if (!admins.map(id => id?.toString?.() || id).includes(uid) && req.user.rol !== 'admin') {
+      console.log('Usuario no autorizado');
       return res.status(403).json({ message: 'No autorizado para gestionar esta solicitud' });
     }
+
+    console.log('Usuario autorizado, procesando solicitud con estado:', estado);
 
     if (estado === 'aceptado') {
       // Validar si la edición requiere doble confirmación
@@ -987,11 +1023,16 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         }
       }
     }
+
+    console.log('Guardando solicitud con estado final:', solicitud.estado);
     await solicitud.save();
+
+    console.log('Solicitud guardada exitosamente, enviando respuesta');
     res.status(200).json(solicitud);
 
   } catch (error) {
     console.error('Error al actualizar solicitud:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error al actualizar solicitud', error: error.message });
   }
 });
