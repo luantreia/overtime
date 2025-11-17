@@ -159,6 +159,10 @@ app.use(cors({
   origin: function(origin, callback) {
     // Permite solicitudes sin origen (como Postman o backend a backend)
     if (!origin) return callback(null, true);
+    // Permite cualquier origen localhost para desarrollo
+    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+      return callback(null, true);
+    }
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {

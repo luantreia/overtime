@@ -779,12 +779,30 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       } else if (solicitud.tipo === 'jugador-equipo-eliminar') {
         try {
           const { contratoId } = solicitud.datosPropuestos;
+          console.log('Procesando solicitud de eliminación:', {
+            solicitudId: solicitud._id,
+            contratoId,
+            datosPropuestos: solicitud.datosPropuestos
+          });
+
+          if (!contratoId) {
+            console.error('contratoId no encontrado en datosPropuestos');
+            return res.status(400).json({ message: 'contratoId requerido para eliminación' });
+          }
+
           const relacion = await JugadorEquipo.findById(contratoId);
+          console.log('Relación encontrada:', relacion ? { id: relacion._id, estado: relacion.estado } : 'No encontrada');
+
           if (relacion) {
             // Marcar como baja en lugar de eliminar físicamente para mantener historial
             relacion.estado = 'baja';
+            relacion.activo = false;
             relacion.hasta = new Date();
             await relacion.save();
+            console.log('Relación actualizada a baja:', relacion._id);
+          } else {
+            console.error('Relación no encontrada para contratoId:', contratoId);
+            return res.status(404).json({ message: 'Relación JugadorEquipo no encontrada' });
           }
         } catch (e) {
           console.error('Error eliminando relación JugadorEquipo:', e);
@@ -804,14 +822,17 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             if (desde !== undefined) relacion.desde = desde;
             if (hasta !== undefined) relacion.hasta = hasta;
 
-            // Permitir finalizar contrato aceptado → baja
-            if (cambios.estado === 'baja' && relacion.estado === 'aceptado') {
-              relacion.estado = 'baja';
-              relacion.activo = false;
-              if (!relacion.hasta) relacion.hasta = new Date();
+            // Manejar cambios de estado
+            if (cambios.estado !== undefined) {
+              relacion.estado = cambios.estado;
+              relacion.activo = cambios.estado === 'aceptado';
+              if (cambios.estado === 'baja' && !relacion.hasta) {
+                relacion.hasta = new Date();
+              }
             }
 
             await relacion.save();
+            console.log('Relación actualizada:', { id: relacion._id, estado: relacion.estado, activo: relacion.activo });
           }
         } catch (e) {
           // No fallar la aceptación por error al aplicar, pero informar
