@@ -7,6 +7,11 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerJSDoc from 'swagger-jsdoc';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import logger from './src/utils/logger.js';
+import { errorHandler } from './src/middleware/errorHandler.js';
+import { requestLogger } from './src/middleware/requestLogger.js';
 
 // ES Modules fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -51,47 +56,68 @@ const swaggerOptions = {
     ],
   },
   apis: [
-    path.join(__dirname, 'routes/**/*.js'),
-    path.join(__dirname, 'models/**/*.js'),
+    path.join(__dirname, 'src/routes/**/*.js'),
+    path.join(__dirname, 'src/models/**/*.js'),
     path.join(__dirname, 'swagger/schemas/**/*.yaml'),
   ],
 };
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
-import usuariosRoutes from './routes/usuarios.js';
-import authRoutes from './routes/auth.js';
+import usuariosRoutes from './src/routes/usuarios.js';
+import authRoutes from './src/routes/auth.js';
 
-import equiposRoutes from './routes/Equipos/equipos.js';
-import equiposCompetenciaRoutes from './routes/Equipos/equiposCompetencia.js';
-import participacionTemporadaRoutes from './routes/Equipos/participacionTemporada.js';
-import participacionFaseRoutes from './routes/Equipos/participacionFase.js';
-import equipoPartidoRoutes from './routes/Equipos/equipoPartido.js'; // asegurate de importar el modelo
+import equiposRoutes from './src/routes/Equipos/equipos.js';
+import equiposCompetenciaRoutes from './src/routes/Equipos/equiposCompetencia.js';
+import participacionTemporadaRoutes from './src/routes/Equipos/participacionTemporada.js';
+import participacionFaseRoutes from './src/routes/Equipos/participacionFase.js';
+import equipoPartidoRoutes from './src/routes/Equipos/equipoPartido.js';
 
-import jugadoresRoutes from './routes/Jugadores/jugadores.js';
-import jugadorEquipoRoutes from './routes/Jugadores/jugadorEquipo.js';  
-import jugadorCompetenciaRoutes from './routes/Jugadores/jugadorCompetencia.js';
-import jugadorTemporadaRoutes from './routes/Jugadores/jugadorTemporada.js';
-import jugadorFaseRoutes from './routes/Jugadores/jugadorFase.js';
-import jugadorPartidoRoutes from './routes/Jugadores/jugadorPartido.js';
+import jugadoresRoutes from './src/routes/Jugadores/jugadores.js';
+import jugadorEquipoRoutes from './src/routes/Jugadores/jugadorEquipo.js';  
+import jugadorCompetenciaRoutes from './src/routes/Jugadores/jugadorCompetencia.js';
+import jugadorTemporadaRoutes from './src/routes/Jugadores/jugadorTemporada.js';
+import jugadorFaseRoutes from './src/routes/Jugadores/jugadorFase.js';
+import jugadorPartidoRoutes from './src/routes/Jugadores/jugadorPartido.js';
 
-import partidosRoutes from './routes/partidos.js';
-import setPartidoRoutes from './routes/setPartido.js';
-import estadisticasRoutes from './routes/estadisticas.js';
-import estadisticasJugadorPartidoRoutes from './routes/Jugadores/estadisticasJugadorPartido.js';
-import estadisticasJugadorSetRoutes from './routes/Jugadores/estadisticasJugadorSet.js';
-import estadisticasJugadorPartidoManualRoutes from './routes/Jugadores/estadisticasJugadorPartidoManual.js';
-import estadisticasEquipoPartidoRoutes from './routes/Equipos/estadisticasEquipoPartido.js';
+import partidosRoutes from './src/routes/partidos.js';
+import setPartidoRoutes from './src/routes/setPartido.js';
+import estadisticasRoutes from './src/routes/estadisticas.js';
+import estadisticasJugadorPartidoRoutes from './src/routes/Jugadores/estadisticasJugadorPartido.js';
+import estadisticasJugadorSetRoutes from './src/routes/Jugadores/estadisticasJugadorSet.js';
+import estadisticasJugadorPartidoManualRoutes from './src/routes/Jugadores/estadisticasJugadorPartidoManual.js';
+import estadisticasEquipoPartidoRoutes from './src/routes/Equipos/estadisticasEquipoPartido.js';
 
-import organizacionesRoutes from './routes/organizaciones.js';
-import competenciasRoutes from './routes/Competencias/competencias.js';
-import fasesRoutes from "./routes/Competencias/fases.js";
-import temporadasRoutes from './routes/Competencias/temporadas.js';
-import solicitudesEdicionRoutes from './routes/solicitudEdicion.js';
+import organizacionesRoutes from './src/routes/organizaciones.js';
+import competenciasRoutes from './src/routes/Competencias/competencias.js';
+import fasesRoutes from "./src/routes/Competencias/fases.js";
+import temporadasRoutes from './src/routes/Competencias/temporadas.js';
+import solicitudesEdicionRoutes from './src/routes/solicitudEdicion.js';
 
 
 dotenv.config(); // inicializar dotenv
 
 const app = express();
+
+// Security Middleware
+app.use(helmet());
+
+// Rate Limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    skipSuccessfulRequests: true,
+    message: 'Too many failed login attempts, please try again later',
+});
+
+app.use('/api/', limiter);
 
 // Conectar a la base de datos de MongoDB usando Mongoose
 mongoose.connect(process.env.MONGO_URI, {
@@ -122,7 +148,7 @@ const allowedOrigins = [
   'https://overtime-organizaciones.vercel.app',
   'https://overtime-organizaciones.vercel.app/',
   'https://overtime-admin.vercel.app',
-  'https://overtime-admin.vercel.app/',
+  'https://overtime-admin.vercel.app/'
     
   // Agregar con barra al final por si acaso
 ];
@@ -143,6 +169,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// Request logging middleware
+app.use(requestLogger);
+
 // Serve Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
@@ -158,7 +187,7 @@ app.get('/api-docs.json', (req, res) => {
 });
 
 // Rutas
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', loginLimiter, authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 
 app.use('/api/equipos', equiposRoutes);
@@ -196,6 +225,15 @@ app.get('/api/ping', (req, res) => {
 // Definir puerto del servidor
 const PORT = process.env.PORT || 5000;
 
+// Error Handler (siempre al final)
+app.use(errorHandler);
+
+// Create logs directory if it doesn't exist
+import fs from 'fs';
+if (!fs.existsSync('logs')) {
+  fs.mkdirSync('logs');
+}
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  logger.info(`Servidor corriendo en http://localhost:${PORT}`);
 });

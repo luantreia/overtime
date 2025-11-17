@@ -1,0 +1,803 @@
+import express from 'express';
+import  Jugador  from '../../models/Jugador/Jugador.js';
+import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
+import mongoose from 'mongoose';
+import { esAdminDeEntidad } from '../../middleware/esAdminDeEntidad.js';
+import verificarToken from '../../middleware/authMiddleware.js';
+import { validarObjectId } from '../../middleware/validacionObjectId.js';
+import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
+import { verificarEntidad } from '../../middleware/verificarEntidad.js';
+import Usuario from '../../models/Usuario.js';
+
+/**
+ * @swagger
+ * tags:
+ *   name: Jugadores
+ *   description: Gestión de jugadores del sistema
+ */
+
+const { Types } = mongoose;
+const router = express.Router();
+
+
+/**
+ * @swagger
+ * /api/jugadores:
+ *   post:
+ *     summary: Crea un nuevo jugador
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - fechaNacimiento
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *                 description: Nombre completo del jugador
+ *               alias:
+ *                 type: string
+ *                 description: Apodo del jugador (opcional)
+ *               fechaNacimiento:
+ *                 type: string
+ *                 format: date
+ *                 description: Fecha de nacimiento en formato YYYY-MM-DD
+ *               genero:
+ *                 type: string
+ *                 enum: [masculino, femenino, otro]
+ *                 description: Género del jugador
+ *               foto:
+ *                 type: string
+ *                 description: URL de la foto del jugador
+ *     responses:
+ *       201:
+ *         description: Jugador creado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Datos de entrada inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *       500:
+ *         description: Error del servidor
+ */
+router.post('/', verificarToken, async (req, res) => {
+  try {
+    const { nombre, alias, fechaNacimiento, genero, foto } = req.body;
+    if (!nombre || !fechaNacimiento) {
+      return res.status(400).json({ message: 'Nombre y fechaNacimiento son obligatorios' });
+    }
+
+    const jugador = new Jugador({
+      nombre,
+      alias,
+      fechaNacimiento,
+      genero,
+      foto,
+      creadoPor: req.user.uid,  // <- asigna creador aquí
+      administradores: [req.user.uid] // opcional: asignar creador como admin inicial
+    });
+
+    await jugador.save();
+    res.status(201).json(jugador);
+  } catch (error) {
+    console.error('Error al guardar jugador:', error);
+    res.status(400).json({ message: 'Error al guardar jugador', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/admin:
+ *   get:
+ *     summary: Obtiene jugadores administrables por el usuario autenticado
+ *     description: |
+ *       Retorna una lista de jugadores que el usuario actual puede administrar.
+ *       - Los administradores globales ven todos los jugadores.
+ *       - Los usuarios normales solo ven los jugadores que ellos crearon o de los que son administradores.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página para la paginación (comienza en 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Cantidad de resultados por página (máx 100)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [nombre, fechaNacimiento, createdAt]
+ *           default: nombre
+ *         description: Campo por el cual ordenar los resultados
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *         description: Orden de clasificación (ascendente o descendente)
+ *     responses:
+ *       200:
+ *         description: Lista de jugadores administrables obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Jugador'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *                 total:
+ *                   type: integer
+ *                   description: Número total de jugadores que coinciden con los filtros
+ *       400:
+ *         description: Parámetros de consulta inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Prohibido - No tienes permisos para acceder a este recurso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const rol = req.user.rol;
+
+    let jugadores;
+
+    if (rol === 'admin') {
+      jugadores = await Jugador.find({}, 'nombre _id fechaNacimiento genero nacionalidad createdAt updatedAt').lean();
+    } else {
+      jugadores = await Jugador.find({
+        $or: [
+          { creadoPor: uid },
+          { administradores: uid }
+        ]
+      }, 'nombre _id fechaNacimiento genero nacionalidad createdAt updatedAt').lean();
+    }
+
+    res.status(200).json(jugadores);
+  } catch (error) {
+    console.error('Error al obtener jugadores administrables:', error);
+    res.status(500).json({ message: 'Error al obtener jugadores administrables' });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/jugadores:
+ *   get:
+ *     summary: Obtiene todos los jugadores
+ *     description: Retorna una lista de todos los jugadores registrados en el sistema
+ *     tags: [Jugadores]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Cantidad máxima de resultados a devolver
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número de página para la paginación
+ *     responses:
+ *       200:
+ *         description: Lista de jugadores obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Jugador'
+ *       500:
+ *         description: Error del servidor al obtener los jugadores
+ */
+router.get('/', async (req, res) => {
+  try {
+    const jugadores = await Jugador.find();
+    res.status(200).json(jugadores);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/jugadores/{id}:
+ *   get:
+ *     summary: Obtiene un jugador por su ID
+ *     description: |
+ *       Retorna los detalles completos de un jugador específico, incluyendo información de sus administradores.
+ *       
+ *       ### Detalles adicionales:
+ *       - Incluye información básica del jugador (nombre, alias, fecha de nacimiento, etc.)
+ *       - Incluye lista de administradores con sus datos básicos (email, nombre)
+ *       - Los campos sensibles como contraseñas nunca son incluidos
+ *     tags: [Jugadores]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *           example: 5f8d0f3b5d7a8e4c3c8d4f5a
+ *         description: ID único del jugador a consultar
+ *     responses:
+ *       200:
+ *         description: Jugador encontrado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Jugador'
+ *             example:
+ *               _id: 5f8d0f3b5d7a8e4c3c8d4f5a
+ *               nombre: "Juan Pérez"
+ *               alias: "JP"
+ *               fechaNacimiento: "1990-01-01T00:00:00.000Z"
+ *               genero: "masculino"
+ *               foto: "https://ejemplo.com/fotos/juan-perez.jpg"
+ *               nacionalidad: "Argentina"
+ *               administradores:
+ *                 - _id: 507f1f77bcf86cd799439011
+ *                   email: "admin@ejemplo.com"
+ *                   nombre: "Admin Principal"
+ *               createdAt: "2023-01-15T10:30:00.000Z"
+ *               updatedAt: "2023-01-15T10:30:00.000Z"
+ *       400:
+ *         description: ID de jugador inválido o con formato incorrecto
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "ID de jugador inválido"
+ *               error: "Cast to ObjectId failed for value \"invalid-id\" at path \"_id\" for model \"Jugador\""
+ *       404:
+ *         description: No se encontró ningún jugador con el ID proporcionado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "Jugador no encontrado"
+ *       500:
+ *         description: Error interno del servidor al procesar la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get('/:id', validarObjectId, async (req, res) => {
+  try {
+    const jugador = await Jugador.findById(req.params.id)
+      .populate('administradores', 'email nombre') // opcional: trae info de admins
+      .lean();
+
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+
+    // También podés poblar otras relaciones si lo necesitás
+    res.status(200).json(jugador);
+  } catch (error) {
+    console.error('Error al obtener jugador:', error);
+    res.status(500).json({ message: 'Error al obtener jugador' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}:
+ *   put:
+ *     summary: Actualiza un jugador existente
+ *     description: Actualiza los datos de un jugador. Requiere permisos de administración sobre el jugador.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del jugador a actualizar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *                 description: Nombre completo del jugador
+ *               alias:
+ *                 type: string
+ *                 description: Apodo del jugador
+ *               fechaNacimiento:
+ *                 type: string
+ *                 format: date
+ *                 description: Fecha de nacimiento (YYYY-MM-DD)
+ *               genero:
+ *                 type: string
+ *                 enum: [masculino, femenino, otro]
+ *                 description: Género del jugador
+ *               foto:
+ *                 type: string
+ *                 description: URL de la foto del jugador
+ *               nacionalidad:
+ *                 type: string
+ *                 description: Nacionalidad del jugador
+ *               administradores:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Lista de IDs de usuarios administradores
+ *     responses:
+ *       200:
+ *         description: Jugador actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Jugador'
+ *       400:
+ *         description: Datos de entrada inválidos
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *       403:
+ *         description: Prohibido - No tienes permisos para actualizar este jugador
+ *       404:
+ *         description: Jugador no encontrado
+ *       500:
+ *         description: Error del servidor al actualizar el jugador
+ */
+router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+  try {
+    const jugador = req.jugador; // ya validado por middleware
+    const {
+      nombre,
+      alias,
+      fechaNacimiento,
+      genero,
+      foto,
+      nacionalidad,
+      administradores // opcional, si quieres permitir actualizar admins
+    } = req.body;
+
+    if (nombre !== undefined) jugador.nombre = nombre;
+    if (alias !== undefined) jugador.alias = alias;
+    if (fechaNacimiento !== undefined) jugador.fechaNacimiento = fechaNacimiento;
+    if (genero !== undefined) jugador.genero = genero;
+    if (foto !== undefined) jugador.foto = foto;
+    if (nacionalidad !== undefined) jugador.nacionalidad = nacionalidad;
+    if (administradores !== undefined && Array.isArray(administradores)) jugador.administradores = administradores;
+
+    await jugador.save();
+    res.status(200).json(jugador);
+  } catch (error) {
+    console.error('Error al actualizar jugador:', error);
+    res.status(500).json({ message: 'Error al actualizar jugador', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/administradores:
+ *   get:
+ *     summary: Obtiene los administradores de un jugador
+ *     description: |
+ *       Retorna la lista de usuarios que tienen permisos de administración sobre un jugador específico.
+ *       
+ *       ### Detalles:
+ *       - Solo los administradores del jugador o los administradores globales pueden ver esta información
+ *       - Si hay un error al cargar la información detallada, se devuelven solo los IDs
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *           example: 5f8d0f3b5d7a8e4c3c8d4f5a
+ *         description: ID único del jugador
+ *     responses:
+ *       200:
+ *         description: Lista de administradores obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 oneOf:
+ *                   - $ref: '#/components/schemas/Usuario'
+ *                   - type: string
+ *                     description: ID del usuario (en caso de error al cargar detalles)
+ *               example:
+ *                 - _id: "507f1f77bcf86cd799439011"
+ *                   email: "admin@example.com"
+ *                   nombre: "Administrador Principal"
+ *       400:
+ *         description: ID de jugador inválido o formato incorrecto
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Prohibido - No tienes permisos para ver los administradores de este jugador
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No se encontró el jugador con el ID proporcionado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error interno del servidor al procesar la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
+  try {
+    let admins = req.jugador.administradores || [];
+    try {
+      await req.jugador.populate('administradores', 'email nombre').execPopulate();
+      admins = req.jugador.administradores;
+    } catch (popError) {
+      console.error('Populate error, returning IDs:', popError.message);
+      // Keep admins as IDs
+    }
+    res.status(200).json(admins);
+  } catch (error) {
+    console.error('Error al obtener administradores:', error);
+    res.status(500).json({ message: 'Error al obtener administradores' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/administradores:
+ *   post:
+ *     summary: Agrega un administrador a un jugador
+ *     description: |
+ *       Agrega un usuario como administrador de un jugador específico.
+ *       Se puede especificar el usuario por su ID (adminUid) o por su email.
+ *       Requiere permisos de administración sobre el jugador.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del jugador al que se le agregará el administrador
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             oneOf:
+ *               - required: [adminUid]
+ *                 properties:
+ *                   adminUid:
+ *                     type: string
+ *                     description: ID del usuario a agregar como administrador
+ *               - required: [email]
+ *                 properties:
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     description: Email del usuario a agregar como administrador
+ *     responses:
+ *       200:
+ *         description: Administrador agregado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Jugador'
+ *       400:
+ *         description: Solicitud inválida (faltan parámetros o el usuario ya es administrador)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *       403:
+ *         description: Prohibido - No tienes permisos para realizar esta acción
+ *       404:
+ *         description: Jugador o usuario no encontrado
+ *       500:
+ *         description: Error del servidor al agregar el administrador
+ */
+router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarEntidad(Jugador, 'id', 'jugador'), async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const jugador = req.jugador;
+    const { adminUid, email } = req.body;
+
+    if (!adminUid && !email) {
+      return res.status(400).json({ message: 'Se requiere adminUid o email' });
+    }
+
+    let usuarioAdminId = adminUid;
+
+    // Si mandan un email, buscamos el UID correspondiente
+    if (email && !adminUid) {
+      const usuario = await Usuario.findOne({ email });
+      if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+      usuarioAdminId = usuario._id.toString();
+    }
+
+    const esAdmin =
+      jugador.creadoPor?.toString() === uid ||
+      (jugador.administradores || []).some((a) => a.toString() === uid);
+
+    if (!esAdmin && req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No autorizado para modificar administradores' });
+    }
+
+    if (!jugador.administradores.includes(usuarioAdminId)) {
+      jugador.administradores.push(usuarioAdminId);
+      await jugador.save();
+    }
+
+    await jugador.populate('administradores', 'email nombre');
+    res.status(200).json({ administradores: jugador.administradores });
+  } catch (error) {
+    console.error('Error al agregar administrador:', error);
+    res.status(500).json({ message: 'Error al agregar administrador' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/administradores/{adminId}:
+ *   delete:
+ *     summary: Quita un administrador de un jugador
+ *     description: Elimina los permisos de administración de un usuario sobre un jugador específico.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del jugador
+ *       - in: path
+ *         name: adminId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del administrador a quitar
+ *     responses:
+ *       200:
+ *         description: Administrador quitado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 administradores:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       nombre:
+ *                         type: string
+ *       400:
+ *         description: Solicitud inválida (ej: intentando quitar al único administrador)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "No se puede quitar al único administrador"
+ *       401:
+ *         description: No autorizado - Se requiere autenticación
+ *       403:
+ *         description: Prohibido - No tienes permisos para modificar este jugador
+ *       404:
+ *         description: No se encontró el jugador o el administrador
+ *       500:
+ *         description: Error del servidor al procesar la solicitud
+ */
+router.delete('/:id/administradores/:adminId', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+  try {
+    const { id, adminId } = req.params;
+    
+    // Verificar que el jugador existe (ya está verificado por esAdminDeEntidad)
+    const jugador = req.jugador;
+
+    // Verificar que el administrador existe
+    const admin = await Usuario.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: 'El administrador no existe' });
+    }
+
+    // Verificar que el administrador está en la lista
+    if (!jugador.administradores.includes(adminId)) {
+      return res.status(400).json({ message: 'El usuario no es administrador de este jugador' });
+    }
+
+    // Verificar que no se está quitando al último administrador
+    if (jugador.administradores.length === 1) {
+      return res.status(400).json({ message: 'No se puede quitar al único administrador' });
+    }
+
+    // Quitar el administrador
+    jugador.administradores = jugador.administradores.filter(id => id.toString() !== adminId);
+    await jugador.save();
+
+    await jugador.populate('administradores', 'email nombre');
+    res.status(200).json({ administradores: jugador.administradores });
+  } catch (error) {
+    console.error('Error al quitar administrador:', error);
+    res.status(500).json({ message: 'Error al quitar administrador' });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/jugadores/{id}:
+ *   delete:
+ *     summary: Elimina un jugador del sistema
+ *     description: |
+ *       Elimina permanentemente un jugador y todos sus datos asociados.
+ *       
+ *       ### Permisos requeridos:
+ *       - El usuario debe ser administrador del jugador o tener rol de administrador global
+ *       - No se puede eliminar un jugador que tenga relaciones activas (equipos, estadísticas, etc.)
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *           example: 5f8d0f3b5d7a8e4c3c8d4f5a
+ *         description: ID único del jugador a eliminar
+ *     responses:
+ *       200:
+ *         description: Jugador eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Jugador eliminado correctamente"
+ *                 jugador:
+ *                   $ref: '#/components/schemas/Jugador'
+ *       400:
+ *         description: |
+ *           Solicitud inválida. Posibles razones:
+ *           - El ID del jugador no es válido
+ *           - El jugador tiene relaciones activas que impiden su eliminación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: No autorizado - Se requiere autenticación mediante token JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: |
+ *           Prohibido - El usuario autenticado no tiene permisos para eliminar este jugador.
+ *           Solo los administradores del jugador o los administradores globales pueden realizar esta acción.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No se encontró ningún jugador con el ID proporcionado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error interno del servidor al procesar la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *     securitySchemes:
+ *       bearerAuth:
+ *         type: http
+ *         scheme: bearer
+ *         bearerFormat: JWT
+ */
+router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+  try {
+    const jugador = req.jugador; // Cargado por esAdminDeEntidad
+    await jugador.deleteOne();   // ✅ Esto dispara el pre('remove')
+    res.status(200).json({ message: 'Jugador eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al eliminar jugador' });
+  }
+});
+
+
+export default router;
