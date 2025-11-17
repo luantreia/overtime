@@ -32,7 +32,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: 'https://overtime-ddyl.onrender.com',
+        url: 'https://overtime-ddyl.onrender.com/api',
         description: 'Production server',
       },
       {
@@ -148,8 +148,10 @@ const allowedOrigins = [
   'https://overtime-organizaciones.vercel.app',
   'https://overtime-organizaciones.vercel.app/',
   'https://overtime-admin.vercel.app',
-  'https://overtime-admin.vercel.app/'
-    
+  'https://overtime-admin.vercel.app/',
+  'https://overtime-ddyl.onrender.com',
+  'https://overtime-ddyl.onrender.com/'
+
   // Agregar con barra al final por si acaso
 ];
 
