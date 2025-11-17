@@ -630,10 +630,30 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       console.log('Solicitud tiene entidad:', solicitud.entidad);
       // Si hay entidad, determinar admins según tipo, con soportes adicionales
       if (solicitud.tipo === 'jugador-equipo-editar') {
+        console.log('Procesando solicitud de edición de contrato:', {
+          solicitudId: solicitud._id,
+          entidad: solicitud.entidad,
+          datosPropuestos: solicitud.datosPropuestos
+        });
         // Para editar contrato, admins son del equipo y jugador relacionados con el contrato
         const contrato = await JugadorEquipo.findById(solicitud.entidad)
-          .populate('equipo', 'administradores creadoPor')
-          .populate('jugador', 'administradores creadoPor');
+          .populate('equipo', 'administradores creadoPor nombre')
+          .populate('jugador', 'administradores creadoPor nombre');
+        console.log('Contrato encontrado:', contrato ? {
+          id: contrato._id,
+          equipo: {
+            id: contrato.equipo?._id,
+            nombre: contrato.equipo?.nombre,
+            creadoPor: contrato.equipo?.creadoPor,
+            administradores: contrato.equipo?.administradores
+          },
+          jugador: {
+            id: contrato.jugador?._id,
+            nombre: contrato.jugador?.nombre,
+            creadoPor: contrato.jugador?.creadoPor,
+            administradores: contrato.jugador?.administradores
+          }
+        } : 'Contrato NO encontrado');
         if (contrato) {
           const ids = new Set();
           if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
@@ -645,6 +665,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
           }
           admins = Array.from(ids);
+          console.log('Admins encontrados para solicitud de edición:', admins);
+        } else {
+          console.log('No se pudo encontrar el contrato para determinar admins');
         }
       } else if (solicitud.tipo.startsWith('participacion-temporada')) {
         // Esta lógica parece tener un error - contratoId no está definido
