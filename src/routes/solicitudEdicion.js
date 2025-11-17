@@ -641,10 +641,21 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           return res.status(400).json({ message: 'Solicitud de edición inválida: falta entidad' });
         }
         
-        // Para editar contrato, admins son del equipo y jugador relacionados con el contrato
-        const contrato = await JugadorEquipo.findById(solicitud.entidad)
+        let contrato = null;
+        
+        // Primero intentar buscar por entidad (caso nuevo)
+        contrato = await JugadorEquipo.findById(solicitud.entidad)
           .populate('equipo', 'administradores creadoPor nombre')
           .populate('jugador', 'administradores creadoPor nombre');
+        
+        // Si no se encontró y hay contratoId en datosPropuestos, buscar por contratoId (caso antiguo)
+        if (!contrato && solicitud.datosPropuestos?.contratoId) {
+          console.log('Contrato no encontrado por entidad, intentando buscar por contratoId:', solicitud.datosPropuestos.contratoId);
+          contrato = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId)
+            .populate('equipo', 'administradores creadoPor nombre')
+            .populate('jugador', 'administradores creadoPor nombre');
+        }
+        
         console.log('Contrato encontrado:', contrato ? {
           id: contrato._id,
           equipo: {
@@ -662,25 +673,21 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         } : 'Contrato NO encontrado');
         
         if (!contrato) {
-          console.log('ERROR: Contrato no encontrado para entidad:', solicitud.entidad);
+          console.log('ERROR: Contrato no encontrado para entidad:', solicitud.entidad, 'ni para contratoId:', solicitud.datosPropuestos?.contratoId);
           return res.status(404).json({ message: 'Contrato no encontrado' });
         }
         
-        if (contrato) {
-          const ids = new Set();
-          if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
-          if (Array.isArray(contrato.equipo?.administradores)) {
-            contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
-          }
-          if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
-          if (Array.isArray(contrato.jugador?.administradores)) {
-            contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
-          }
-          admins = Array.from(ids);
-          console.log('Admins encontrados para solicitud de edición:', admins);
-        } else {
-          console.log('No se pudo encontrar el contrato para determinar admins');
+        const ids = new Set();
+        if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
+        if (Array.isArray(contrato.equipo?.administradores)) {
+          contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
         }
+        if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
+        if (Array.isArray(contrato.jugador?.administradores)) {
+          contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
+        }
+        admins = Array.from(ids);
+        console.log('Admins encontrados para solicitud de edición:', admins);
       } else if (solicitud.tipo.startsWith('participacion-temporada')) {
         // Esta lógica parece tener un error - contratoId no está definido
         // Asumiendo que se refiere al contrato de participacion-temporada
@@ -874,7 +881,14 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         }
       } else if (solicitud.tipo === 'jugador-equipo-editar' && solicitud.entidad) {
         try {
-          const relacion = await JugadorEquipo.findById(solicitud.entidad);
+          let relacion = await JugadorEquipo.findById(solicitud.entidad);
+          
+          // Si no se encontró por entidad y hay contratoId en datosPropuestos, buscar por contratoId
+          if (!relacion && solicitud.datosPropuestos?.contratoId) {
+            console.log('Relación no encontrada por entidad, buscando por contratoId:', solicitud.datosPropuestos.contratoId);
+            relacion = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId);
+          }
+          
           if (relacion) {
             const cambios = solicitud.datosPropuestos || {};
             if (cambios.rol !== undefined) relacion.rol = cambios.rol;
@@ -897,6 +911,8 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
             await relacion.save();
             console.log('Relación actualizada:', { id: relacion._id, estado: relacion.estado, activo: relacion.activo });
+          } else {
+            console.log('Relación no encontrada para aplicar cambios');
           }
         } catch (e) {
           // No fallar la aceptación por error al aplicar, pero informar
