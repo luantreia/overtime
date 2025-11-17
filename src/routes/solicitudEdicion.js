@@ -635,6 +635,12 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           entidad: solicitud.entidad,
           datosPropuestos: solicitud.datosPropuestos
         });
+        
+        if (!solicitud.entidad) {
+          console.log('ERROR: Solicitud de edición sin entidad definida');
+          return res.status(400).json({ message: 'Solicitud de edición inválida: falta entidad' });
+        }
+        
         // Para editar contrato, admins son del equipo y jugador relacionados con el contrato
         const contrato = await JugadorEquipo.findById(solicitud.entidad)
           .populate('equipo', 'administradores creadoPor nombre')
@@ -654,6 +660,12 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             administradores: contrato.jugador?.administradores
           }
         } : 'Contrato NO encontrado');
+        
+        if (!contrato) {
+          console.log('ERROR: Contrato no encontrado para entidad:', solicitud.entidad);
+          return res.status(404).json({ message: 'Contrato no encontrado' });
+        }
+        
         if (contrato) {
           const ids = new Set();
           if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
@@ -744,11 +756,19 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       admins: admins.map(id => id?.toString?.() || id),
       uid,
       userRol: req.user.rol,
-      isAdmin: req.user.rol === 'admin'
+      isAdmin: req.user.rol === 'admin',
+      solicitudId: solicitud._id,
+      solicitudTipo: solicitud.tipo,
+      solicitudEntidad: solicitud.entidad
     });
 
     if (!admins.map(id => id?.toString?.() || id).includes(uid) && req.user.rol !== 'admin') {
-      console.log('Usuario no autorizado');
+      console.log('Usuario no autorizado - detalles:', {
+        uid,
+        admins,
+        userRol: req.user.rol,
+        solicitudCreadoPor: solicitud.creadoPor
+      });
       return res.status(403).json({ message: 'No autorizado para gestionar esta solicitud' });
     }
 
