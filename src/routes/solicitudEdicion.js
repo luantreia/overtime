@@ -795,25 +795,26 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       const camposModificados = Object.keys(datosPropuestos || {});
       const { requiereDobleConfirmacion, camposCriticosModificados } = validarDobleConfirmacion(solicitud.tipo, camposModificados);
 
+      // Determinar número mínimo de aprobaciones necesarias.
+      // Preferir 2 cuando se requiere doble confirmación, pero no más que el número de admins determinados.
+      const meta = tiposSolicitudMeta[solicitud.tipo] || {};
+      const aprobadoresDisponibles = Array.isArray(admins) ? admins.length : 0;
+      const aprobacionesNecesarias = requiereDobleConfirmacion ? Math.min(2, Math.max(1, aprobadoresDisponibles)) : 1;
+
+      // Si requiere doble confirmación agregamos el uid a la lista si no está
       if (requiereDobleConfirmacion) {
-        // Si se requiere doble confirmación, se debe agregar el uid a aceptadoPor y no marcar como 'aceptado' aún
-        if (!solicitud.aceptadoPor.includes(uid)) {
+        if (!solicitud.aceptadoPor.map(id => id?.toString?.()).includes(uid)) {
           solicitud.aceptadoPor.push(uid);
         }
 
-        // Si ya todos los aprobadores aceptaron, cambiar estado a aceptado final
-        const meta = tiposSolicitudMeta[solicitud.tipo];
-        const aprobadoresNecesarios = meta.rolesAprobadores.length; // esto podés mejorar para contar admins actuales
-        if (solicitud.aceptadoPor.length >= aprobadoresNecesarios) {
+        if (solicitud.aceptadoPor.length >= aprobacionesNecesarias) {
           solicitud.estado = 'aceptado';
           solicitud.fechaAceptacion = new Date();
           solicitud.aprobadoPor = uid; // último que aprobó
         } else {
-          // Todavía pendiente que otro admin apruebe
           solicitud.estado = 'pendiente';
         }
       } else {
-        // No requiere doble confirmación, aceptar directo
         solicitud.estado = 'aceptado';
         solicitud.fechaAceptacion = new Date();
         solicitud.aprobadoPor = uid;
@@ -824,8 +825,120 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         solicitud.datosPropuestos = datosPropuestos;
       }
 
-      // Aplicar cambios a la entidad si corresponde
-      if (solicitud.tipo === 'jugador-equipo-crear') {
+      // Aplicar cambios a la entidad si corresponde. Hacemos las operaciones que modifican datos
+      // dentro de una transacción para asegurar atomicidad entre la solicitud y las entidades.
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          // Guardar estado intermedio de solicitud (aceptadoPor/estado) dentro de la transacción
+          await solicitud.save({ session });
+
+          if (solicitud.tipo === 'jugador-equipo-crear') {
+            const { jugadorId, equipoId, rol, numeroCamiseta, fechaInicio, fechaFin } = solicitud.datosPropuestos;
+            const [equipo, jugador] = await Promise.all([
+              equipoId ? Equipo.findById(equipoId).select('administradores creadoPor').session(session) : null,
+              jugadorId ? Jugador.findById(jugadorId).select('administradores creadoPor').session(session) : null,
+            ]);
+            const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
+            const adminsEquipo = equipo ? toIds(equipo.creadoPor, equipo.administradores) : [];
+            const adminsJugador = jugador ? toIds(jugador.creadoPor, jugador.administradores) : [];
+            const creador = solicitud.creadoPor?.toString();
+            const creadorEsEquipo = adminsEquipo.includes(creador);
+            const creadorEsJugador = adminsJugador.includes(creador);
+            const origen = creadorEsEquipo ? 'equipo' : (creadorEsJugador ? 'jugador' : 'equipo');
+
+            const nuevaRelacion = new JugadorEquipo({
+              jugador: jugadorId,
+              equipo: equipoId,
+              rol: rol || 'jugador',
+              numeroCamiseta,
+              desde: fechaInicio,
+              hasta: fechaFin,
+              estado: 'aceptado',
+              origen,
+              creadoPor: solicitud.creadoPor
+            });
+            await nuevaRelacion.save({ session });
+          } else if (solicitud.tipo === 'jugador-equipo-eliminar') {
+            const { contratoId } = solicitud.datosPropuestos;
+            if (!contratoId) {
+              throw new Error('contratoId requerido para eliminación');
+            }
+
+            const relacion = await JugadorEquipo.findById(contratoId).session(session);
+            if (!relacion) throw new Error('Relación JugadorEquipo no encontrada');
+            relacion.estado = 'baja';
+            relacion.activo = false;
+            relacion.hasta = new Date();
+            await relacion.save({ session });
+          } else if (solicitud.tipo === 'jugador-equipo-editar' && solicitud.entidad) {
+            let relacion = await JugadorEquipo.findById(solicitud.entidad).session(session);
+            if (!relacion && solicitud.datosPropuestos?.contratoId) {
+              relacion = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId).session(session);
+            }
+            if (relacion) {
+              const cambios = solicitud.datosPropuestos || {};
+              if (cambios.rol !== undefined) relacion.rol = cambios.rol;
+              if (cambios.foto !== undefined) relacion.foto = cambios.foto;
+
+              const desde = cambios.fechaInicio !== undefined ? cambios.fechaInicio : (cambios.desde !== undefined ? cambios.desde : undefined);
+              const hasta = cambios.fechaFin !== undefined ? cambios.fechaFin : (cambios.hasta !== undefined ? cambios.hasta : undefined);
+              if (desde !== undefined) relacion.desde = desde;
+              if (hasta !== undefined) relacion.hasta = hasta;
+
+              if (cambios.estado !== undefined) {
+                relacion.estado = cambios.estado;
+                relacion.activo = cambios.estado === 'aceptado';
+                if (cambios.estado === 'baja' && !relacion.hasta) relacion.hasta = new Date();
+              }
+
+              await relacion.save({ session });
+            } else {
+              // No existe relacion: no hacemos rollback, sólo log
+              console.log('Relación no encontrada para aplicar cambios (editar)');
+            }
+          } else if (solicitud.tipo === 'participacion-temporada-crear') {
+            const { equipoId, temporadaId, estado, observaciones } = solicitud.datosPropuestos || {};
+            if (!equipoId || !temporadaId) throw new Error('equipoId y temporadaId requeridos');
+            const existe = await ParticipacionTemporada.findOne({ equipo: equipoId, temporada: temporadaId }).session(session);
+            if (existe) throw new Error('Ya existe una participación para este equipo y temporada');
+            const nuevaPT = new ParticipacionTemporada({
+              equipo: equipoId,
+              temporada: temporadaId,
+              estado: estado || 'activo',
+              observaciones: observaciones || '',
+              creadoPor: solicitud.creadoPor,
+            });
+            await nuevaPT.save({ session });
+          } else if (solicitud.tipo === 'jugador-temporada-crear') {
+            const { jugadorEquipoId, participacionTemporadaId, estado, rol } = solicitud.datosPropuestos || {};
+            if (!jugadorEquipoId || !participacionTemporadaId) throw new Error('jugadorEquipoId y participacionTemporadaId requeridos');
+            const je = await JugadorEquipo.findById(jugadorEquipoId).select('jugador').session(session);
+            if (!je) throw new Error('jugadorEquipo no encontrado');
+            const existe = await JugadorTemporada.findOne({ jugadorEquipo: jugadorEquipoId, participacionTemporada: participacionTemporadaId }).session(session);
+            if (existe) throw new Error('Ya existe un vínculo jugador-temporada para esos IDs');
+            const nuevoJT = new JugadorTemporada({
+              jugadorEquipo: jugadorEquipoId,
+              participacionTemporada: participacionTemporadaId,
+              estado: estado || 'activo',
+              rol: rol || 'jugador',
+              jugador: je.jugador,
+              creadoPor: solicitud.creadoPor,
+            });
+            await nuevoJT.save({ session });
+          } else {
+            // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
+            // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.
+          }
+        });
+      } catch (e) {
+        console.error('Error durante transacción al aplicar cambios de solicitud:', e);
+        // Intentamos marcar la solicitud como error si no se guardó correctamente
+        try { await solicitud.save(); } catch (ee) { console.error('Error guardando solicitud tras fallo transacción:', ee); }
+        return res.status(500).json({ message: 'Error al aplicar los cambios de la solicitud', error: e.message });
+      } finally {
+        session.endSession();
+      }
         try {
           const { jugadorId, equipoId, rol, numeroCamiseta, fechaInicio, fechaFin } = solicitud.datosPropuestos;
           const [equipo, jugador] = await Promise.all([
