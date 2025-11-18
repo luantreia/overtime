@@ -635,27 +635,25 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           entidad: solicitud.entidad,
           datosPropuestos: solicitud.datosPropuestos
         });
-        
-        if (!solicitud.entidad) {
-          console.log('ERROR: Solicitud de edición sin entidad definida');
-          return res.status(400).json({ message: 'Solicitud de edición inválida: falta entidad' });
+
+        if (!solicitud.entidad && !solicitud.datosPropuestos?.contratoId) {
+          console.log('ERROR: Solicitud de edición sin entidad ni contratoId en datosPropuestos');
+          return res.status(400).json({ message: 'Solicitud de edición inválida: falta entidad/contratoId' });
         }
-        
+
+        // Buscar contrato: preferir 'entidad', fallback a 'datosPropuestos.contratoId'
         let contrato = null;
-        
-        // Primero intentar buscar por entidad (caso nuevo)
         contrato = await JugadorEquipo.findById(solicitud.entidad)
           .populate('equipo', 'administradores creadoPor nombre')
           .populate('jugador', 'administradores creadoPor nombre');
-        
-        // Si no se encontró y hay contratoId en datosPropuestos, buscar por contratoId (caso antiguo)
+
         if (!contrato && solicitud.datosPropuestos?.contratoId) {
           console.log('Contrato no encontrado por entidad, intentando buscar por contratoId:', solicitud.datosPropuestos.contratoId);
           contrato = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId)
             .populate('equipo', 'administradores creadoPor nombre')
             .populate('jugador', 'administradores creadoPor nombre');
         }
-        
+
         console.log('Contrato encontrado:', contrato ? {
           id: contrato._id,
           equipo: {
@@ -671,23 +669,34 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             administradores: contrato.jugador?.administradores
           }
         } : 'Contrato NO encontrado');
-        
+
         if (!contrato) {
           console.log('ERROR: Contrato no encontrado para entidad:', solicitud.entidad, 'ni para contratoId:', solicitud.datosPropuestos?.contratoId);
-          return res.status(404).json({ message: 'Contrato no encontrado' });
+          // No admins determinados para una solicitud sin contrato válido
+          admins = [];
+        } else {
+          // generar listas de admins separadas para equipo y jugador
+          const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
+          const adminsEquipo = toIds(contrato.equipo?.creadoPor, contrato.equipo?.administradores);
+          const adminsJugador = toIds(contrato.jugador?.creadoPor, contrato.jugador?.administradores);
+
+          const creador = solicitud.creadoPor?.toString();
+          const creadorEsEquipo = adminsEquipo.includes(creador);
+          const creadorEsJugador = adminsJugador.includes(creador);
+
+          // Requerir aprobación de la otra parte si el creador es admin de una de las partes
+          if (creadorEsEquipo) {
+            admins = adminsJugador; // el creador es admin del equipo => debe aprobar admin del jugador
+          } else if (creadorEsJugador) {
+            admins = adminsEquipo; // el creador es admin del jugador => debe aprobar admin del equipo
+          } else {
+            // fallback: combinar ambos conjuntos (si ninguno es creador)
+            const ids = new Set([...adminsEquipo, ...adminsJugador]);
+            admins = Array.from(ids);
+          }
+
+          console.log('Admins determinados (editar, cross-approval):', { adminsEquipo, adminsJugador, creador, admins });
         }
-        
-        const ids = new Set();
-        if (contrato.equipo?.creadoPor) ids.add(contrato.equipo.creadoPor.toString());
-        if (Array.isArray(contrato.equipo?.administradores)) {
-          contrato.equipo.administradores.forEach(a => ids.add(a.toString()));
-        }
-        if (contrato.jugador?.creadoPor) ids.add(contrato.jugador.creadoPor.toString());
-        if (Array.isArray(contrato.jugador?.administradores)) {
-          contrato.jugador.administradores.forEach(a => ids.add(a.toString()));
-        }
-        admins = Array.from(ids);
-        console.log('Admins encontrados para solicitud de edición:', admins);
       } else if (solicitud.tipo.startsWith('participacion-temporada')) {
         // Esta lógica parece tener un error - contratoId no está definido
         // Asumiendo que se refiere al contrato de participacion-temporada
