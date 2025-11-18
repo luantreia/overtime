@@ -904,8 +904,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             if (cambios.foto !== undefined) relacion.foto = cambios.foto;
 
             // Soportar tanto 'desde/hasta' como 'fechaInicio/fechaFin' en payload
-            const desde = cambios.desde !== undefined ? cambios.desde : cambios.fechaInicio;
-            const hasta = cambios.hasta !== undefined ? cambios.hasta : cambios.fechaFin;
+            // Priorizar los campos más nuevos `fechaInicio/fechaFin` cuando estén presentes
+            const desde = cambios.fechaInicio !== undefined ? cambios.fechaInicio : (cambios.desde !== undefined ? cambios.desde : undefined);
+            const hasta = cambios.fechaFin !== undefined ? cambios.fechaFin : (cambios.hasta !== undefined ? cambios.hasta : undefined);
             if (desde !== undefined) relacion.desde = desde;
             if (hasta !== undefined) relacion.hasta = hasta;
 
