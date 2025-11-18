@@ -658,7 +658,7 @@ router.post('/:id/administradores', verificarToken, cargarRolDesdeBD, verificarE
  *                       nombre:
  *                         type: string
  *       400:
- *         description: Solicitud inválida (ej: intentando quitar al único administrador)
+ *         description: "Solicitud inválida (ej: intentando quitar al único administrador)"
  *         content:
  *           application/json:
  *             schema:

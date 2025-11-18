@@ -62,7 +62,24 @@ const swaggerOptions = {
   ],
 };
 
-const swaggerSpec = swaggerJSDoc(swaggerOptions);
+let swaggerSpec;
+try {
+  swaggerSpec = swaggerJSDoc(swaggerOptions);
+} catch (err) {
+  console.error('[Swagger] Failed to generate spec from JSDoc/YAML. Continuing without full docs.', err?.message || err);
+  swaggerSpec = {
+    openapi: '3.0.0',
+    info: {
+      title: 'Overtime API',
+      version: '1.0.0',
+      description: 'Swagger generation failed. Docs are disabled for now.'
+    },
+    servers: [
+      { url: process.env.API_BASE_URL || 'http://localhost:5000', description: 'Development server' }
+    ],
+    paths: {}
+  };
+}
 import usuariosRoutes from './src/routes/usuarios.js';
 import authRoutes from './src/routes/auth.js';
 
@@ -222,6 +239,14 @@ app.use('/api/competencias', competenciasRoutes);
 app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);
 app.use('/api/solicitudes-edicion', solicitudesEdicionRoutes);
+
+
+// Public configuration endpoint for clients (feature flags, model info)
+app.get('/api/config', (req, res) => {
+  const enableGpt5 = process.env.ENABLE_GPT5 === 'true' || process.env.ENABLE_GPT5 === undefined;
+  const model = process.env.GPT_MODEL || 'gpt-5';
+  res.status(200).json({ features: { enableGpt5 }, model });
+});
 
 
 app.get('/api/ping', (req, res) => {

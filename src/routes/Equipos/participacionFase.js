@@ -164,7 +164,11 @@ router.get('/', async (req, res) => {
  * /api/participacion-fase/opciones:
  *   get:
  *     summary: Opciones de ParticipacionTemporada para una fase
- *     description: Devuelve ParticipacionTemporada según el filtro: si se pasa fase devuelve opciones de la temporada asociada a esa fase excluyendo las ya registradas en la fase; si se pasa temporada devuelve todas las ParticipacionTemporada de esa temporada.
+ *     description: >
+ *       Devuelve ParticipacionTemporada según el filtro: si se pasa fase devuelve
+ *       opciones de la temporada asociada a esa fase, excluyendo las ya registradas
+ *       en la fase. Si se pasa temporada, devuelve todas las ParticipacionTemporada
+ *       de esa temporada.
  *     tags: [ParticipacionFase]
  *     security:
  *       - bearerAuth: []

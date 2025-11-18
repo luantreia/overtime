@@ -19,7 +19,7 @@ const router = express.Router();
  * @swagger
  * /api/usuarios:
  *   post:
- *     summary: [DEPRECADO] Crear usuario
+ *     summary: "[DEPRECADO] Crear usuario"
  *     tags: [Usuarios]
  *     security:
  *       - bearerAuth: []
