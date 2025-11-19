@@ -6,7 +6,7 @@ import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 // import validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js'; // TODO: Implementar
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
-// import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js'; // TODO: Implementar
+import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
 import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
@@ -39,7 +39,7 @@ import Organizacion from '../models/Organizacion.js';
  *           type: string
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, estadisticasJugadorSet, 
  *                 estadisticasEquipoPartido, estadisticasEquipoSet, jugador-equipo-editar, 
- *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar,
+ *                 jugador-equipo-crear, jugador-equipo-eliminar,
  *                 participacion-temporada-crear, participacion-temporada-actualizar, participacion-temporada-eliminar,
  *                 jugador-temporada-crear, jugador-temporada-actualizar, jugador-temporada-eliminar,
  *                 usuario-crear-jugador, usuario-crear-equipo, usuario-crear-organizacion,
@@ -110,7 +110,7 @@ const { Types } = mongoose;
  *           enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                 estadisticasJugadorSet, estadisticasEquipoPartido, 
  *                 estadisticasEquipoSet, jugador-equipo-editar, 
- *                 contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
+ *                 jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                 participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                 jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
  *                 usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
@@ -383,7 +383,7 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *                 enum: [resultadoPartido, resultadoSet, estadisticasJugadorPartido, 
  *                       estadisticasJugadorSet, estadisticasEquipoPartido, 
  *                       estadisticasEquipoSet, jugador-equipo-editar, 
- *                       contratoEquipoCompetencia, jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
+ *                       jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                       participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                       jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
  *                       usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
@@ -593,179 +593,53 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       return res.status(400).json({ message: 'Solicitud ya procesada' });
     }
 
-    // Obtener admins responsables (de tu función existente)
-    let admins = [];
+    // Obtener admins responsables usando el servicio centralizado
     console.log('Determinando admins para solicitud tipo:', solicitud.tipo);
 
-    if (solicitud.tipo === 'jugador-equipo-crear') {
-      const equipoId = solicitud.datosPropuestos?.equipoId;
-      const jugadorId = solicitud.datosPropuestos?.jugadorId;
-      const [equipo, jugador] = await Promise.all([
-        equipoId ? Equipo.findById(equipoId).select('administradores creadoPor') : null,
-        jugadorId ? Jugador.findById(jugadorId).select('administradores creadoPor') : null,
-      ]);
+    const { grupos, all: allAdmins } = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad, solicitud.datosPropuestos);
+    admins = allAdmins; // Por defecto, todos los involucrados
 
-      const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])]
-        .filter(Boolean)
-        .map(x => x?.toString?.() || x);
+    const resolverAprobadores = (creador, adminsA, adminsB) => {
+      const esA = adminsA.includes(creador);
+      const esB = adminsB.includes(creador);
+      // Lógica cruzada: Si crea A, aprueba B. Si crea B, aprueba A.
+      if (esA && !esB) return adminsB;
+      if (esB && !esA) return adminsA;
+      // Si es ambos o ninguno, por defecto la autoridad B (generalmente la entidad destino o superior)
+      return adminsB;
+    };
 
-      const adminsEquipo = equipo ? toIds(equipo.creadoPor, equipo.administradores) : [];
-      const adminsJugador = jugador ? toIds(jugador.creadoPor, jugador.administradores) : [];
+    if (solicitud.tipo.startsWith('jugador-equipo-')) {
+      // 1. Fichajes (Jugador <-> Equipo)
+      admins = resolverAprobadores(
+        solicitud.creadoPor?.toString(), 
+        grupos.equipo || [], 
+        grupos.jugador || []
+      );
 
-      const creador = solicitud.creadoPor?.toString();
-      const creadorEsEquipo = adminsEquipo.includes(creador);
-      const creadorEsJugador = adminsJugador.includes(creador);
+    } else if (solicitud.tipo.startsWith('participacion-temporada-')) {
+      // 2. Torneos (Equipo <-> Competencia)
+      admins = resolverAprobadores(
+        solicitud.creadoPor?.toString(), 
+        grupos.equipo || [], 
+        grupos.competencia || []
+      );
 
-      // Si la solicitud la creó un admin del equipo, entonces debe aprobar un admin del jugador.
-      // Si la creó un admin del jugador, debe aprobar un admin del equipo.
-      if (creadorEsEquipo) {
-        admins = adminsJugador;
-      } else if (creadorEsJugador) {
-        admins = adminsEquipo;
-      } else {
-        // Fallback: admins del equipo
-        admins = adminsEquipo;
-      }
-    } else if (solicitud.entidad) {
-      console.log('Solicitud tiene entidad:', solicitud.entidad);
-      // Si hay entidad, determinar admins según tipo, con soportes adicionales
-      if (solicitud.tipo === 'jugador-equipo-editar') {
-        console.log('Procesando solicitud de edición de contrato:', {
-          solicitudId: solicitud._id,
-          entidad: solicitud.entidad,
-          datosPropuestos: solicitud.datosPropuestos
-        });
+    } else if (solicitud.tipo.startsWith('jugador-temporada-')) {
+      // 3. Listas de Buena Fe (Equipo <-> Competencia)
+      admins = resolverAprobadores(
+        solicitud.creadoPor?.toString(), 
+        grupos.equipo || [], 
+        grupos.competencia || []
+      );
 
-        if (!solicitud.entidad && !solicitud.datosPropuestos?.contratoId) {
-          console.log('ERROR: Solicitud de edición sin entidad ni contratoId en datosPropuestos');
-          return res.status(400).json({ message: 'Solicitud de edición inválida: falta entidad/contratoId' });
-        }
-
-        // Buscar contrato: preferir 'entidad', fallback a 'datosPropuestos.contratoId'
-        let contrato = null;
-        contrato = await JugadorEquipo.findById(solicitud.entidad)
-          .populate('equipo', 'administradores creadoPor nombre')
-          .populate('jugador', 'administradores creadoPor nombre');
-
-        if (!contrato && solicitud.datosPropuestos?.contratoId) {
-          console.log('Contrato no encontrado por entidad, intentando buscar por contratoId:', solicitud.datosPropuestos.contratoId);
-          contrato = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId)
-            .populate('equipo', 'administradores creadoPor nombre')
-            .populate('jugador', 'administradores creadoPor nombre');
-        }
-
-        console.log('Contrato encontrado:', contrato ? {
-          id: contrato._id,
-          equipo: {
-            id: contrato.equipo?._id,
-            nombre: contrato.equipo?.nombre,
-            creadoPor: contrato.equipo?.creadoPor,
-            administradores: contrato.equipo?.administradores
-          },
-          jugador: {
-            id: contrato.jugador?._id,
-            nombre: contrato.jugador?.nombre,
-            creadoPor: contrato.jugador?.creadoPor,
-            administradores: contrato.jugador?.administradores
-          }
-        } : 'Contrato NO encontrado');
-
-        if (!contrato) {
-          console.log('ERROR: Contrato no encontrado para entidad:', solicitud.entidad, 'ni para contratoId:', solicitud.datosPropuestos?.contratoId);
-          // No admins determinados para una solicitud sin contrato válido
-          admins = [];
-        } else {
-          // generar listas de admins separadas para equipo y jugador
-          const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
-          const adminsEquipo = toIds(contrato.equipo?.creadoPor, contrato.equipo?.administradores);
-          const adminsJugador = toIds(contrato.jugador?.creadoPor, contrato.jugador?.administradores);
-
-          const creador = solicitud.creadoPor?.toString();
-          const creadorEsEquipo = adminsEquipo.includes(creador);
-          const creadorEsJugador = adminsJugador.includes(creador);
-
-          // Requerir aprobación de la otra parte si el creador es admin de una de las partes
-          if (creadorEsEquipo) {
-            admins = adminsJugador; // el creador es admin del equipo => debe aprobar admin del jugador
-          } else if (creadorEsJugador) {
-            admins = adminsEquipo; // el creador es admin del jugador => debe aprobar admin del equipo
-          } else {
-            // fallback: combinar ambos conjuntos (si ninguno es creador)
-            const ids = new Set([...adminsEquipo, ...adminsJugador]);
-            admins = Array.from(ids);
-          }
-
-          console.log('Admins determinados (editar, cross-approval):', { adminsEquipo, adminsJugador, creador, admins });
-        }
-      } else if (solicitud.tipo.startsWith('participacion-temporada')) {
-        // Esta lógica parece tener un error - contratoId no está definido
-        // Asumiendo que se refiere al contrato de participacion-temporada
-        const participacion = await ParticipacionTemporada.findById(solicitud.entidad)
-          .populate('equipo', 'administradores creadoPor');
-        if (participacion) {
-          const ids = new Set();
-          if (participacion.equipo?.creadoPor) ids.add(participacion.equipo.creadoPor.toString());
-          if (Array.isArray(participacion.equipo?.administradores)) {
-            participacion.equipo.administradores.forEach(a => ids.add(a.toString()));
-          }
-          // También admins de la competencia
-          const temp = await Temporada.findById(participacion.temporada).select('competencia');
-          if (temp) {
-            const comp = await Competencia.findById(temp.competencia).select('administradores creadoPor');
-            if (comp?.creadoPor) ids.add(comp.creadoPor.toString());
-            if (Array.isArray(comp?.administradores)) {
-              comp.administradores.forEach(a => ids.add(a.toString()));
-            }
-          }
-          admins = Array.from(ids);
-        }
-      } else if (solicitud.tipo === 'participacion-temporada-crear') {
-        const equipoId = solicitud.datosPropuestos?.equipoId;
-        const temporadaId = solicitud.datosPropuestos?.temporadaId;
-        const [equipo, temporada] = await Promise.all([
-          equipoId ? Equipo.findById(equipoId).select('administradores creadoPor') : null,
-          temporadaId ? Temporada.findById(temporadaId).select('competencia') : null,
-        ]);
-        if (!equipo || !temporada) {
-          admins = [];
-        } else {
-          const comp = await Competencia.findById(temporada.competencia).select('administradores creadoPor');
-          const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
-          const adminsEquipo = toIds(equipo.creadoPor, equipo.administradores);
-          const adminsCompetencia = toIds(comp?.creadoPor, comp?.administradores || []);
-          const creador = solicitud.creadoPor?.toString();
-          const creadorEsEquipo = adminsEquipo.includes(creador);
-          const creadorEsCompetencia = adminsCompetencia.includes(creador);
-          admins = creadorEsEquipo ? adminsCompetencia : creadorEsCompetencia ? adminsEquipo : adminsCompetencia;
-        }
-      } else if (solicitud.tipo === 'jugador-temporada-crear') {
-        const ptId = solicitud.datosPropuestos?.participacionTemporadaId;
-        const jeId = solicitud.datosPropuestos?.jugadorEquipoId;
-        const [pt, je] = await Promise.all([
-          ptId ? ParticipacionTemporada.findById(ptId).populate('equipo', 'administradores creadoPor') : null,
-          jeId ? JugadorEquipo.findById(jeId).populate('jugador', 'creadoPor administradores').populate('equipo', 'creadoPor administradores') : null,
-        ]);
-        if (!pt || !je) {
-          admins = [];
-        } else {
-          const temp = await Temporada.findById(pt.temporada).select('competencia');
-          const comp = temp ? await Competencia.findById(temp.competencia).select('administradores creadoPor') : null;
-          const toIds = (owner, adminsArr) => [owner, ...(adminsArr || [])].filter(Boolean).map(x => x?.toString?.() || x);
-          const adminsEquipo = toIds(pt.equipo?.creadoPor, pt.equipo?.administradores);
-          const adminsCompetencia = toIds(comp?.creadoPor, comp?.administradores || []);
-          const creador = solicitud.creadoPor?.toString();
-          const creadorEsEquipo = adminsEquipo.includes(creador);
-          const creadorEsCompetencia = adminsCompetencia.includes(creador);
-          admins = creadorEsEquipo ? adminsCompetencia : creadorEsCompetencia ? adminsEquipo : adminsCompetencia;
-        }
-      } else if (solicitud.tipo.startsWith('usuario-crear-')) {
+    } else if (solicitud.tipo.startsWith('usuario-crear-')) {
         // Requiere admin del sistema
         if (req.user.rol !== 'admin') {
           return res.status(403).json({ message: 'Solo admin puede gestionar estas solicitudes' });
         }
         admins = [uid];
       }
-    }
 
     // Autorización: sólo aprobadores (o admin global) pueden gestionar la solicitud
     console.log('Verificando autorización:', {
