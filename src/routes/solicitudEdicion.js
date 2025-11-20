@@ -214,31 +214,8 @@ router.get('/', verificarToken, async (req, res) => {
       if (scope === 'mine') {
         filtro.creadoPor = uid;
       } else if (scope === 'related' || scope === 'aprobables') {
-        // Construir conjuntos de entidades administradas (equipos, jugadores, organizaciones, competencias)
-        const [equiposAdmin, jugadoresAdmin, organizacionesAdmin, competenciasAdmin] = await Promise.all([
-          Equipo.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
-          Jugador.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
-          Organizacion.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
-          Competencia.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
-        ]);
-
-        const equiposIds = equiposAdmin.map(e => e._id);
-        const jugadoresIds = jugadoresAdmin.map(j => j._id);
-        const organizacionesIds = organizacionesAdmin.map(o => o._id);
-        const competenciasIds = competenciasAdmin.map(c => c._id);
-
-        // Armamos expresiones OR iniciales; aprobables se filtrará luego.
-        const orBase = [
-          { creadoPor: uid },
-          { entidad: { $in: [...equiposIds, ...jugadoresIds, ...organizacionesIds, ...competenciasIds] } },
-          { 'datosPropuestos.equipoId': { $in: equiposIds } },
-          { 'datosPropuestos.jugadorId': { $in: jugadoresIds } },
-          { 'datosPropuestos.organizacionId': { $in: organizacionesIds } },
-          { 'datosPropuestos.competenciaId': { $in: competenciasIds } },
-        ];
-
-        // Evitar duplicados triviales
-        filtro.$or = orBase;
+        // No restringimos con $or en la query para no perder solicitudes donde el usuario sea aprobador
+        // Se hará filtrado preciso luego en memoria.
       }
     }
 
@@ -252,23 +229,18 @@ router.get('/', verificarToken, async (req, res) => {
       .limit(limitNum)
       .lean();
 
-    // Post-filtrado para scope=related (asegurar además aprobador dinámico aunque no haya coincidido por entidad)
+    // Post-filtrado para scope=related: mantener creadas por el usuario o donde sea aprobador dinámico
     if (!esAdminGlobal && scope === 'related') {
-      const extendidas = [];
+      const visibles = [];
       for (const s of solicitudes) {
-        // Si ya es creador se mantiene
-        if (s.creadoPor?.toString() === uid) {
-          extendidas.push(s); continue;
-        }
+        if (s.creadoPor?.toString() === uid) { visibles.push(s); continue; }
         try {
           const aprobadores = await obtenerAdminsParaSolicitud(s);
           const puede = Object.values(aprobadores).some(grupo => grupo.some(adminId => adminId.toString() === uid));
-          if (puede) extendidas.push(s);
-        } catch (e) {
-          // Ignorar errores de cálculo de aprobadores
-        }
+          if (puede) visibles.push(s);
+        } catch {/* ignorar */}
       }
-      solicitudes = extendidas;
+      solicitudes = visibles;
     }
 
     if (!esAdminGlobal && scope === 'aprobables') {
