@@ -131,19 +131,45 @@ const { Types } = mongoose;
  *         schema:
  *           type: string
  *         description: Filtro por ID de la entidad relacionada
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Número de elementos por página
  *     responses:
  *       200:
  *         description: Lista de solicitudes de edición
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/SolicitudEdicion'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       500:
- *         description: Error al obtener las solicitudes
+ *               type: object
+ *               properties:
+ *                 solicitudes:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SolicitudEdicion'
+ *                 total:
+ *                   type: integer
+ *                   description: Total de solicitudes
+ *                 page:
+ *                   type: integer
+ *                   description: Página actual
+ *                 limit:
+ *                   type: integer
+ *                   description: Elementos por página
+ *                 totalPages:
+ *                   type: integer
+ *                   description: Total de páginas
  */
 /**
  * @swagger
@@ -170,7 +196,7 @@ const { Types } = mongoose;
  */
 router.get('/', verificarToken, async (req, res) => {
   try {
-    const { tipo, estado, creadoPor, entidad } = req.query;
+    const { tipo, estado, creadoPor, entidad, page = 1, limit = 10 } = req.query;
     const filtro = {
       ...(tipo ? { tipo } : {}),
       ...(estado ? { estado } : {}),
@@ -178,8 +204,28 @@ router.get('/', verificarToken, async (req, res) => {
       ...(entidad ? { entidad } : {}),
     };
 
-    const solicitudes = await SolicitudEdicion.find(filtro).sort({ createdAt: -1 }).lean();
-    res.status(200).json(solicitudes);
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [solicitudes, total] = await Promise.all([
+      SolicitudEdicion.find(filtro)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      SolicitudEdicion.countDocuments(filtro)
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    res.status(200).json({
+      solicitudes,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener solicitudes', error: error.message });
   }
@@ -357,6 +403,83 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
     res.status(200).json(solicitud);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener solicitud', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/solicitudes-edicion/{id}/aprobadores:
+ *   get:
+ *     summary: Obtiene los usuarios que pueden aprobar una solicitud específica
+ *     tags: [Solicitudes de Edición]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la solicitud
+ *     responses:
+ *       200:
+ *         description: Lista de usuarios que pueden aprobar la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 aprobadores:
+ *                   type: object
+ *                   properties:
+ *                     administradores:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: IDs de administradores
+ *                     organizacion:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: IDs de administradores de organización
+ *                     global:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: IDs de administradores globales
+ *                 puedeAprobar:
+ *                   type: boolean
+ *                   description: Si el usuario actual puede aprobar la solicitud
+ *       404:
+ *         description: Solicitud no encontrada
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Error al obtener los aprobadores
+ */
+router.get('/:id/aprobadores', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const solicitud = await SolicitudEdicion.findById(req.params.id);
+    if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
+
+    // Obtener los administradores que pueden aprobar esta solicitud
+    const aprobadores = await obtenerAdminsParaSolicitud(solicitud);
+
+    // Verificar si el usuario actual puede aprobar
+    const uid = req.user.uid;
+    const puedeAprobar = Object.values(aprobadores).some(grupo =>
+      grupo.some(adminId => adminId.toString() === uid)
+    );
+
+    res.status(200).json({
+      aprobadores,
+      puedeAprobar
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener aprobadores', error: error.message });
   }
 });
 
