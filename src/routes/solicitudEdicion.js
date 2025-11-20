@@ -43,7 +43,8 @@ import Organizacion from '../models/Organizacion.js';
  *                 participacion-temporada-crear, participacion-temporada-actualizar, participacion-temporada-eliminar,
  *                 jugador-temporada-crear, jugador-temporada-actualizar, jugador-temporada-eliminar,
  *                 usuario-crear-jugador, usuario-crear-equipo, usuario-crear-organizacion,
- *                 usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
+ *                 usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion,
+ *                 contratoEquipoCompetencia]
  *           description: Tipo de solicitud
  *         entidad:
  *           type: string
@@ -113,7 +114,8 @@ const { Types } = mongoose;
  *                 jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                 participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                 jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
- *                 usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
+ *                 usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion,
+ *                 contratoEquipoCompetencia]
  *         description: Filtro por tipo de solicitud
  *       - in: query
  *         name: estado
@@ -196,7 +198,7 @@ const { Types } = mongoose;
  */
 router.get('/', verificarToken, async (req, res) => {
   try {
-    const { tipo, estado, creadoPor, entidad, page = 1, limit = 10 } = req.query;
+    const { tipo, estado, creadoPor, entidad, scope, page = 1, limit = 10 } = req.query;
     const filtro = {
       ...(tipo ? { tipo } : {}),
       ...(estado ? { estado } : {}),
@@ -204,19 +206,53 @@ router.get('/', verificarToken, async (req, res) => {
       ...(entidad ? { entidad } : {}),
     };
 
+    const uid = req.user?.uid;
+    const esAdminGlobal = req.user?.rol === 'admin';
+
+    // Scoping para usuarios no admin
+    if (!esAdminGlobal) {
+      if (scope === 'mine') {
+        filtro.creadoPor = uid;
+      } else if (scope === 'related') {
+        // Básico: solicitudes creadas por el usuario o vinculadas a jugador/equipo/contrato
+        filtro.$or = [
+          { creadoPor: uid },
+          { 'datosPropuestos.jugadorId': { $exists: true } },
+          { 'datosPropuestos.equipoId': { $exists: true } },
+          { 'datosPropuestos.contratoId': { $exists: true } },
+        ];
+      } else if (scope === 'aprobables') {
+        // Se filtra luego en memoria
+      }
+    }
+
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const [solicitudes, total] = await Promise.all([
-      SolicitudEdicion.find(filtro)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      SolicitudEdicion.countDocuments(filtro)
-    ]);
+    let solicitudes = await SolicitudEdicion.find(filtro)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
 
+    if (!esAdminGlobal && scope === 'aprobables') {
+      const filtradas = [];
+      for (const s of solicitudes) {
+        try {
+          const aprobadores = await obtenerAdminsParaSolicitud(s);
+          const puede = Object.values(aprobadores).some(grupo =>
+            grupo.some(adminId => adminId.toString() === uid)
+          );
+          if (puede) filtradas.push(s);
+        } catch (e) {
+          continue;
+        }
+      }
+      solicitudes = filtradas;
+    }
+
+    const total = await SolicitudEdicion.countDocuments(filtro);
     const totalPages = Math.ceil(total / limitNum);
 
     res.status(200).json({
@@ -297,6 +333,7 @@ router.get('/opciones', verificarToken, async (req, res) => {
       ],
       equipo: [
         'jugador-equipo-crear', 'jugador-equipo-eliminar', 'jugador-equipo-editar',
+        'contratoEquipoCompetencia',
         'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
         'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
         'usuario-solicitar-admin-equipo',
@@ -305,6 +342,7 @@ router.get('/opciones', verificarToken, async (req, res) => {
         'usuario-solicitar-admin-organizacion',
       ],
       competencia: [
+        'contratoEquipoCompetencia',
         'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
         'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
       ],
@@ -509,7 +547,8 @@ router.get('/:id/aprobadores', verificarToken, validarObjectId, async (req, res)
  *                       jugador-equipo-crear, jugador-equipo-eliminar, participacion-temporada-crear, 
  *                       participacion-temporada-actualizar, participacion-temporada-eliminar, jugador-temporada-crear, 
  *                       jugador-temporada-actualizar, jugador-temporada-eliminar, usuario-crear-jugador, usuario-crear-equipo, 
- *                       usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion]
+  *                       usuario-crear-organizacion, usuario-solicitar-admin-jugador, usuario-solicitar-admin-equipo, usuario-solicitar-admin-organizacion,
+  *                       contratoEquipoCompetencia]
  *                 description: Tipo de solicitud
  *               entidad:
  *                 type: string

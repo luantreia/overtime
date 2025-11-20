@@ -22,6 +22,14 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: [],
   },
 
+  // Contrato directo Equipo-Competencia (inscripción fuera del ciclo de temporada)
+  'contratoEquipoCompetencia': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['equipoId', 'competenciaId', 'fechaInicio', 'fechaFin', 'estado', 'rol'],
+    rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
+    camposPermitidosSinConsenso: [],
+  },
+
   // Contratos (equipo) Participacion-Temporada
   'participacion-temporada-crear': {
     requiereDobleConfirmacion: false,

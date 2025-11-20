@@ -2124,3 +2124,7 @@
 {"level":"info","message":{"duration":"40ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":304,"user":"anonymous","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"},"service":"overtime-api","timestamp":"2025-11-18T21:20:25.993Z"}
 {"level":"info","message":{"duration":"162ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":304,"user":"anonymous","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"},"service":"overtime-api","timestamp":"2025-11-18T21:20:27.087Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-19T06:39:06.200Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-20T00:49:06.936Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-20T00:50:31.070Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-20T00:52:12.183Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-20T01:50:18.484Z"}
