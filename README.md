@@ -99,6 +99,52 @@ overtime-api/
 - `POST /api/partidos` - Crear partido (autenticado)
 - `PUT /api/partidos/:id` - Actualizar partido
 
+### Solicitudes de Edición
+- `GET /api/solicitudes-edicion` Lista solicitudes (paginado). Parámetros opcionales: `tipo`, `estado`, `creadoPor`, `entidad`, `page`, `limit`, `scope`.
+	- `scope=mine` solo solicitudes creadas por el usuario.
+	- `scope=related` (mejorado) incluye solicitudes creadas por el usuario o en las que el usuario figura como aprobador dinámico según reglas de meta.
+	- `scope=aprobables` solicitudes pendientes que el usuario puede aprobar (filtrado completo en memoria por grupos de aprobadores).
+- `POST /api/solicitudes-edicion` Crea una solicitud (`tipo`, `datosPropuestos`, opcional `entidad`).
+- `GET /api/solicitudes-edicion/:id` Detalle de solicitud.
+- `GET /api/solicitudes-edicion/:id/aprobadores` Devuelve `{ aprobadores, puedeAprobar }`.
+- `PUT /api/solicitudes-edicion/:id` Aprobar/Rechazar (estado `aceptado|rechazado`).
+- `DELETE /api/solicitudes-edicion/:id` Cancelar solicitud pendiente.
+
+Tipo nuevo incorporado: `contratoEquipoCompetencia` (aprobación equipo ↔ competencia).
+
+Metadatos definidos en `src/config/solicitudesMeta.js`:
+```js
+{
+  requiereDobleConfirmacion: boolean,
+  camposCriticos: string[],
+  rolesAprobadores: string[],
+  camposPermitidosSinConsenso?: string[]
+}
+```
+
+Respuesta de paginación estándar:
+```json
+{
+  "solicitudes": [ ... ],
+  "total": 42,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 5
+}
+```
+
+#### Visibilidad por Rol (Frontends)
+| Rol / App | Categorías visibles | Tipos permitidos (prefijo) | Botón Aprobar con verificación |
+|-----------|---------------------|----------------------------|--------------------------------|
+| Manager   | Usuarios, Contratos, Partidos | `usuario-*`, `jugador-equipo-*`, `resultadoPartido`, `resultadoSet`, `estadisticas*` | Sí (usa `GET /:id/aprobadores`) |
+| DT        | Usuarios, Contratos, Participaciones Temporada, Participaciones Jugador-Temporada, Partidos | `usuario-*`, `jugador-equipo-*`, `participacion-temporada-*`, `jugador-temporada-*`, `resultadoPartido`, `resultadoSet`, `estadisticas*` | Sí (AprobarButton) |
+| Organizaciones | Usuarios, Participaciones Temporada, Participaciones Jugador-Temporada | `usuario-*`, `participacion-temporada-*`, `jugador-temporada-*` | Sí (AprobarButton) |
+
+Notas:
+- El scoping `related` se refina en memoria incluyendo sólo solicitudes donde el usuario es aprobador o creador.
+- Para `scope=aprobables` se calcula pertenencia y se reduce el set a solicitudes pendientes accionables.
+- Al aprobar, se aplican cambios transaccionales a entidades (contratos, participaciones, vínculos jugador-temporada, etc.).
+
 ## Seguridad
 
 La API implementa múltiples capas de seguridad:

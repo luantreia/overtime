@@ -209,20 +209,36 @@ router.get('/', verificarToken, async (req, res) => {
     const uid = req.user?.uid;
     const esAdminGlobal = req.user?.rol === 'admin';
 
-    // Scoping para usuarios no admin
+    // Scoping para usuarios no admin (refinado)
     if (!esAdminGlobal) {
       if (scope === 'mine') {
         filtro.creadoPor = uid;
-      } else if (scope === 'related') {
-        // Básico: solicitudes creadas por el usuario o vinculadas a jugador/equipo/contrato
-        filtro.$or = [
+      } else if (scope === 'related' || scope === 'aprobables') {
+        // Construir conjuntos de entidades administradas (equipos, jugadores, organizaciones, competencias)
+        const [equiposAdmin, jugadoresAdmin, organizacionesAdmin, competenciasAdmin] = await Promise.all([
+          Equipo.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
+          Jugador.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
+          Organizacion.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
+          Competencia.find({ $or: [{ creadoPor: uid }, { administradores: uid }] }).select('_id').lean(),
+        ]);
+
+        const equiposIds = equiposAdmin.map(e => e._id);
+        const jugadoresIds = jugadoresAdmin.map(j => j._id);
+        const organizacionesIds = organizacionesAdmin.map(o => o._id);
+        const competenciasIds = competenciasAdmin.map(c => c._id);
+
+        // Armamos expresiones OR iniciales; aprobables se filtrará luego.
+        const orBase = [
           { creadoPor: uid },
-          { 'datosPropuestos.jugadorId': { $exists: true } },
-          { 'datosPropuestos.equipoId': { $exists: true } },
-          { 'datosPropuestos.contratoId': { $exists: true } },
+          { entidad: { $in: [...equiposIds, ...jugadoresIds, ...organizacionesIds, ...competenciasIds] } },
+          { 'datosPropuestos.equipoId': { $in: equiposIds } },
+          { 'datosPropuestos.jugadorId': { $in: jugadoresIds } },
+          { 'datosPropuestos.organizacionId': { $in: organizacionesIds } },
+          { 'datosPropuestos.competenciaId': { $in: competenciasIds } },
         ];
-      } else if (scope === 'aprobables') {
-        // Se filtra luego en memoria
+
+        // Evitar duplicados triviales
+        filtro.$or = orBase;
       }
     }
 
@@ -235,6 +251,25 @@ router.get('/', verificarToken, async (req, res) => {
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    // Post-filtrado para scope=related (asegurar además aprobador dinámico aunque no haya coincidido por entidad)
+    if (!esAdminGlobal && scope === 'related') {
+      const extendidas = [];
+      for (const s of solicitudes) {
+        // Si ya es creador se mantiene
+        if (s.creadoPor?.toString() === uid) {
+          extendidas.push(s); continue;
+        }
+        try {
+          const aprobadores = await obtenerAdminsParaSolicitud(s);
+          const puede = Object.values(aprobadores).some(grupo => grupo.some(adminId => adminId.toString() === uid));
+          if (puede) extendidas.push(s);
+        } catch (e) {
+          // Ignorar errores de cálculo de aprobadores
+        }
+      }
+      solicitudes = extendidas;
+    }
 
     if (!esAdminGlobal && scope === 'aprobables') {
       const filtradas = [];
@@ -252,7 +287,13 @@ router.get('/', verificarToken, async (req, res) => {
       solicitudes = filtradas;
     }
 
-    const total = await SolicitudEdicion.countDocuments(filtro);
+    // Recalcular total considerando post-filtrado (cuando scope related/aprobables)
+    let total;
+    if (!esAdminGlobal && (scope === 'related' || scope === 'aprobables')) {
+      total = solicitudes.length;
+    } else {
+      total = await SolicitudEdicion.countDocuments(filtro);
+    }
     const totalPages = Math.ceil(total / limitNum);
 
     res.status(200).json({
