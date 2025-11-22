@@ -1,6 +1,7 @@
 // utils/generarPorGrupo.js
 export function generarRoundRobinPorGrupo(participaciones, datosBase, fase) {
-  const grupos = fase.grupos || [];
+  // Obtenemos los grupos únicos de las participaciones, ya que fase.grupos no existe en el esquema
+  const grupos = [...new Set(participaciones.map(p => p.grupo).filter(Boolean))];
   const partidos = [];
 
   grupos.forEach((grupo) => {
