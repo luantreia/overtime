@@ -4,6 +4,7 @@ import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de importar el modelo
+import mongoose from 'mongoose';
 
 
 const router = express.Router();
@@ -107,15 +108,33 @@ router.get('/', async (req, res) => {
     if (tipo === 'amistoso') {
       filtro.competencia = null;
     } else {
-      if (fase) filtro.fase = fase;
-      if (competencia) filtro.competencia = competencia;
+      if (fase) {
+        if (mongoose.Types.ObjectId.isValid(fase)) {
+          filtro.fase = fase;
+        } else {
+          return res.json([]);
+        }
+      }
+      if (competencia) {
+        if (mongoose.Types.ObjectId.isValid(competencia)) {
+          filtro.competencia = competencia;
+        } else {
+          return res.json([]);
+        }
+      }
     }
 
     if (equipo) {
-      filtro.$or = [
-        { equipoLocal: equipo },
-        { equipoVisitante: equipo }
-      ];
+      if (mongoose.Types.ObjectId.isValid(equipo)) {
+        filtro.$or = [
+          { equipoLocal: equipo },
+          { equipoVisitante: equipo }
+        ];
+      } else {
+        // Si el equipo no es un ID válido, retornamos array vacío
+        // (o podríamos implementar búsqueda por nombre si importáramos el modelo Equipo)
+        return res.json([]);
+      }
     }
 
     const partidos = await Partido.find(filtro)
@@ -299,8 +318,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     res.status(400).json({ message: 'Error al crear el partido', error: err.message });
   }
 });
-
-import mongoose from 'mongoose';
 
 // PUT /api/partidos/:id - Actualizar partido
 /**
