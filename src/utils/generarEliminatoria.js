@@ -10,14 +10,19 @@ export function generarEliminatoriaDirecta(participaciones, datosBase, fase) {
   const partidos = [];
 
   for (let i = 0; i < participantes.length; i += 2) {
-    const equipoLocal = participantes[i]?.equipo?._id;
-    const equipoVisitante = participantes[i + 1]?.equipo?._id;
+    const local = participantes[i];
+    const visitante = participantes[i + 1];
+
+    const equipoLocal = local?.participacionTemporada?.equipo?._id;
+    const equipoVisitante = visitante?.participacionTemporada?.equipo?._id;
 
     if (equipoLocal && equipoVisitante) {
       partidos.push({
         ...datosBase,
         equipoLocal,
         equipoVisitante,
+        participacionFaseLocal: local._id,
+        participacionFaseVisitante: visitante._id,
         etapa: 'octavos', // o dinámica según cantidad total
       });
     }

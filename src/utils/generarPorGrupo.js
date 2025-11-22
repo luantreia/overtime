@@ -10,10 +10,15 @@ export function generarRoundRobinPorGrupo(participaciones, datosBase, fase) {
 
     for (let i = 0; i < equiposDelGrupo.length; i++) {
       for (let j = i + 1; j < equiposDelGrupo.length; j++) {
+        const local = equiposDelGrupo[i];
+        const visitante = equiposDelGrupo[j];
+
         partidos.push({
           ...datosBase,
-          equipoLocal: equiposDelGrupo[i].equipo._id,
-          equipoVisitante: equiposDelGrupo[j].equipo._id,
+          equipoLocal: local.participacionTemporada?.equipo?._id,
+          equipoVisitante: visitante.participacionTemporada?.equipo?._id,
+          participacionFaseLocal: local._id,
+          participacionFaseVisitante: visitante._id,
           grupo,
         });
       }
