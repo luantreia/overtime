@@ -772,7 +772,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
     console.log('Determinando admins para solicitud tipo:', solicitud.tipo);
 
     const { grupos, all: allAdmins } = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad, solicitud.datosPropuestos);
-    admins = allAdmins; // Por defecto, todos los involucrados
+    let admins = allAdmins; // Por defecto, todos los involucrados
 
     const resolverAprobadores = (creador, adminsA, adminsB) => {
       const esA = adminsA.includes(creador);
