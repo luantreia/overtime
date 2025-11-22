@@ -5,7 +5,8 @@ import { generarEliminatoriaDirecta } from './generarEliminatoria.js';
 
 export const generarFixturePorTipo = (fase, participaciones, datosBase) => {
   switch (fase.tipo) {
-    case 'grupos':
+    case 'grupo': // Corregido: 'grupo' en singular según el modelo
+    case 'grupos': // Mantenemos plural por compatibilidad si hay datos viejos
       return generarRoundRobinPorGrupo(participaciones, datosBase, fase);
     case 'liga':
       return generarRoundRobinPorDivision(participaciones, datosBase, fase);
