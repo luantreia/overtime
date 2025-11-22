@@ -839,7 +839,12 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
     console.log('Usuario autorizado, procesando solicitud con estado:', estado);
 
-    if (estado === 'aceptado') {
+    if (estado === 'rechazado') {
+      solicitud.estado = 'rechazado';
+      solicitud.motivoRechazo = motivoRechazo;
+      solicitud.fechaRechazo = new Date();
+      // Podríamos guardar quién rechazó si agregamos el campo al esquema, por ahora solo fecha y motivo.
+    } else if (estado === 'aceptado') {
       // TODO: Implementar validación de doble confirmación
       // const camposModificados = Object.keys(datosPropuestos || {});
       // const { requiereDobleConfirmacion, camposCriticosModificados } = validarDobleConfirmacion(solicitud.tipo, camposModificados);
@@ -976,6 +981,33 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               creadoPor: solicitud.creadoPor,
             });
             await nuevoJT.save({ session });
+          } else if (solicitud.tipo === 'usuario-crear-equipo') {
+            const nuevoEquipo = new Equipo({
+              ...solicitud.datosPropuestos,
+              creadoPor: solicitud.creadoPor,
+              administradores: [solicitud.creadoPor],
+              activo: true
+            });
+            await nuevoEquipo.save({ session });
+            solicitud.entidad = nuevoEquipo._id;
+          } else if (solicitud.tipo === 'usuario-crear-jugador') {
+            const nuevoJugador = new Jugador({
+              ...solicitud.datosPropuestos,
+              creadoPor: solicitud.creadoPor,
+              administradores: [solicitud.creadoPor],
+              activo: true
+            });
+            await nuevoJugador.save({ session });
+            solicitud.entidad = nuevoJugador._id;
+          } else if (solicitud.tipo === 'usuario-crear-organizacion') {
+            const nuevaOrg = new Organizacion({
+              ...solicitud.datosPropuestos,
+              creadoPor: solicitud.creadoPor,
+              administradores: [solicitud.creadoPor],
+              activo: true
+            });
+            await nuevaOrg.save({ session });
+            solicitud.entidad = nuevaOrg._id;
           } else {
             // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
             // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.
