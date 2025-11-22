@@ -167,7 +167,10 @@ const allowedOrigins = [
   'https://overtime-admin.vercel.app',
   'https://overtime-admin.vercel.app/',
   'https://overtime-ddyl.onrender.com',
-  'https://overtime-ddyl.onrender.com/'
+  'https://overtime-ddyl.onrender.com/',
+  'https://overtime-public.vercel.app',
+  'https://overtime-public.vercel.app/'
+
 
   // Agregar con barra al final por si acaso
 ];
