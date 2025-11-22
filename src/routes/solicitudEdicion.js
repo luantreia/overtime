@@ -1008,6 +1008,51 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             });
             await nuevaOrg.save({ session });
             solicitud.entidad = nuevaOrg._id;
+          } else if (solicitud.tipo === 'usuario-solicitar-admin-equipo') {
+            const equipo = await Equipo.findById(solicitud.entidad).session(session);
+            if (equipo) {
+              const yaEsAdmin = equipo.administradores.some(id => id.toString() === solicitud.creadoPor.toString());
+              if (!yaEsAdmin) {
+                equipo.administradores.push(solicitud.creadoPor);
+                await equipo.save({ session });
+              }
+            }
+          } else if (solicitud.tipo === 'usuario-solicitar-admin-jugador') {
+            const jugador = await Jugador.findById(solicitud.entidad).session(session);
+            if (jugador) {
+              const yaEsAdmin = jugador.administradores.some(id => id.toString() === solicitud.creadoPor.toString());
+              if (!yaEsAdmin) {
+                jugador.administradores.push(solicitud.creadoPor);
+                await jugador.save({ session });
+              }
+            }
+          } else if (solicitud.tipo === 'usuario-solicitar-admin-organizacion') {
+            const org = await Organizacion.findById(solicitud.entidad).session(session);
+            if (org) {
+              const yaEsAdmin = org.administradores.some(id => id.toString() === solicitud.creadoPor.toString());
+              if (!yaEsAdmin) {
+                org.administradores.push(solicitud.creadoPor);
+                await org.save({ session });
+              }
+            }
+          } else if (solicitud.tipo === 'participacion-temporada-eliminar') {
+            const targetId = solicitud.datosPropuestos?.participacionTemporadaId || solicitud.entidad;
+            if (targetId) {
+              const pt = await ParticipacionTemporada.findById(targetId).session(session);
+              if (pt) {
+                pt.estado = 'baja';
+                await pt.save({ session });
+              }
+            }
+          } else if (solicitud.tipo === 'jugador-temporada-eliminar') {
+            const targetId = solicitud.datosPropuestos?.jugadorTemporadaId || solicitud.entidad;
+            if (targetId) {
+              const jt = await JugadorTemporada.findById(targetId).session(session);
+              if (jt) {
+                jt.estado = 'baja';
+                await jt.save({ session });
+              }
+            }
           } else {
             // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
             // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.
