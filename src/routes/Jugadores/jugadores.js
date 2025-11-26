@@ -504,7 +504,7 @@ router.get('/:id/administradores', verificarEntidad(Jugador, 'id', 'jugador'), a
   try {
     let admins = req.jugador.administradores || [];
     try {
-      await req.jugador.populate('administradores', 'email nombre').execPopulate();
+      await req.jugador.populate('administradores', 'email nombre');
       admins = req.jugador.administradores;
     } catch (popError) {
       console.error('Populate error, returning IDs:', popError.message);

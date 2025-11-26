@@ -156,23 +156,27 @@ const allowedOrigins = [
   'http://localhost:3003',
   'http://localhost:3004',
   'http://localhost:3005',
-  'https://overtime-dodgeball.vercel.app',
-  'https://overtime-dodgeball.vercel.app/',
-  'https://dodgeballmanager.vercel.app',
-  'https://dodgeballmanager.vercel.app/',
+  // Public Page
+  'https://overtime-public.vercel.app',
+  'https://overtime-public.vercel.app/',
+  // Manager Panel
   'https://overtime-manager.vercel.app',
   'https://overtime-manager.vercel.app/',
-  'https://overtime-organizaciones.vercel.app',
-  'https://overtime-organizaciones.vercel.app/',
+  // DT Panel (nombre viejo: dodgeballmanager)
+  'https://dodgeballmanager.vercel.app',
+  'https://dodgeballmanager.vercel.app/',
+  // Admin Panel
   'https://overtime-admin.vercel.app',
   'https://overtime-admin.vercel.app/',
+  // Organizaciones Panel
+  'https://overtime-organizaciones.vercel.app',
+  'https://overtime-organizaciones.vercel.app/',
+  // Legacy
+  'https://overtime-dodgeball.vercel.app',
+  'https://overtime-dodgeball.vercel.app/',
+  // Backend (Render)
   'https://overtime-ddyl.onrender.com',
   'https://overtime-ddyl.onrender.com/',
-  'https://overtime-public.vercel.app',
-  'https://overtime-public.vercel.app/'
-
-
-  // Agregar con barra al final por si acaso
 ];
 
 app.use(cors({
