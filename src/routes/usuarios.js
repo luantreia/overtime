@@ -72,6 +72,46 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
   }
 });
 
+// Obtener todos los usuarios (protegido - solo para admins)
+/**
+ * @swagger
+ * /api/usuarios/admin/lista:
+ *   get:
+ *     summary: Obtiene lista de todos los usuarios (solo admins)
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de usuarios
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Usuario'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+router.get('/admin/lista', verificarToken, async (req, res) => {
+  try {
+    const usuarios = await Usuario.find({}, { passwordHash: 0 });
+
+    res.json(usuarios.map(u => ({
+      _id: u._id,
+      nombre: u.nombre,
+      email: u.email,
+      rol: u.rol,
+      provider: u.provider,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt
+    })));
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Buscar usuario por email (para gestión de administradores)
 /**
  * @swagger
