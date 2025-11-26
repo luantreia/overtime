@@ -284,7 +284,7 @@ export async function eliminarSet(req, res) {
 
 export async function obtenerAdministradores(req, res) {
   try {
-    await req.partido.populate('administradores', 'email nombre').execPopulate();
+    await req.partido.populate('administradores', 'email nombre');
     res.status(200).json(req.partido.administradores);
   } catch (error) {
     console.error('Error al obtener administradores:', error);
@@ -310,7 +310,7 @@ export async function agregarAdministrador(req, res) {
       await partido.save();
     }
 
-    await partido.populate('administradores', 'email nombre').execPopulate();
+    await partido.populate('administradores', 'email nombre');
     res.status(200).json(partido.administradores);
   } catch (error) {
     console.error('Error al agregar administrador:', error);
@@ -332,7 +332,7 @@ export async function quitarAdministrador(req, res) {
     partido.administradores = partido.administradores.filter(a => a.toString() !== adminUid);
     await partido.save();
 
-    await partido.populate('administradores', 'email nombre').execPopulate();
+    await partido.populate('administradores', 'email nombre');
     res.status(200).json(partido.administradores);
   } catch (error) {
     console.error('Error al quitar administrador:', error);

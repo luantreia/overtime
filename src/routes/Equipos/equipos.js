@@ -324,7 +324,7 @@ router.get('/:id/administradores', verificarEntidad(Equipo, 'id', 'equipo'), asy
   try {
     let admins = req.equipo.administradores || [];
     try {
-      await req.equipo.populate('administradores', 'email nombre').execPopulate();
+      await req.equipo.populate('administradores', 'email nombre');
       admins = req.equipo.administradores;
     } catch (popError) {
       console.error('Populate error, returning IDs:', popError.message);
