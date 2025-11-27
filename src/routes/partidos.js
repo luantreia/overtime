@@ -42,7 +42,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let partidos;
 
     if (rol === 'admin') {
-      partidos = await Partido.find({}, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores')
+      partidos = await Partido.find({}, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores marcadorLocal marcadorVisitante modalidad categoria')
         .populate('equipoLocal', 'nombre escudo')
         .populate('equipoVisitante', 'nombre escudo')
         .populate('competencia', 'nombre')
@@ -55,7 +55,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores')
+      }, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores marcadorLocal marcadorVisitante modalidad categoria')
         .populate('equipoLocal', 'nombre escudo')
         .populate('equipoVisitante', 'nombre escudo')
         .populate('competencia', 'nombre')
