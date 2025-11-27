@@ -12,6 +12,8 @@ import helmet from 'helmet';
 import logger from './src/utils/logger.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
 import { requestLogger } from './src/middleware/requestLogger.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 // ES Modules fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -272,6 +274,59 @@ if (!fs.existsSync('logs')) {
   fs.mkdirSync('logs');
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow all origins for now, configure for production
+    methods: ["GET", "POST"]
+  }
+});
+
+io.on('connection', (socket) => {
+  logger.info(`New client connected: ${socket.id}`);
+
+  socket.on('disconnect', () => {
+    logger.info(`Client disconnected: ${socket.id}`);
+  });
+
+  // Example events
+  socket.on('join_match', (matchId) => {
+    socket.join(matchId);
+    logger.info(`Socket ${socket.id} joined match ${matchId}`);
+  });
+
+  // --- EVENTOS DE PARTIDO ---
+  
+  // Actualización del marcador (Scoreboard)
+  socket.on('score:update', (data) => {
+    // data: { matchId, localScore, visitorScore, setScores, ... }
+    io.to(data.matchId).emit('score:updated', data);
+  });
+
+  // Control de Overlays (Mostrar/Ocultar)
+  socket.on('overlay:trigger', (data) => {
+    // data: { matchId, type: 'GOAL'|'LOWER'|'AD', action: 'SHOW'|'HIDE', payload: {...} }
+    io.to(data.matchId).emit('overlay:triggered', data);
+  });
+
+  // Sincronización de Cronómetro
+  socket.on('timer:sync', (data) => {
+    // data: { matchId, time, isRunning }
+    io.to(data.matchId).emit('timer:synced', data);
+  });
+
+  // Eventos de OBS (Puente)
+  socket.on('obs:command', (data) => {
+    // data: { matchId, command: 'SCENE_SWITCH', payload: 'Intro' }
+    // Aquí podrías reenviar a un controlador OBS si estuviera conectado, 
+    // o simplemente notificar a la interfaz de control.
+    io.to(data.matchId).emit('obs:command_received', data);
+  });
+});
+
+// Make io accessible in routes if needed (e.g. via req.app.get('io'))
+app.set('io', io);
+
+httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info(`Servidor corriendo en http://localhost:${PORT}`);
 });

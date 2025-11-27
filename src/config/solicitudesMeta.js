@@ -87,22 +87,6 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
 
-  // Solicitudes de cambios en partidos (por DT/Manager)
-  'editarPartidoCompetencia': {
-    requiereDobleConfirmacion: false,
-    camposCriticos: ['ubicacion', 'fecha', 'hora', 'marcadorLocal', 'marcadorVisitante', 'estado', 'setGanador'],
-    rolesAprobadores: ['adminCompetencia', 'adminOrganizacion'],
-    camposPermitidosSinConsenso: [],
-    descripcion: 'DT/Manager solicita cambios en campos de competencia',
-  },
-  'solicitarEstadisticasJugador': {
-    requiereDobleConfirmacion: false,
-    camposCriticos: ['jugadorId', 'ataques', 'defensas', 'faltas', 'errores', 'puntosDeOro', 'minutosJugados'],
-    rolesAprobadores: ['adminCompetencia', 'adminEquipo', 'adminOrganizacion'],
-    camposPermitidosSinConsenso: [],
-    descripcion: 'Manager/DT solicita registro de estadísticas de jugador',
-  },
-
   // Usuario / Entidades
   'usuario-crear-jugador': {
     requiereDobleConfirmacion: false,
