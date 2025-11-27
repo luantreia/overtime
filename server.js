@@ -14,6 +14,8 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 import { requestLogger } from './src/middleware/requestLogger.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import Partido from './src/models/Partido/Partido.js';
+import SetPartido from './src/models/Partido/SetPartido.js';
 
 // ES Modules fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -122,7 +124,7 @@ app.use(helmet());
 
 // Rate Limiter
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 15 minutes
+  windowMs: 1 * 60 * 1000, // 1 minute
   max: 2000, // Limit each IP to 1000 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
@@ -282,6 +284,9 @@ const io = new Server(httpServer, {
   }
 });
 
+// In-memory storage for throttling DB saves
+const matchSaveThrottles = {};
+
 io.on('connection', (socket) => {
   logger.info(`New client connected: ${socket.id}`);
 
@@ -309,9 +314,46 @@ io.on('connection', (socket) => {
     io.to(data.matchId).emit('overlay:triggered', data);
   });
 
-  // Sincronización de Cronómetro
+  // Sincronización de Cronómetro (Optimized with Throttled Persistence)
+  socket.on('timer:update', async (data) => {
+    // 1. Broadcast immediately to all clients (Overlay, Public View)
+    io.to(data.matchId).emit('timer:update', data);
+
+    // 2. Persist to DB (Throttled: every 10 seconds)
+    const now = Date.now();
+    const lastSave = matchSaveThrottles[data.matchId] || 0;
+
+    if (now - lastSave > 10000) {
+      matchSaveThrottles[data.matchId] = now;
+      
+      try {
+        // Update Match
+        await Partido.findByIdAndUpdate(data.matchId, {
+          timerMatchValue: data.matchTime,
+          timerMatchRunning: data.isMatchRunning,
+          timerMatchLastUpdate: new Date(),
+          period: data.period
+        });
+
+        // Update Active Set
+        const activeSet = await SetPartido.findOne({ partido: data.matchId, estadoSet: 'en_juego' });
+        if (activeSet) {
+          activeSet.timerSetValue = data.setTimer;
+          activeSet.timerSetRunning = data.isSetRunning;
+          activeSet.timerSetLastUpdate = new Date();
+          activeSet.timerSuddenDeathValue = data.suddenDeathTime;
+          activeSet.timerSuddenDeathRunning = data.isSuddenDeathActive;
+          activeSet.suddenDeathMode = data.suddenDeathMode;
+          await activeSet.save();
+        }
+      } catch (err) {
+        console.error('[Socket] Error saving timer state:', err);
+      }
+    }
+  });
+
+  // Legacy sync (optional, kept for compatibility if needed)
   socket.on('timer:sync', (data) => {
-    // data: { matchId, time, isRunning }
     io.to(data.matchId).emit('timer:synced', data);
   });
 
