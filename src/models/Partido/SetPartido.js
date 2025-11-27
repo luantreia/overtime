@@ -25,6 +25,15 @@ const SetPartidoSchema = new mongoose.Schema({
     default: 'en_juego',
   },
 
+  // Timer State Persistence
+  timerSetValue: { type: Number, default: 0 },
+  timerSetRunning: { type: Boolean, default: false },
+  timerSetLastUpdate: { type: Date, default: Date.now },
+  
+  timerSuddenDeathValue: { type: Number, default: 0 },
+  timerSuddenDeathRunning: { type: Boolean, default: false },
+  suddenDeathMode: { type: Boolean, default: false },
+
   creadoPor: {
     type: String,
     ref: 'Usuario',

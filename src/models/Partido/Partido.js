@@ -41,6 +41,12 @@ const PartidoSchema = new Schema({
 
   marcadorModificadoManualmente: { type: Boolean, default: true }, // <-- nuevo campo
 
+  // Timer State Persistence
+  timerMatchValue: { type: Number, default: 1200 }, // 20 mins in seconds
+  timerMatchRunning: { type: Boolean, default: false },
+  timerMatchLastUpdate: { type: Date, default: Date.now },
+  period: { type: Number, default: 1 },
+
   // Modo de estadísticas: 'automatico' (calculado de sets) o 'manual' (ingresado directamente)
   modoEstadisticas: {
     type: String,
