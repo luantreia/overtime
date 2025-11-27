@@ -186,7 +186,7 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Error del servidor
  */
-router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
+router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id)
       .populate([
