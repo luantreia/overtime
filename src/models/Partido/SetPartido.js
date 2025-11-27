@@ -26,7 +26,7 @@ const SetPartidoSchema = new mongoose.Schema({
   },
 
   // Timer State Persistence
-  timerSetValue: { type: Number, default: 0 },
+  timerSetValue: { type: Number, default: 180 },
   timerSetRunning: { type: Boolean, default: false },
   timerSetLastUpdate: { type: Date, default: Date.now },
   
