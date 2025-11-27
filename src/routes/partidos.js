@@ -408,6 +408,11 @@ router.put(
         'modalidad',
         'categoria',
         'competencia',
+        // Timer fields
+        'timerMatchValue',
+        'timerMatchRunning',
+        'timerMatchLastUpdate',
+        'period'
       ];
 
       const objectIdCampos = ['fase', 'participacionFaseLocal', 'participacionFaseVisitante', 'competencia'];
