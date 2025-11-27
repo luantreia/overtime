@@ -42,14 +42,26 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let partidos;
 
     if (rol === 'admin') {
-      partidos = await Partido.find({}, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores').lean();
+      partidos = await Partido.find({}, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores')
+        .populate('equipoLocal', 'nombre escudo')
+        .populate('equipoVisitante', 'nombre escudo')
+        .populate('competencia', 'nombre')
+        .populate('fase', 'nombre')
+        .sort({ fecha: -1 })
+        .lean();
     } else {
       partidos = await Partido.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores').lean();
+      }, 'nombrePartido _id fecha estado equipoLocal equipoVisitante competencia fase creadoPor administradores')
+        .populate('equipoLocal', 'nombre escudo')
+        .populate('equipoVisitante', 'nombre escudo')
+        .populate('competencia', 'nombre')
+        .populate('fase', 'nombre')
+        .sort({ fecha: -1 })
+        .lean();
     }
 
     res.status(200).json(partidos);
