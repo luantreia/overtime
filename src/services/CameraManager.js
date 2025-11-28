@@ -1,4 +1,5 @@
 import { iceServers, CAMERA_SLOTS } from '../config/iceServers.js';
+import logger from '../utils/logger.js';
 
 /**
  * CameraManager - WebRTC Signaling Server for Multi-Camera System
@@ -228,6 +229,11 @@ class CameraManager {
     }
 
     state.activeSlot = slot;
+    try {
+      logger.info(`Switch active camera for match ${matchId} -> ${slot}`);
+    } catch (e) {
+      console.log('[CameraManager] Switch active camera', matchId, slot);
+    }
     this.emitCameraState(matchId);
     
     // Notify all clients about the switch
@@ -247,7 +253,12 @@ class CameraManager {
       return { success: false, error: 'No compositor connected' };
     }
 
-    // Send offer to all compositors
+    // Log and send offer to all compositors
+    try {
+      logger.info(`Received camera:offer from ${fromSocketId} for match ${matchId} slot ${slot}`);
+    } catch (e) {
+      console.log('[CameraManager] Received offer', fromSocketId, matchId, slot);
+    }
     for (const compositorId of state.compositors) {
       this.io.to(compositorId).emit('camera:offer', {
         matchId,
@@ -269,6 +280,11 @@ class CameraManager {
     const camera = state.cameras.get(slot);
     if (!camera) return { success: false, error: 'Camera not found' };
 
+    try {
+      logger.info(`Relaying camera:answer from compositor ${fromSocketId} to camera ${camera.socketId} for match ${matchId} slot ${slot}`);
+    } catch (e) {
+      console.log('[CameraManager] Relaying answer', fromSocketId, camera?.socketId, matchId, slot);
+    }
     this.io.to(camera.socketId).emit('camera:answer', {
       matchId,
       slot,
@@ -290,6 +306,11 @@ class CameraManager {
 
     if (registration.role === 'camera') {
       // Camera -> All Compositors
+      try {
+        logger.info(`ICE candidate from camera ${fromSocketId} for match ${matchId} slot ${slot}`);
+      } catch (e) {
+        console.log('[CameraManager] ICE from camera', fromSocketId, matchId, slot);
+      }
       for (const compositorId of state.compositors) {
         this.io.to(compositorId).emit('camera:ice', {
           matchId,
@@ -299,6 +320,11 @@ class CameraManager {
       }
     } else if (registration.role === 'compositor') {
       // Compositor -> Camera
+      try {
+        logger.info(`ICE candidate from compositor ${fromSocketId} for match ${matchId} slot ${slot}`);
+      } catch (e) {
+        console.log('[CameraManager] ICE from compositor', fromSocketId, matchId, slot);
+      }
       const camera = state.cameras.get(slot);
       if (camera) {
         this.io.to(camera.socketId).emit('camera:ice', {
