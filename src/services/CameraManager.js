@@ -19,7 +19,7 @@ class CameraManager {
     // matchId -> {
     //   cameras: Map<slot, { socketId, label, status, quality }>,
     //   activeSlot: string | null,
-    //   compositorSocketId: string | null
+    //   compositors: Set<socketId>  // Multiple compositors allowed
     // }
     this.matches = new Map();
     this.io = null;
@@ -40,7 +40,7 @@ class CameraManager {
       this.matches.set(matchId, {
         cameras: new Map(),
         activeSlot: null,
-        compositorSocketId: null
+        compositors: new Set()  // Multiple compositors allowed
       });
     }
     return this.matches.get(matchId);
@@ -93,9 +93,9 @@ class CameraManager {
     // Emit state update to all clients in the match room
     this.emitCameraState(matchId);
 
-    // If there's a compositor, notify it to initiate WebRTC connection
-    if (state.compositorSocketId) {
-      this.io.to(state.compositorSocketId).emit('camera:new_source', {
+    // Notify all compositors to initiate WebRTC connection
+    for (const compositorId of state.compositors) {
+      this.io.to(compositorId).emit('camera:new_source', {
         matchId,
         slot,
         label: state.cameras.get(slot).label
@@ -123,9 +123,9 @@ class CameraManager {
         state.activeSlot = null;
       }
 
-      // Notify compositor
-      if (state.compositorSocketId) {
-        this.io.to(state.compositorSocketId).emit('camera:source_left', {
+      // Notify all compositors
+      for (const compositorId of state.compositors) {
+        this.io.to(compositorId).emit('camera:source_left', {
           matchId,
           slot
         });
@@ -172,18 +172,13 @@ class CameraManager {
   // ==================== Compositor Actions ====================
 
   /**
-   * Register the broadcast compositor
+   * Register the broadcast compositor (allows multiple)
    */
   registerCompositor(socketId, matchId) {
     const state = this.getMatchState(matchId);
     
-    // Only one compositor per match
-    if (state.compositorSocketId && state.compositorSocketId !== socketId) {
-      // Notify old compositor it's being replaced
-      this.io.to(state.compositorSocketId).emit('camera:compositor_replaced');
-    }
-
-    state.compositorSocketId = socketId;
+    // Add to set of compositors (allows multiple)
+    state.compositors.add(socketId);
     this.socketRegistry.set(socketId, { matchId, role: 'compositor' });
 
     // Send current state and ICE servers
@@ -192,7 +187,7 @@ class CameraManager {
     // Request offers from all connected cameras
     for (const [slot, camera] of state.cameras) {
       if (camera.status === 'live' || camera.status === 'connecting') {
-        console.log(`Requesting offer from existing camera ${slot}`);
+        console.log(`Requesting offer from existing camera ${slot} for new compositor`);
         this.io.to(camera.socketId).emit('camera:request_offer', { matchId, slot });
       }
     }
@@ -214,8 +209,8 @@ class CameraManager {
     const { matchId } = registration;
     const state = this.matches.get(matchId);
     
-    if (state && state.compositorSocketId === socketId) {
-      state.compositorSocketId = null;
+    if (state) {
+      state.compositors.delete(socketId);
     }
 
     this.socketRegistry.delete(socketId);
@@ -244,19 +239,22 @@ class CameraManager {
   // ==================== WebRTC Signaling ====================
 
   /**
-   * Relay WebRTC offer from camera to compositor
+   * Relay WebRTC offer from camera to all compositors
    */
   relayOffer(fromSocketId, matchId, slot, sdp) {
     const state = this.matches.get(matchId);
-    if (!state || !state.compositorSocketId) {
+    if (!state || state.compositors.size === 0) {
       return { success: false, error: 'No compositor connected' };
     }
 
-    this.io.to(state.compositorSocketId).emit('camera:offer', {
-      matchId,
-      slot,
-      sdp
-    });
+    // Send offer to all compositors
+    for (const compositorId of state.compositors) {
+      this.io.to(compositorId).emit('camera:offer', {
+        matchId,
+        slot,
+        sdp
+      });
+    }
 
     return { success: true };
   }
@@ -291,9 +289,9 @@ class CameraManager {
     if (!state) return;
 
     if (registration.role === 'camera') {
-      // Camera -> Compositor
-      if (state.compositorSocketId) {
-        this.io.to(state.compositorSocketId).emit('camera:ice', {
+      // Camera -> All Compositors
+      for (const compositorId of state.compositors) {
+        this.io.to(compositorId).emit('camera:ice', {
           matchId,
           slot,
           candidate
@@ -346,7 +344,7 @@ class CameraManager {
       matchId,
       cameras: this.getCamerasInfo(matchId),
       activeSlot: state.activeSlot,
-      hasCompositor: !!state.compositorSocketId,
+      hasCompositor: state.compositors.size > 0,
       iceServers: this.getIceServers()
     };
 
@@ -381,9 +379,9 @@ class CameraManager {
       this.socketRegistry.delete(camera.socketId);
     }
 
-    // Clear compositor
-    if (state.compositorSocketId) {
-      this.socketRegistry.delete(state.compositorSocketId);
+    // Clear all compositors
+    for (const compositorId of state.compositors) {
+      this.socketRegistry.delete(compositorId);
     }
 
     this.matches.delete(matchId);
