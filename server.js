@@ -277,17 +277,7 @@ if (!fs.existsSync('logs')) {
   fs.mkdirSync('logs');
 }
 
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*", // Allow all origins for now, configure for production
-    methods: ["GET", "POST"]
-  }
-});
-
 import TimerManager from './src/services/TimerManager.js';
-
-// ...existing code...
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -391,21 +381,6 @@ io.on('connection', (socket) => {
       console.error('[Socket] Error in timer:request_sync', err);
     }
   });
-
-  // Legacy sync (optional, kept for compatibility if needed)
-  socket.on('timer:sync', (data) => {
-    io.to(data.matchId).emit('timer:synced', data);
-  });
-
-  // Eventos de OBS (Puente)
-  socket.on('obs:command', (data) => {
-    // data: { matchId, command: 'SCENE_SWITCH', payload: 'Intro' }
-    // Aquí podrías reenviar a un controlador OBS si estuviera conectado, 
-    // o simplemente notificar a la interfaz de control.
-    io.to(data.matchId).emit('obs:command_received', data);
-  });
-});
-
 
   // Legacy sync (optional, kept for compatibility if needed)
   socket.on('timer:sync', (data) => {
