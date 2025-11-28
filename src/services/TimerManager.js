@@ -265,15 +265,21 @@ class TimerManager {
   async resetAll(matchId) {
       const data = await this.ensureMatchLoaded(matchId);
       
-      // Stop all timers
+      // Stop and destroy all timers
       data.matchTimer.stop();
       data.setTimer.stop();
       data.suddenDeathTimer.stop();
+      data.matchTimer.destroy();
+      data.setTimer.destroy();
+      data.suddenDeathTimer.destroy();
 
-      // Reset values to defaults
-      data.matchTimer.setStartTime(20 * 60); // 20 mins
-      data.setTimer.setStartTime(3 * 60); // 3 mins
-      data.suddenDeathTimer.setStartTime(0);
+      // Recreate timers with default values
+      data.matchTimer = create(20 * 60, { countdown: true }); // 20 mins
+      data.setTimer = create(3 * 60, { countdown: true }); // 3 mins
+      data.suddenDeathTimer = create(0, { countdown: false }); // 0 secs
+
+      // Setup tick handlers again
+      this.setupTickers(matchId);
 
       // Reset state
       data.state.isMatchRunning = false;
