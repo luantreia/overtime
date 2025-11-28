@@ -215,28 +215,20 @@ class TimerManager {
   async pauseAll(matchId) {
       const data = await this.ensureMatchLoaded(matchId);
       
-      let changed = false;
-      if (data.matchTimer.started()) {
-          data.matchTimer.pause();
-          data.state.isMatchRunning = false;
-          changed = true;
-      }
-      if (data.setTimer.started()) {
-          data.setTimer.pause();
-          data.state.isSetRunning = false;
-          changed = true;
-      }
-      if (data.suddenDeathTimer.started()) {
-          data.suddenDeathTimer.pause();
-          data.state.isSuddenDeathActive = false;
-          changed = true;
-      }
+      // Force pause on all timers regardless of state to ensure sync
+      data.matchTimer.pause();
+      data.state.isMatchRunning = false;
+      
+      data.setTimer.pause();
+      data.state.isSetRunning = false;
+      
+      data.suddenDeathTimer.pause();
+      data.state.isSuddenDeathActive = false;
 
-      if (changed) {
-          this.emitState(matchId);
-          this.persistMatch(matchId);
-          this.persistSet(matchId);
-      }
+      // Always emit and persist to ensure client is in sync
+      this.emitState(matchId);
+      this.persistMatch(matchId);
+      this.persistSet(matchId);
   }
 
   async resetAll(matchId) {

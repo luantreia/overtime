@@ -324,6 +324,12 @@ io.on('connection', (socket) => {
     io.to(data.matchId).emit('overlay:triggered', data);
   });
 
+  // Configuración de Overlay
+  socket.on('overlay:config', (data) => {
+    // data: { matchId, showSetTimer: boolean }
+    io.to(data.matchId).emit('overlay:config', data);
+  });
+
   // --- TIMER COMMANDS (Server Authoritative) ---
 
   socket.on('timer:command', async (data) => {

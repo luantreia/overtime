@@ -160,6 +160,7 @@ router.post(
       const guardado = await nuevoSet.save();
       
       // Reload timer manager to pick up new set
+      // This ensures the server knows about the new active set and resets timers
       await TimerManager.reloadMatch(partido);
       
       res.status(201).json(guardado);
@@ -215,6 +216,12 @@ router.put(
 
       Object.assign(set, req.body);
       const actualizado = await set.save();
+      
+      // If the set status changed to 'finalizado', we should pause timers and persist final state
+      if (req.body.estadoSet === 'finalizado') {
+          await TimerManager.pauseAll(set.partido);
+      }
+      
       await TimerManager.reloadMatch(set.partido);
       res.json(actualizado);
     } catch (err) {
