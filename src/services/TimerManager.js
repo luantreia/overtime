@@ -36,7 +36,9 @@ class TimerManager {
     const match = await Partido.findById(matchId);
     if (!match) throw new Error('Match not found');
 
-    const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' });
+    // Get the latest active set (in case multiple are active, pick the newest)
+    const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' })
+      .sort({ numeroSet: -1 });
 
     // Initialize Timers
     // Match Timer (Countdown)
