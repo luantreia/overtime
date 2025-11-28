@@ -457,6 +457,29 @@ io.on('connection', (socket) => {
     socket.emit('camera:compositor_join_result', result);
   });
 
+  // Program viewer join (overlay or other viewers request the composed program stream)
+  socket.on('program:viewer_join', (data) => {
+    // data: { matchId }
+    CameraManager.initProgramViewer(socket.id, data.matchId);
+  });
+
+  // Program offer from compositor -> relay to viewer
+  socket.on('program:offer', (data) => {
+    // data: { viewerSocketId, matchId, sdp }
+    CameraManager.relayProgramOffer(socket.id, data.viewerSocketId, data.matchId, data.sdp);
+  });
+
+  // Program answer from viewer -> relay to compositor
+  socket.on('program:answer', (data) => {
+    // data: { compositorSocketId, matchId, sdp }
+    CameraManager.relayProgramAnswer(socket.id, data.compositorSocketId, data.matchId, data.sdp);
+  });
+
+  // Program ICE candidate (either direction) - data: { targetSocketId, matchId, candidate }
+  socket.on('program:ice', (data) => {
+    CameraManager.relayProgramIce(socket.id, data.targetSocketId, data.matchId, data.candidate);
+  });
+
   // Switch active camera
   socket.on('camera:switch', (data) => {
     // data: { matchId, slot }

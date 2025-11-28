@@ -420,6 +420,58 @@ class CameraManager {
 
     this.matches.delete(matchId);
   }
+
+  // ==================== Program (Compositor -> Viewer) Signaling ====================
+
+  /**
+   * Initiate program viewer: forward request to primary compositor
+   */
+  initProgramViewer(viewerSocketId, matchId) {
+    const state = this.matches.get(matchId);
+    if (!state || state.compositors.size === 0) return { success: false, error: 'No compositor connected' };
+
+    const primaryCompositor = state.compositors.values().next().value;
+    if (!primaryCompositor) return { success: false, error: 'No compositor connected' };
+
+    try {
+      logger.info(`Init program viewer ${viewerSocketId} for match ${matchId}, forwarding to compositor ${primaryCompositor}`);
+    } catch (e) {
+      console.log('[CameraManager] Init program viewer', viewerSocketId, matchId, primaryCompositor);
+    }
+
+    this.io.to(primaryCompositor).emit('program:init_viewer', { viewerSocketId, matchId });
+    return { success: true };
+  }
+
+  relayProgramOffer(fromSocketId, viewerSocketId, matchId, sdp) {
+    try {
+      logger.info(`Relaying program:offer from compositor ${fromSocketId} to viewer ${viewerSocketId} for match ${matchId}`);
+    } catch (e) {
+      console.log('[CameraManager] Relaying program offer', fromSocketId, viewerSocketId, matchId);
+    }
+    this.io.to(viewerSocketId).emit('program:offer', { matchId, sdp, compositorSocketId: fromSocketId });
+    return { success: true };
+  }
+
+  relayProgramAnswer(fromSocketId, compositorSocketId, matchId, sdp) {
+    try {
+      logger.info(`Relaying program:answer from viewer ${fromSocketId} to compositor ${compositorSocketId} for match ${matchId}`);
+    } catch (e) {
+      console.log('[CameraManager] Relaying program answer', fromSocketId, compositorSocketId, matchId);
+    }
+    this.io.to(compositorSocketId).emit('program:answer', { matchId, sdp, viewerSocketId: fromSocketId });
+    return { success: true };
+  }
+
+  relayProgramIce(fromSocketId, targetSocketId, matchId, candidate) {
+    try {
+      logger.info(`Relaying program:ice from ${fromSocketId} to ${targetSocketId} for match ${matchId}`);
+    } catch (e) {
+      console.log('[CameraManager] Relaying program ice', fromSocketId, targetSocketId, matchId);
+    }
+    this.io.to(targetSocketId).emit('program:ice', { matchId, candidate, fromSocketId });
+    return { success: true };
+  }
 }
 
 export default new CameraManager();
