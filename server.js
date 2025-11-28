@@ -370,6 +370,9 @@ io.on('connection', (socket) => {
               case 'PAUSE_ALL':
                   await TimerManager.pauseAll(matchId);
                   break;
+              case 'PAUSE_SET_ONLY':
+                  await TimerManager.pauseSetOnly(matchId);
+                  break;
               case 'RESET_ALL':
                   await TimerManager.resetAll(matchId);
                   break;

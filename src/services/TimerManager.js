@@ -44,12 +44,11 @@ class TimerManager {
     // Match Timer (Countdown)
     const matchTimer = create(match.timerMatchValue || 0, { countdown: true });
     
-    // Set Timer (Countdown)
-    const setTimer = create(activeSet?.timerSetValue || 0, { countdown: true });
+    // Set Timer (Countdown) - Default to 180s (3 min) for new sets
+    const setTimer = create(activeSet?.timerSetValue ?? 180, { countdown: true });
 
     // Sudden Death (Stopwatch - counts up)
-    // timrjs stopwatch starts at 0. If we have a value, we might need to offset it or use a custom approach.
-    const suddenDeathTimer = create(activeSet?.timerSuddenDeathValue || 0, { countdown: false }); 
+    const suddenDeathTimer = create(activeSet?.timerSuddenDeathValue ?? 0, { countdown: false }); 
 
     const state = {
       period: match.period || 1,
@@ -215,19 +214,43 @@ class TimerManager {
   async pauseAll(matchId) {
       const data = await this.ensureMatchLoaded(matchId);
       
-      // Force pause on all timers regardless of state to ensure sync
-      data.matchTimer.pause();
+      // Only pause timers that are actually running to avoid timrjs errors
+      if (data.matchTimer.started()) {
+          data.matchTimer.pause();
+      }
       data.state.isMatchRunning = false;
       
-      data.setTimer.pause();
+      if (data.setTimer.started()) {
+          data.setTimer.pause();
+      }
       data.state.isSetRunning = false;
       
-      data.suddenDeathTimer.pause();
+      if (data.suddenDeathTimer.started()) {
+          data.suddenDeathTimer.pause();
+      }
       data.state.isSuddenDeathActive = false;
 
       // Always emit and persist to ensure client is in sync
       this.emitState(matchId);
       this.persistMatch(matchId);
+      this.persistSet(matchId);
+  }
+
+  // Pause only set and sudden death timers (used when finishing a set)
+  async pauseSetOnly(matchId) {
+      const data = await this.ensureMatchLoaded(matchId);
+      
+      if (data.setTimer.started()) {
+          data.setTimer.pause();
+      }
+      data.state.isSetRunning = false;
+      
+      if (data.suddenDeathTimer.started()) {
+          data.suddenDeathTimer.pause();
+      }
+      data.state.isSuddenDeathActive = false;
+
+      this.emitState(matchId);
       this.persistSet(matchId);
   }
 
@@ -314,7 +337,25 @@ class TimerManager {
 
   async reloadMatch(matchId) {
     this.matches.delete(matchId);
-    await this.ensureMatchLoaded(matchId);
+    const data = await this.ensureMatchLoaded(matchId);
+    
+    // For new sets, ensure the set timer shows 3:00 (not old value)
+    // The new set from DB should have timerSetValue=180 by default
+    // But we force it here to be safe
+    const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' })
+        .sort({ numeroSet: -1 });
+    
+    if (activeSet && !activeSet.timerSetRunning) {
+        // New set or paused set - ensure timer reflects DB value (default 180)
+        data.setTimer.stop();
+        data.setTimer.setStartTime(activeSet.timerSetValue ?? 180);
+        data.suddenDeathTimer.stop();
+        data.suddenDeathTimer.setStartTime(activeSet.timerSuddenDeathValue ?? 0);
+        data.state.suddenDeathMode = activeSet.suddenDeathMode ?? false;
+        data.state.isSetRunning = false;
+        data.state.isSuddenDeathActive = false;
+    }
+    
     this.emitState(matchId);
   }
 }
