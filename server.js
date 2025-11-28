@@ -14,6 +14,7 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 import { requestLogger } from './src/middleware/requestLogger.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import CameraManager from './src/services/CameraManager.js';
 import Partido from './src/models/Partido/Partido.js';
 import SetPartido from './src/models/Partido/SetPartido.js';
 import { computeRemainingFromDoc, computeSuddenDeathFromDoc } from './src/utils/timerUtils.js';
@@ -293,6 +294,9 @@ const io = new Server(httpServer, {
 // Initialize TimerManager
 TimerManager.initialize(io);
 
+// Initialize CameraManager
+CameraManager.initialize(io);
+
 // In-memory storage for throttling DB saves
 const matchSaveThrottles = {};
 
@@ -301,6 +305,8 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     logger.info(`Client disconnected: ${socket.id}`);
+    // Handle camera/compositor disconnect
+    CameraManager.handleDisconnect(socket.id);
   });
 
   // Example events
@@ -408,6 +414,86 @@ io.on('connection', (socket) => {
     // Aquí podrías reenviar a un controlador OBS si estuviera conectado, 
     // o simplemente notificar a la interfaz de control.
     io.to(data.matchId).emit('obs:command_received', data);
+  });
+
+  // ==================== CAMERA EVENTS (WebRTC Multi-Camera System) ====================
+
+  // Camera source joins a match
+  socket.on('camera:join', (data) => {
+    // data: { matchId, slot, label }
+    const { matchId, slot, label } = data;
+    socket.join(matchId);
+    logger.info(`Camera ${slot} joining match ${matchId}`);
+    
+    const result = CameraManager.registerCamera(socket.id, matchId, slot, label);
+    socket.emit('camera:join_result', result);
+  });
+
+  // Camera source leaves
+  socket.on('camera:leave', () => {
+    CameraManager.unregisterCamera(socket.id);
+  });
+
+  // Camera status update (connecting, live, error)
+  socket.on('camera:status', (data) => {
+    // data: { status: 'connecting' | 'live' | 'error' }
+    CameraManager.updateCameraStatus(socket.id, data.status);
+  });
+
+  // Camera quality change
+  socket.on('camera:quality', (data) => {
+    // data: { quality: 'low' | 'medium' | 'high' }
+    CameraManager.updateCameraQuality(socket.id, data.quality);
+  });
+
+  // Compositor joins a match
+  socket.on('camera:compositor_join', (data) => {
+    // data: { matchId }
+    const { matchId } = data;
+    socket.join(matchId);
+    logger.info(`Compositor joining match ${matchId}`);
+    
+    const result = CameraManager.registerCompositor(socket.id, matchId);
+    socket.emit('camera:compositor_join_result', result);
+  });
+
+  // Switch active camera
+  socket.on('camera:switch', (data) => {
+    // data: { matchId, slot }
+    const { matchId, slot } = data;
+    logger.info(`Switching to camera ${slot} for match ${matchId}`);
+    
+    const result = CameraManager.switchActiveCamera(matchId, slot);
+    if (!result.success) {
+      socket.emit('camera:error', { message: result.error });
+    }
+  });
+
+  // Request current camera state
+  socket.on('camera:request_state', (data) => {
+    // data: { matchId }
+    CameraManager.emitCameraState(data.matchId);
+  });
+
+  // WebRTC Signaling: Offer from camera to compositor
+  socket.on('camera:offer', (data) => {
+    // data: { matchId, slot, sdp }
+    const { matchId, slot, sdp } = data;
+    CameraManager.relayOffer(socket.id, matchId, slot, sdp);
+  });
+
+  // WebRTC Signaling: Answer from compositor to camera
+  socket.on('camera:answer', (data) => {
+    // data: { matchId, slot, sdp }
+    const { matchId, slot, sdp } = data;
+    CameraManager.relayAnswer(socket.id, matchId, slot, sdp);
+  });
+
+  // WebRTC Signaling: ICE candidate exchange
+  socket.on('camera:ice', (data) => {
+    // data: { matchId, slot, candidate }
+    const { matchId, slot, candidate } = data;
+    CameraManager.relayIceCandidate(socket.id, matchId, slot, candidate);
   });
 });
 
