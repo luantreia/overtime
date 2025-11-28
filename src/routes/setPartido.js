@@ -6,6 +6,7 @@ import Partido from '../models/Partido/Partido.js';
 import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
+import TimerManager from '../services/TimerManager.js';
 
 const router = express.Router();
 
@@ -157,6 +158,10 @@ router.post(
       });
 
       const guardado = await nuevoSet.save();
+      
+      // Reload timer manager to pick up new set
+      await TimerManager.reloadMatch(partido);
+      
       res.status(201).json(guardado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al crear set' });
@@ -210,6 +215,7 @@ router.put(
 
       Object.assign(set, req.body);
       const actualizado = await set.save();
+      await TimerManager.reloadMatch(set.partido);
       res.json(actualizado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al actualizar el set' });
@@ -256,6 +262,7 @@ router.delete(
       // TODO: Podés validar si el usuario es creador o admin del partido
 
       await set.deleteOne();
+      await TimerManager.reloadMatch(set.partido);
       res.json({ mensaje: 'Set eliminado correctamente' });
     } catch (err) {
       res.status(500).json({ error: 'Error al eliminar el set' });
