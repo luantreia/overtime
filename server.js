@@ -16,6 +16,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import Partido from './src/models/Partido/Partido.js';
 import SetPartido from './src/models/Partido/SetPartido.js';
+import { computeRemainingFromDoc, computeSuddenDeathFromDoc } from './src/utils/timerUtils.js';
 
 // ES Modules fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -316,11 +317,28 @@ io.on('connection', (socket) => {
 
   // Sincronización de Cronómetro (Optimized with Throttled Persistence)
   socket.on('timer:update', async (data) => {
-    // 1. Broadcast immediately to all clients (Overlay, Public View)
-    io.to(data.matchId).emit('timer:update', data);
+    // Server authoritative timestamp
+    const serverNow = Date.now();
 
-    // 2. Persist to DB (Throttled: every 10 seconds)
-    const now = Date.now();
+    // Build authoritative payload (use client-provided remaining values as snapshot)
+    const payload = {
+      matchId: data.matchId,
+      matchRemaining: data.matchTime,
+      setRemaining: data.setTimer,
+      suddenDeathRemaining: data.suddenDeathTime,
+      period: data.period,
+      isMatchRunning: !!data.isMatchRunning,
+      isSetRunning: !!data.isSetRunning,
+      isSuddenDeathActive: !!data.isSuddenDeathActive,
+      suddenDeathMode: !!data.suddenDeathMode,
+      serverTimestamp: serverNow
+    };
+
+    // 1. Broadcast authoritative snapshot to clients
+    io.to(data.matchId).emit('timer:update', payload);
+
+    // 2. Persist to DB (Throttled: every 10 seconds) using server timestamp
+    const now = serverNow;
     const lastSave = matchSaveThrottles[data.matchId] || 0;
 
     if (now - lastSave > 10000) {
@@ -330,8 +348,8 @@ io.on('connection', (socket) => {
         // Update Match
         await Partido.findByIdAndUpdate(data.matchId, {
           timerMatchValue: data.matchTime,
-          timerMatchRunning: data.isMatchRunning,
-          timerMatchLastUpdate: new Date(),
+          timerMatchRunning: !!data.isMatchRunning,
+          timerMatchLastUpdate: new Date(serverNow),
           period: data.period
         });
 
@@ -339,16 +357,59 @@ io.on('connection', (socket) => {
         const activeSet = await SetPartido.findOne({ partido: data.matchId, estadoSet: 'en_juego' });
         if (activeSet) {
           activeSet.timerSetValue = data.setTimer;
-          activeSet.timerSetRunning = data.isSetRunning;
-          activeSet.timerSetLastUpdate = new Date();
+          activeSet.timerSetRunning = !!data.isSetRunning;
+          activeSet.timerSetLastUpdate = new Date(serverNow);
           activeSet.timerSuddenDeathValue = data.suddenDeathTime;
-          activeSet.timerSuddenDeathRunning = data.isSuddenDeathActive;
-          activeSet.suddenDeathMode = data.suddenDeathMode;
+          activeSet.timerSuddenDeathRunning = !!data.isSuddenDeathActive;
+          activeSet.suddenDeathMode = !!data.suddenDeathMode;
           await activeSet.save();
         }
       } catch (err) {
         console.error('[Socket] Error saving timer state:', err);
       }
+    }
+  });
+
+  // Client asks server for authoritative sync: compute remaining from DB and reply
+  socket.on('timer:request_sync', async (matchId) => {
+    try {
+      const match = await Partido.findById(matchId);
+      const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' });
+      const serverNow = Date.now();
+
+      const matchRemaining = match ? computeRemainingFromDoc(match.timerMatchValue, match.timerMatchLastUpdate, match.timerMatchRunning) : 0;
+
+      let setRemaining = 0;
+      let suddenDeathRemaining = 0;
+      let setRunning = false;
+      let suddenDeathActive = false;
+      let suddenDeathModeVal = false;
+
+      if (activeSet) {
+        setRemaining = computeRemainingFromDoc(activeSet.timerSetValue, activeSet.timerSetLastUpdate, activeSet.timerSetRunning);
+        suddenDeathRemaining = computeSuddenDeathFromDoc(activeSet.timerSuddenDeathValue, activeSet.timerSetLastUpdate, activeSet.timerSuddenDeathRunning);
+        setRunning = !!activeSet.timerSetRunning;
+        suddenDeathActive = !!activeSet.timerSuddenDeathRunning;
+        suddenDeathModeVal = !!activeSet.suddenDeathMode;
+      }
+
+      const payload = {
+        matchId,
+        matchRemaining,
+        setRemaining,
+        suddenDeathRemaining,
+        period: match ? (match.period || 1) : 1,
+        isMatchRunning: !!(match && match.timerMatchRunning),
+        isSetRunning: setRunning,
+        isSuddenDeathActive: suddenDeathActive,
+        suddenDeathMode: suddenDeathModeVal,
+        serverTimestamp: serverNow
+      };
+
+      // Reply only to the requester socket (keep it targeted)
+      socket.emit('timer:update', payload);
+    } catch (err) {
+      console.error('[Socket] Error in timer:request_sync', err);
     }
   });
 
