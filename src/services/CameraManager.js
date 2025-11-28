@@ -253,19 +253,27 @@ class CameraManager {
       return { success: false, error: 'No compositor connected' };
     }
 
-    // Log and send offer to all compositors
+    // Log and send offer to a single compositor (primary) to avoid duplicate answers
     try {
       logger.info(`Received camera:offer from ${fromSocketId} for match ${matchId} slot ${slot}`);
     } catch (e) {
       console.log('[CameraManager] Received offer', fromSocketId, matchId, slot);
     }
-    for (const compositorId of state.compositors) {
-      this.io.to(compositorId).emit('camera:offer', {
-        matchId,
-        slot,
-        sdp
-      });
+    // Choose a primary compositor (first in the Set)
+    const primaryCompositor = state.compositors.values().next().value;
+    if (!primaryCompositor) return { success: false, error: 'No compositor connected' };
+    if (state.compositors.size > 1) {
+      try {
+        logger.warn(`Multiple compositors connected for match ${matchId}; forwarding offer for slot ${slot} only to primary ${primaryCompositor}`);
+      } catch (e) {
+        console.log('[CameraManager] Multiple compositors, forwarding to primary', primaryCompositor);
+      }
     }
+    this.io.to(primaryCompositor).emit('camera:offer', {
+      matchId,
+      slot,
+      sdp
+    });
 
     return { success: true };
   }
