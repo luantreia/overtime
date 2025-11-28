@@ -381,68 +381,56 @@ class TimerManager {
   }
 
   async reloadMatch(matchId, suppressEmit = false) {
-    // Mark as reloading to prevent intermediate emissions
-    const wasLoaded = this.matches.has(matchId);
+    // Get current data to preserve match timer state
+    const existingData = this.matches.get(matchId);
     
-    if (wasLoaded) {
-        // Cleanup old timers properly
-        const oldData = this.matches.get(matchId);
-        if (oldData) {
-            oldData.matchTimer.stop();
-            oldData.matchTimer.destroy();
-            oldData.setTimer.stop();
-            oldData.setTimer.destroy();
-            oldData.suddenDeathTimer.stop();
-            oldData.suddenDeathTimer.destroy();
-        }
-    }
-    
-    this.matches.delete(matchId);
-    
-    // Load fresh from DB
-    const data = await this.ensureMatchLoaded(matchId);
-    
-    // For new sets, ensure the set timer shows correct value (default 180)
+    // Get fresh set data from DB
     const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' })
         .sort({ numeroSet: -1 });
     
+    if (!existingData) {
+        // First load - just use ensureMatchLoaded
+        await this.ensureMatchLoaded(matchId);
+        if (!suppressEmit) {
+            this.emitState(matchId);
+        }
+        return;
+    }
+    
+    // PRESERVE match timer - only recreate set timers
+    // Cleanup old SET timers only
+    existingData.setTimer.stop();
+    existingData.setTimer.destroy();
+    existingData.suddenDeathTimer.stop();
+    existingData.suddenDeathTimer.destroy();
+    
     if (activeSet) {
-        // Always recreate set timers with DB values to ensure consistency
-        data.setTimer.stop();
-        data.setTimer.destroy();
-        data.setTimer = create(activeSet.timerSetValue ?? 180, { countdown: true });
+        // Recreate set timers with DB values
+        existingData.setTimer = create(activeSet.timerSetValue ?? 180, { countdown: true });
+        existingData.suddenDeathTimer = create(activeSet.timerSuddenDeathValue ?? 0, { countdown: false });
         
-        data.suddenDeathTimer.stop();
-        data.suddenDeathTimer.destroy();
-        data.suddenDeathTimer = create(activeSet.timerSuddenDeathValue ?? 0, { countdown: false });
-        
-        data.state.suddenDeathMode = activeSet.suddenDeathMode ?? false;
-        data.state.isSetRunning = activeSet.timerSetRunning ?? false;
-        data.state.isSuddenDeathActive = activeSet.timerSuddenDeathRunning ?? false;
-        
-        // Re-setup tickers for the new timers
-        this.setupTickers(matchId);
+        existingData.state.suddenDeathMode = activeSet.suddenDeathMode ?? false;
+        existingData.state.isSetRunning = activeSet.timerSetRunning ?? false;
+        existingData.state.isSuddenDeathActive = activeSet.timerSuddenDeathRunning ?? false;
         
         // If timers were running, restart them
         if (activeSet.timerSetRunning) {
-            data.setTimer.start();
+            existingData.setTimer.start();
         }
         if (activeSet.timerSuddenDeathRunning) {
-            data.suddenDeathTimer.start();
+            existingData.suddenDeathTimer.start();
         }
     } else {
-        // No active set - reset set timer to default
-        data.setTimer.stop();
-        data.setTimer.destroy();
-        data.setTimer = create(180, { countdown: true });
-        data.suddenDeathTimer.stop();
-        data.suddenDeathTimer.destroy();
-        data.suddenDeathTimer = create(0, { countdown: false });
-        data.state.isSetRunning = false;
-        data.state.isSuddenDeathActive = false;
-        data.state.suddenDeathMode = false;
-        this.setupTickers(matchId);
+        // No active set - reset set timers to default
+        existingData.setTimer = create(180, { countdown: true });
+        existingData.suddenDeathTimer = create(0, { countdown: false });
+        existingData.state.isSetRunning = false;
+        existingData.state.isSuddenDeathActive = false;
+        existingData.state.suddenDeathMode = false;
     }
+    
+    // Re-setup tickers for the new set timers (match timer keeps its tickers)
+    this.setupTickers(matchId);
     
     // Only emit once at the end with final consistent state
     if (!suppressEmit) {
