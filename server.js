@@ -460,23 +460,27 @@ io.on('connection', (socket) => {
   // Program viewer join (overlay or other viewers request the composed program stream)
   socket.on('program:viewer_join', (data) => {
     // data: { matchId }
+    logger.info(`program:viewer_join from ${socket.id} for match ${data.matchId}`);
     CameraManager.initProgramViewer(socket.id, data.matchId);
   });
 
   // Program offer from compositor -> relay to viewer
   socket.on('program:offer', (data) => {
     // data: { viewerSocketId, matchId, sdp }
+    logger.info(`program:offer from ${socket.id} to viewer ${data.viewerSocketId} for match ${data.matchId}`);
     CameraManager.relayProgramOffer(socket.id, data.viewerSocketId, data.matchId, data.sdp);
   });
 
   // Program answer from viewer -> relay to compositor
   socket.on('program:answer', (data) => {
     // data: { compositorSocketId, matchId, sdp }
+    logger.info(`program:answer from ${socket.id} to compositor ${data.compositorSocketId} for match ${data.matchId}`);
     CameraManager.relayProgramAnswer(socket.id, data.compositorSocketId, data.matchId, data.sdp);
   });
 
   // Program ICE candidate (either direction) - data: { targetSocketId, matchId, candidate }
   socket.on('program:ice', (data) => {
+    logger.info(`program:ice from ${socket.id} to ${data.targetSocketId} for match ${data.matchId}`);
     CameraManager.relayProgramIce(socket.id, data.targetSocketId, data.matchId, data.candidate);
   });
 

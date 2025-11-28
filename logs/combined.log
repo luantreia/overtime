@@ -2722,3 +2722,4 @@
 {"level":"info","message":"Socket lC39IbmCHx5cTFsYAAAf joined match 69294fb1e1ae73dc702672da","service":"overtime-api","timestamp":"2025-11-28T08:58:06.897Z"}
 {"level":"info","message":"Socket lC39IbmCHx5cTFsYAAAf joined match 69294fb1e1ae73dc702672da","service":"overtime-api","timestamp":"2025-11-28T08:58:08.905Z"}
 {"level":"info","message":"Socket lC39IbmCHx5cTFsYAAAf joined match 69294fb1e1ae73dc702672da","service":"overtime-api","timestamp":"2025-11-28T08:58:10.912Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2025-11-28T11:34:48.853Z"}
