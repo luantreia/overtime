@@ -74,7 +74,7 @@ class TimerManager {
 
     const { matchTimer, setTimer, suddenDeathTimer } = data;
 
-    // Helper to emit update
+    // Helper to emit update (only if timer is actually running to avoid spam)
     const emitUpdate = () => {
       if (!this.io) return;
       
@@ -94,7 +94,7 @@ class TimerManager {
       this.io.to(matchId).emit('timer:update', payload);
     };
 
-    // Attach tickers
+    // Attach tickers (timrjs replaces existing ticker on each call, so no duplicates)
     matchTimer.ticker(() => emitUpdate());
     setTimer.ticker(() => emitUpdate());
     suddenDeathTimer.ticker(() => emitUpdate());
@@ -137,8 +137,18 @@ class TimerManager {
 
   async setMatchTime(matchId, seconds) {
     const data = await this.ensureMatchLoaded(matchId);
-    data.matchTimer.stop(); // Stop to reset
-    data.matchTimer.setStartTime(seconds);
+    
+    // Stop and destroy old timer
+    data.matchTimer.stop();
+    data.matchTimer.destroy();
+    
+    // Recreate with new time
+    data.matchTimer = create(seconds, { countdown: true });
+    data.state.isMatchRunning = false;
+    
+    // Re-setup tickers
+    this.setupTickers(matchId);
+    
     this.emitState(matchId);
     this.persistMatch(matchId);
   }
@@ -183,8 +193,18 @@ class TimerManager {
 
   async setSetTime(matchId, seconds) {
       const data = await this.ensureMatchLoaded(matchId);
+      
+      // Stop and destroy old timer
       data.setTimer.stop();
-      data.setTimer.setStartTime(seconds);
+      data.setTimer.destroy();
+      
+      // Recreate with new time
+      data.setTimer = create(seconds, { countdown: true });
+      data.state.isSetRunning = false;
+      
+      // Re-setup tickers
+      this.setupTickers(matchId);
+      
       this.emitState(matchId);
       this.persistSet(matchId);
   }
@@ -360,28 +380,74 @@ class TimerManager {
       }
   }
 
-  async reloadMatch(matchId) {
+  async reloadMatch(matchId, suppressEmit = false) {
+    // Mark as reloading to prevent intermediate emissions
+    const wasLoaded = this.matches.has(matchId);
+    
+    if (wasLoaded) {
+        // Cleanup old timers properly
+        const oldData = this.matches.get(matchId);
+        if (oldData) {
+            oldData.matchTimer.stop();
+            oldData.matchTimer.destroy();
+            oldData.setTimer.stop();
+            oldData.setTimer.destroy();
+            oldData.suddenDeathTimer.stop();
+            oldData.suddenDeathTimer.destroy();
+        }
+    }
+    
     this.matches.delete(matchId);
+    
+    // Load fresh from DB
     const data = await this.ensureMatchLoaded(matchId);
     
-    // For new sets, ensure the set timer shows 3:00 (not old value)
-    // The new set from DB should have timerSetValue=180 by default
-    // But we force it here to be safe
+    // For new sets, ensure the set timer shows correct value (default 180)
     const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' })
         .sort({ numeroSet: -1 });
     
-    if (activeSet && !activeSet.timerSetRunning) {
-        // New set or paused set - ensure timer reflects DB value (default 180)
+    if (activeSet) {
+        // Always recreate set timers with DB values to ensure consistency
         data.setTimer.stop();
-        data.setTimer.setStartTime(activeSet.timerSetValue ?? 180);
+        data.setTimer.destroy();
+        data.setTimer = create(activeSet.timerSetValue ?? 180, { countdown: true });
+        
         data.suddenDeathTimer.stop();
-        data.suddenDeathTimer.setStartTime(activeSet.timerSuddenDeathValue ?? 0);
+        data.suddenDeathTimer.destroy();
+        data.suddenDeathTimer = create(activeSet.timerSuddenDeathValue ?? 0, { countdown: false });
+        
         data.state.suddenDeathMode = activeSet.suddenDeathMode ?? false;
+        data.state.isSetRunning = activeSet.timerSetRunning ?? false;
+        data.state.isSuddenDeathActive = activeSet.timerSuddenDeathRunning ?? false;
+        
+        // Re-setup tickers for the new timers
+        this.setupTickers(matchId);
+        
+        // If timers were running, restart them
+        if (activeSet.timerSetRunning) {
+            data.setTimer.start();
+        }
+        if (activeSet.timerSuddenDeathRunning) {
+            data.suddenDeathTimer.start();
+        }
+    } else {
+        // No active set - reset set timer to default
+        data.setTimer.stop();
+        data.setTimer.destroy();
+        data.setTimer = create(180, { countdown: true });
+        data.suddenDeathTimer.stop();
+        data.suddenDeathTimer.destroy();
+        data.suddenDeathTimer = create(0, { countdown: false });
         data.state.isSetRunning = false;
         data.state.isSuddenDeathActive = false;
+        data.state.suddenDeathMode = false;
+        this.setupTickers(matchId);
     }
     
-    this.emitState(matchId);
+    // Only emit once at the end with final consistent state
+    if (!suppressEmit) {
+        this.emitState(matchId);
+    }
   }
 }
 
