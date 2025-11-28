@@ -182,6 +182,9 @@ const allowedOrigins = [
   // Backend (Render)
   'https://overtime-ddyl.onrender.com',
   'https://overtime-ddyl.onrender.com/',
+  // Partido Panel
+  'https://overtime-partido.vercel.app',
+  'https://overtime-partido.vercel.app/',
 ];
 
 app.use(cors({
