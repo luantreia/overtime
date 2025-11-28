@@ -1,4 +1,4 @@
-import { create } from 'timrjs';
+import { create } from 'timrjs/es/timr.js';
 import Partido from '../models/Partido/Partido.js';
 import SetPartido from '../models/Partido/SetPartido.js';
 
