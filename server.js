@@ -364,6 +364,9 @@ io.on('connection', (socket) => {
               case 'PAUSE_ALL':
                   await TimerManager.pauseAll(matchId);
                   break;
+              case 'RESET_ALL':
+                  await TimerManager.resetAll(matchId);
+                  break;
               default:
                   console.warn(`Unknown timer command: ${action}`);
           }

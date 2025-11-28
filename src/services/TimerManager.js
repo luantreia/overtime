@@ -56,7 +56,8 @@ class TimerManager {
       isMatchRunning: false, // Always load paused to avoid ghost running after restart
       isSetRunning: false,
       isSuddenDeathActive: false,
-      suddenDeathMode: activeSet?.suddenDeathMode || false
+      suddenDeathMode: activeSet?.suddenDeathMode || false,
+      modalidad: match.modalidad
     };
 
     const matchData = { matchTimer, setTimer, suddenDeathTimer, state };
@@ -101,7 +102,17 @@ class TimerManager {
     
     // Also emit on finish/stop
     matchTimer.finish(() => emitUpdate());
-    setTimer.finish(() => emitUpdate());
+    setTimer.finish(() => {
+        if (data.state.modalidad === 'Foam') {
+            if (!data.suddenDeathTimer.started()) {
+                data.suddenDeathTimer.start();
+                data.state.isSuddenDeathActive = true;
+                data.state.suddenDeathMode = true;
+                this.persistSet(matchId);
+            }
+        }
+        emitUpdate();
+    });
   }
 
   // --- Actions ---
@@ -226,6 +237,31 @@ class TimerManager {
           this.persistMatch(matchId);
           this.persistSet(matchId);
       }
+  }
+
+  async resetAll(matchId) {
+      const data = await this.ensureMatchLoaded(matchId);
+      
+      // Stop all timers
+      data.matchTimer.stop();
+      data.setTimer.stop();
+      data.suddenDeathTimer.stop();
+
+      // Reset values to defaults
+      data.matchTimer.setStartTime(20 * 60); // 20 mins
+      data.setTimer.setStartTime(3 * 60); // 3 mins
+      data.suddenDeathTimer.setStartTime(0);
+
+      // Reset state
+      data.state.isMatchRunning = false;
+      data.state.isSetRunning = false;
+      data.state.isSuddenDeathActive = false;
+      data.state.suddenDeathMode = false;
+      data.state.period = 1;
+
+      this.emitState(matchId);
+      this.persistMatch(matchId);
+      this.persistSet(matchId);
   }
 
   emitState(matchId) {
