@@ -159,6 +159,14 @@ class TimerManager {
       if (!data.setTimer.started()) {
           data.setTimer.start();
           data.state.isSetRunning = true;
+          
+          // Record start time for statistics
+          const activeSet = await SetPartido.findOne({ partido: matchId, estadoSet: 'en_juego' });
+          if (activeSet && !activeSet.iniciadoEn) {
+              activeSet.iniciadoEn = new Date();
+              await activeSet.save();
+          }
+          
           this.emitState(matchId);
       }
   }
@@ -237,7 +245,7 @@ class TimerManager {
   }
 
   // Pause only set and sudden death timers (used when finishing a set)
-  async pauseSetOnly(matchId) {
+  async pauseSetOnly(matchId, isFinishing = false) {
       const data = await this.ensureMatchLoaded(matchId);
       
       if (data.setTimer.started()) {
@@ -251,7 +259,7 @@ class TimerManager {
       data.state.isSuddenDeathActive = false;
 
       this.emitState(matchId);
-      this.persistSet(matchId);
+      this.persistSet(matchId, isFinishing);
   }
 
   async resetAll(matchId) {
@@ -315,7 +323,7 @@ class TimerManager {
       }
   }
 
-  async persistSet(matchId) {
+  async persistSet(matchId, isFinishing = false) {
       const data = this.matches.get(matchId);
       if (!data) return;
 
@@ -328,6 +336,17 @@ class TimerManager {
             activeSet.timerSuddenDeathValue = data.suddenDeathTimer.getRaw().SS;
             activeSet.timerSuddenDeathRunning = data.suddenDeathTimer.started();
             activeSet.suddenDeathMode = data.state.suddenDeathMode;
+            
+            // Calculate duration statistics when finishing
+            if (isFinishing && activeSet.iniciadoEn) {
+                activeSet.finalizadoEn = new Date();
+                activeSet.duracionReal = Math.floor((activeSet.finalizadoEn - activeSet.iniciadoEn) / 1000);
+                activeSet.duracionSetTimer = 180 - activeSet.timerSetValue; // Time used from the 3:00
+                if (activeSet.suddenDeathMode) {
+                    activeSet.duracionSuddenDeath = activeSet.timerSuddenDeathValue;
+                }
+            }
+            
             await activeSet.save();
         }
       } catch (err) {

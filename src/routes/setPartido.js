@@ -217,9 +217,9 @@ router.put(
       Object.assign(set, req.body);
       const actualizado = await set.save();
       
-      // If the set status changed to 'finalizado', pause only the set timer (not match timer)
-      if (req.body.estadoSet === 'finalizado') {
-          await TimerManager.pauseSetOnly(set.partido);
+      // If the set status changed to 'finalizado', pause only the set timer and save duration stats
+      if (req.body.estadoSet === 'finalizado' || req.body.ganadorSet) {
+          await TimerManager.pauseSetOnly(set.partido, true); // true = isFinishing
       }
       
       await TimerManager.reloadMatch(set.partido);
