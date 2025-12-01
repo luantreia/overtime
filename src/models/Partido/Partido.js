@@ -68,7 +68,37 @@ const PartidoSchema = new Schema({
     type: String,
     enum: ['programado', 'en_juego', 'finalizado', 'cancelado'],
     default: 'programado'
-  }
+  },
+
+  // Ranked fields (optional)
+  isRanked: { type: Boolean, default: false },
+  rankedMeta: {
+    applied: { type: Boolean, default: false },
+    modalidad: { type: String },
+    categoria: { type: String },
+    teamColors: {
+      local: { type: String, enum: ['rojo', 'azul'] },
+      visitante: { type: String, enum: ['rojo', 'azul'] }
+    },
+    snapshot: {
+      players: [
+        {
+          player: { type: Schema.Types.ObjectId, ref: 'Jugador' },
+          pre: Number,
+          post: Number,
+          delta: Number,
+          teamColor: { type: String, enum: ['rojo', 'azul'] }
+        }
+      ],
+      teamAverages: { rojo: Number, azul: Number }
+    }
+  },
+  ratingDeltas: [
+    {
+      player: { type: Schema.Types.ObjectId, ref: 'Jugador' },
+      delta: Number
+    }
+  ]
 }, { timestamps: true });
 
 // Virtuales para equipos reales
@@ -227,6 +257,47 @@ PartidoSchema.post('save', async function () {
       ep.resultado = 'perdido';
     }
     await ep.save();
+  }
+
+  // 4. Apply ranked rating updates once per finalized match
+  try {
+    if (this.isRanked && !(this.rankedMeta?.applied)) {
+      const modalidad = this.rankedMeta?.modalidad || this.modalidad;
+      const categoria = this.rankedMeta?.categoria || this.categoria;
+
+      // Determine winner mapped to team colors
+      let winner = 'empate';
+      const localColor = this.rankedMeta?.teamColors?.local || 'rojo';
+      const visitanteColor = this.rankedMeta?.teamColors?.visitante || 'azul';
+      if (this.marcadorLocal > this.marcadorVisitante) winner = localColor;
+      else if (this.marcadorVisitante > this.marcadorLocal) winner = visitanteColor;
+
+      // Try to get temporadaId from Fase (if exists)
+      let temporadaId = undefined;
+      if (this.fase) {
+        const Fase = mongoose.model('Fase');
+        const faseDoc = await Fase.findById(this.fase).populate('temporada');
+        temporadaId = faseDoc?.temporada?._id;
+      }
+
+      const { applyRankedResult } = await import('../../services/ratingService.js');
+      const snapshot = await applyRankedResult({
+        partidoId: this._id,
+        competenciaId: this.competencia,
+        temporadaId,
+        modalidad,
+        categoria,
+        result: winner
+      });
+
+      this.rankedMeta = this.rankedMeta || {};
+      this.rankedMeta.snapshot = snapshot;
+      this.rankedMeta.applied = true;
+      this.ratingDeltas = snapshot.players.map(p => ({ player: p.playerId, delta: p.delta }));
+      await this.save();
+    }
+  } catch (err) {
+    console.error('[Partido.postSave ranked] error', err);
   }
 });
 

@@ -54,6 +54,9 @@ const CompetenciaSchema = new mongoose.Schema({
     { type: String, ref: 'Usuario' }
   ],
 
+  // Ranked feature toggle (opt-in per competencia)
+  rankedEnabled: { type: Boolean, default: false },
+
 }, { timestamps: true });
 
 // Hook para generar nombre automáticamente

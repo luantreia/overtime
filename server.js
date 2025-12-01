@@ -115,6 +115,7 @@ import competenciasRoutes from './src/routes/Competencias/competencias.js';
 import fasesRoutes from "./src/routes/Competencias/fases.js";
 import temporadasRoutes from './src/routes/Competencias/temporadas.js';
 import solicitudesEdicionRoutes from './src/routes/solicitudEdicion.js';
+import rankedRouter from './src/routes/ranked.js';
 
 
 dotenv.config(); // inicializar dotenv
@@ -255,6 +256,7 @@ app.use('/api/competencias', competenciasRoutes);
 app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);
 app.use('/api/solicitudes-edicion', solicitudesEdicionRoutes);
+app.use('/api/ranked', rankedRouter);
 
 
 // Public configuration endpoint for clients (feature flags, model info)
