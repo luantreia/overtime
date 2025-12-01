@@ -7,6 +7,7 @@ import Equipo from '../models/Equipo/Equipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
 import { getOrCreatePlayerRating } from '../services/ratingService.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
+import MatchPlayer from '../models/Partido/MatchPlayer.js';
 
 const router = express.Router();
 
@@ -97,7 +98,8 @@ router.get('/match/:id', async (req, res) => {
     const partido = await Partido.findById(req.params.id).lean();
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
     const teams = await MatchTeam.find({ partidoId: partido._id }).populate('players').lean();
-    res.json({ ok: true, partido, teams });
+    const players = await MatchPlayer.find({ partidoId: partido._id }).populate('playerId').lean();
+    res.json({ ok: true, partido, teams, players });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -138,7 +140,63 @@ router.post('/match/:id/finalize', async (req, res) => {
 
     // Post-save hook will apply ranking; reload for response
     const updated = await Partido.findById(partidoId).lean();
+
+    // Snapshot per-player rating changes into MatchPlayer
+    try {
+      const deltas = Array.isArray(updated?.ratingDeltas) ? updated.ratingDeltas : [];
+      if (deltas.length) {
+        const teamDocs = await MatchTeam.find({ partidoId }).lean();
+        const colorByPlayer = new Map();
+        for (const t of teamDocs) {
+          const color = t.color;
+          for (const pid of (Array.isArray(t.players) ? t.players : [])) {
+            colorByPlayer.set(pid.toString(), color);
+          }
+        }
+
+        const modalidad = updated?.rankedMeta?.modalidad || updated?.modalidad;
+        const categoria = updated?.rankedMeta?.categoria || updated?.categoria;
+        const competenciaId = updated?.competencia || undefined;
+
+        const ops = deltas.map(d => ({
+          updateOne: {
+            filter: { partidoId, playerId: d.playerId },
+            update: {
+              $set: {
+                preRating: d.pre,
+                postRating: d.post,
+                delta: d.delta,
+                teamColor: colorByPlayer.get(d.playerId?.toString()) || null,
+                competenciaId,
+                modalidad,
+                categoria,
+              }
+            },
+            upsert: true
+          }
+        }));
+        if (ops.length) {
+          await MatchPlayer.bulkWrite(ops, { ordered: false });
+        }
+      }
+    } catch (snapErr) {
+      // Non-fatal: log server-side if logger exists
+    }
+
     res.json({ ok: true, rankedMeta: updated?.rankedMeta, ratingDeltas: updated?.ratingDeltas });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// List per-match player snapshots
+router.get('/match/:id/players', async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const partido = await Partido.findById(partidoId).lean();
+    if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
+    const players = await MatchPlayer.find({ partidoId }).populate('playerId').lean();
+    res.json({ ok: true, items: players });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
