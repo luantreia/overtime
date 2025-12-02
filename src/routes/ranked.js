@@ -313,9 +313,16 @@ router.get('/leaderboard', async (req, res) => {
       .where('matchesPlayed').gte(Number(minMatches))
       .sort({ rating: -1 })
       .limit(Number(limit))
+      .populate('playerId', 'nombre')
       .lean();
 
-    res.json({ ok: true, items });
+    const mappedItems = items.map(i => ({
+      ...i,
+      playerName: i.playerId?.nombre || 'Desconocido',
+      playerId: i.playerId?._id || i.playerId
+    }));
+
+    res.json({ ok: true, items: mappedItems });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
