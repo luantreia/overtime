@@ -114,8 +114,11 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { fase, competencia, tipo, equipo } = req.query;
+    const { fase, competencia, competenciaId, tipo, equipo, temporadaId } = req.query;
     const filtro = {};
+    
+    // Alias handling
+    const compId = competencia || competenciaId;
 
     if (tipo === 'amistoso') {
       filtro.competencia = null;
@@ -126,10 +129,19 @@ router.get('/', async (req, res) => {
         } else {
           return res.json([]);
         }
+      } else if (temporadaId) {
+        // Si no hay fase pero hay temporada, buscamos todas las fases de esa temporada
+        if (mongoose.Types.ObjectId.isValid(temporadaId)) {
+          const Fase = (await import('../models/Competencia/Fase.js')).default;
+          const fases = await Fase.find({ temporada: temporadaId }).select('_id');
+          const faseIds = fases.map(f => f._id);
+          filtro.fase = { $in: faseIds };
+        }
       }
-      if (competencia) {
-        if (mongoose.Types.ObjectId.isValid(competencia)) {
-          filtro.competencia = competencia;
+
+      if (compId) {
+        if (mongoose.Types.ObjectId.isValid(compId)) {
+          filtro.competencia = compId;
         } else {
           return res.json([]);
         }
