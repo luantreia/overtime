@@ -1,11 +1,12 @@
 // server/controllers/partidoController.js
+import mongoose from 'mongoose';
 import Partido from '../models/Partido/Partido.js';
 import { actualizarParticipacionFase } from '../services/participacionFaseService.js'; // función que debes crear
 
 // Obtener partidos con filtro por tipo y otros filtros opcionales
 export async function obtenerPartidos(req, res) {
   try {
-    const { tipo, modalidad, estado, competenciaId, fase } = req.query;
+    const { tipo, modalidad, estado, competenciaId, fase, temporadaId } = req.query;
 
     const filtro = {};
 
@@ -20,7 +21,16 @@ export async function obtenerPartidos(req, res) {
     if (modalidad) filtro.modalidad = modalidad;
     if (estado) filtro.estado = estado;
     if (competenciaId) filtro.competencia = competenciaId;
-    if (fase) filtro.fase = fase;
+    
+    if (fase) {
+      filtro.fase = fase;
+    } else if (temporadaId) {
+      // Si no hay fase pero hay temporada, buscamos todas las fases de esa temporada
+      const Fase = mongoose.model('Fase');
+      const fases = await Fase.find({ temporada: temporadaId }).select('_id');
+      const faseIds = fases.map(f => f._id);
+      filtro.fase = { $in: faseIds };
+    }
 
     const partidos = await Partido.find(filtro)
       .select('equipoLocal equipoVisitante marcadorLocal marcadorVisitante fecha estado competencia fase grupo division etapa creadoPor administradores')
