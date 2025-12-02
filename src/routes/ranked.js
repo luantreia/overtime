@@ -503,4 +503,29 @@ router.post('/match/:id/mark-ranked', async (req, res) => {
   }
 });
 
+// Revert ranked match stats
+router.post('/match/:id/revert', async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const { revertRankedResult } = await import('../services/ratingService.js');
+    
+    await revertRankedResult({ partidoId });
+    
+    // If partido exists, unmark it as applied
+    const partido = await Partido.findById(partidoId);
+    if (partido) {
+      if (partido.rankedMeta) {
+        partido.rankedMeta.applied = false;
+        partido.rankedMeta.snapshot = null;
+      }
+      partido.ratingDeltas = [];
+      await partido.save();
+    }
+
+    res.json({ ok: true, message: 'Ranked stats reverted' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 export default router;

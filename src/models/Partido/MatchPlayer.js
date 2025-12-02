@@ -13,6 +13,7 @@ const MatchPlayerSchema = new mongoose.Schema({
   categoria: { type: String }
 }, { timestamps: true });
 
-MatchPlayerSchema.index({ partidoId: 1, playerId: 1 }, { unique: true });
+// Compound index for uniqueness per match/player/season context
+MatchPlayerSchema.index({ partidoId: 1, playerId: 1, temporadaId: 1 }, { unique: true });
 
 export default mongoose.model('MatchPlayer', MatchPlayerSchema);

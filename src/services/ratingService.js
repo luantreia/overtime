@@ -58,7 +58,7 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
     await pr.save();
 
     await MatchPlayer.updateOne(
-      { partidoId, playerId },
+      { partidoId, playerId, temporadaId },
       {
         $set: {
           partidoId, playerId, teamColor, preRating, postRating: post, delta,
@@ -82,4 +82,26 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
     teamAverages: { rojo: R_rojo_avg, azul: R_azul_avg },
     players: [...rojoSnap, ...azulSnap]
   };
+}
+
+export async function revertRankedResult({ partidoId }) {
+  const snapshots = await MatchPlayer.find({ partidoId });
+  
+  for (const snap of snapshots) {
+    const pr = await PlayerRating.findOne({
+      playerId: snap.playerId,
+      competenciaId: snap.competenciaId,
+      temporadaId: snap.temporadaId,
+      modalidad: snap.modalidad,
+      categoria: snap.categoria
+    });
+
+    if (pr) {
+      pr.rating = (pr.rating || 1500) - (snap.delta || 0);
+      pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
+      await pr.save();
+    }
+    
+    await MatchPlayer.deleteOne({ _id: snap._id });
+  }
 }
