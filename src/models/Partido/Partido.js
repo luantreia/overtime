@@ -80,6 +80,7 @@ const PartidoSchema = new Schema({
       local: { type: String, enum: ['rojo', 'azul'] },
       visitante: { type: String, enum: ['rojo', 'azul'] }
     },
+    temporadaId: { type: Schema.Types.ObjectId, ref: 'Temporada' },
     snapshot: {
       players: [
         {
