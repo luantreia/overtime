@@ -116,6 +116,7 @@ router.get('/', async (req, res) => {
   try {
     const { fase, competencia, competenciaId, tipo, equipo, temporadaId } = req.query;
     const filtro = {};
+    const andConditions = [];
     
     // Alias handling
     const compId = competencia || competenciaId;
@@ -135,7 +136,14 @@ router.get('/', async (req, res) => {
           const Fase = (await import('../models/Competencia/Fase.js')).default;
           const fases = await Fase.find({ temporada: temporadaId }).select('_id');
           const faseIds = fases.map(f => f._id);
-          filtro.fase = { $in: faseIds };
+          
+          // Filter by Phase OR by rankedMeta.temporadaId
+          andConditions.push({
+            $or: [
+              { fase: { $in: faseIds } },
+              { 'rankedMeta.temporadaId': temporadaId }
+            ]
+          });
         }
       }
 
@@ -150,15 +158,20 @@ router.get('/', async (req, res) => {
 
     if (equipo) {
       if (mongoose.Types.ObjectId.isValid(equipo)) {
-        filtro.$or = [
-          { equipoLocal: equipo },
-          { equipoVisitante: equipo }
-        ];
+        andConditions.push({
+          $or: [
+            { equipoLocal: equipo },
+            { equipoVisitante: equipo }
+          ]
+        });
       } else {
         // Si el equipo no es un ID válido, retornamos array vacío
-        // (o podríamos implementar búsqueda por nombre si importáramos el modelo Equipo)
         return res.json([]);
       }
+    }
+
+    if (andConditions.length > 0) {
+      filtro.$and = andConditions;
     }
 
     const partidos = await Partido.find(filtro)
