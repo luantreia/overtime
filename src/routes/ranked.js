@@ -13,6 +13,75 @@ const router = express.Router();
 
 function ensureArray(arr) { return Array.isArray(arr) ? arr : []; }
 
+async function syncJugadorPartidoFromTeams(partido) {
+  if (!partido) return;
+  const partidoId = partido._id?.toString?.() || partido.toString?.();
+  if (!partidoId) return;
+  const teams = await MatchTeam.find({ partidoId: partidoId }).lean();
+  if (!teams || !teams.length) return;
+  const localId = partido.equipoLocal?.toString?.();
+  const visitId = partido.equipoVisitante?.toString?.();
+  const ops = [];
+  for (const t of teams) {
+    const equipo = t.color === 'rojo' ? localId : t.color === 'azul' ? visitId : undefined;
+    if (!equipo) continue;
+    for (const pid of (Array.isArray(t.players) ? t.players : [])) {
+      const playerId = pid?.toString?.();
+      if (!playerId) continue;
+      ops.push({
+        updateOne: {
+          filter: { partido: partidoId, jugador: playerId },
+          update: { $set: { equipo, rol: 'jugador', estado: 'aceptado' } },
+          upsert: true,
+        }
+      });
+    }
+  }
+  if (ops.length) {
+    try {
+      await JugadorPartido.bulkWrite(ops, { ordered: false });
+    } catch (e) {
+      // non-fatal
+    }
+  }
+}
+
+async function syncMatchPlayersFromTeams(partido) {
+  if (!partido) return;
+  const partidoId = partido._id?.toString?.() || partido.toString?.();
+  if (!partidoId) return;
+  const teams = await MatchTeam.find({ partidoId: partidoId }).lean();
+  if (!teams || !teams.length) return;
+  const modalidad = partido.rankedMeta?.modalidad || partido.modalidad;
+  const categoria = partido.rankedMeta?.categoria || partido.categoria;
+  const competenciaId = partido.competencia || undefined;
+  const ops = [];
+  for (const t of teams) {
+    const color = t.color;
+    for (const pid of (Array.isArray(t.players) ? t.players : [])) {
+      const playerId = pid?.toString?.();
+      if (!playerId) continue;
+      ops.push({
+        updateOne: {
+          filter: { partidoId, playerId },
+          update: {
+            $setOnInsert: { competenciaId, modalidad, categoria },
+            $set: { teamColor: color },
+          },
+          upsert: true,
+        }
+      });
+    }
+  }
+  if (ops.length) {
+    try {
+      await MatchPlayer.bulkWrite(ops, { ordered: false });
+    } catch (e) {
+      // non-fatal
+    }
+  }
+}
+
 // Create ranked match with team assignments (cap 9 per side)
 router.post('/match', async (req, res) => {
   try {
@@ -64,6 +133,11 @@ router.post('/match', async (req, res) => {
     await MatchTeam.create({ partidoId: partido._id, color: 'rojo', players: rojoValid });
     await MatchTeam.create({ partidoId: partido._id, color: 'azul', players: azulValid });
 
+    // Mirror initial assignment to JugadorPartido
+    try { await syncJugadorPartidoFromTeams(partido); } catch (e) {}
+    // Upsert placeholder MatchPlayer entries (teamColor and context)
+    try { await syncMatchPlayersFromTeams(partido); } catch (e) {}
+
     res.status(201).json({ ok: true, partidoId: partido._id });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -86,6 +160,12 @@ router.post('/match/:id/assign', async (req, res) => {
     const azulValid = azul.filter(id => mongoose.isValidObjectId(id));
     await MatchTeam.updateOne({ partidoId, color: 'rojo' }, { $set: { players: rojoValid } }, { upsert: true });
     await MatchTeam.updateOne({ partidoId, color: 'azul' }, { $set: { players: azulValid } }, { upsert: true });
+    // Mirror to JugadorPartido so stats UI works
+    try {
+      const partido = await Partido.findById(partidoId);
+      await syncJugadorPartidoFromTeams(partido);
+      await syncMatchPlayersFromTeams(partido);
+    } catch (e) {}
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -362,6 +442,11 @@ router.post('/match/:id/auto-assign', async (req, res) => {
     // Persist assignments
     await MatchTeam.updateOne({ partidoId, color: 'rojo' }, { $set: { players: rojoPlayers } }, { upsert: true });
     await MatchTeam.updateOne({ partidoId, color: 'azul' }, { $set: { players: azulPlayers } }, { upsert: true });
+    try {
+      const partidoAfter = await Partido.findById(partidoId);
+      await syncJugadorPartidoFromTeams(partidoAfter);
+      await syncMatchPlayersFromTeams(partidoAfter);
+    } catch (e) {}
 
     // Return summary
     const avg = (arr) => arr.length ? (arr.length && arr.reduce((s, x) => s + (typeof x === 'number' ? x : 0), 0)) : 0;
@@ -395,7 +480,10 @@ router.post('/match/:id/mark-ranked', async (req, res) => {
 
     await MatchTeam.updateOne({ partidoId, color: 'rojo' }, { $set: { players: rojoPlayers } }, { upsert: true });
     await MatchTeam.updateOne({ partidoId, color: 'azul' }, { $set: { players: azulPlayers } }, { upsert: true });
-
+    try {
+      await syncJugadorPartidoFromTeams(partido);
+      await syncMatchPlayersFromTeams(partido);
+    } catch (e) {}
     res.json({ ok: true, rojoPlayers, azulPlayers });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

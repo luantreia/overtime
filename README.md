@@ -6,6 +6,7 @@ API RESTful para la gestión de ligas y torneos de dodgeball. Sistema completo p
 
 - 🛡️ **Seguridad robusta**: Rate limiting, validación de inputs, JWT tokens
 - 📊 **Gestión completa**: Equipos, jugadores, partidos, competencias
+- 🏆 **Modo Ranked**: Sistema ELO ("League of Dodgeball") con equipos efímeros
 - 🔍 **Búsqueda y paginación**: Consultas eficientes con paginación
 - 📝 **Auditoría**: Registro de cambios y actividades
 - 🧪 **Testing**: Cobertura de tests con Jest
