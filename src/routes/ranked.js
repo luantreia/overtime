@@ -528,4 +528,37 @@ router.post('/match/:id/revert', async (req, res) => {
   }
 });
 
+// Dev-only: Reset all rankings (Hard Reset)
+router.post('/dev/reset-all', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      // Optional: protect this in production
+      // return res.status(403).json({ ok: false, error: 'No disponible en producción' });
+    }
+
+    // 1. Delete all PlayerRating
+    await PlayerRating.deleteMany({});
+
+    // 2. Delete all MatchPlayer
+    await MatchPlayer.deleteMany({});
+
+    // 3. Reset all Partidos to unranked state
+    await Partido.updateMany(
+      { isRanked: true },
+      {
+        $set: {
+          isRanked: false,
+          'rankedMeta.applied': false,
+          'rankedMeta.snapshot': null,
+          ratingDeltas: []
+        }
+      }
+    );
+
+    res.json({ ok: true, message: 'All rankings reset. You can now re-rank matches.' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 export default router;
