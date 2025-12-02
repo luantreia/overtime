@@ -306,9 +306,10 @@ router.get('/leaderboard', async (req, res) => {
     const q = {};
     if (competenciaId) q.competenciaId = competenciaId;
     
-    if (temporadaId === 'null' || temporadaId === 'global' || temporadaId === '') {
+    // Default to Global (temporadaId: null) if season is not specified or explicit 'global'
+    if (!temporadaId || temporadaId === 'null' || temporadaId === 'global') {
       q.temporadaId = null;
-    } else if (temporadaId) {
+    } else {
       q.temporadaId = temporadaId;
     }
     
