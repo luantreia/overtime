@@ -282,14 +282,30 @@ PartidoSchema.post('save', async function () {
       }
 
       const { applyRankedResult } = await import('../../services/ratingService.js');
-      const snapshot = await applyRankedResult({
+
+      // 1. Always apply to Global (temporadaId: null) to keep all-time leaderboard updated
+      const globalSnapshot = await applyRankedResult({
         partidoId: this._id,
         competenciaId: this.competencia,
-        temporadaId,
+        temporadaId: null,
         modalidad,
         categoria,
         result: winner
       });
+
+      let snapshot = globalSnapshot;
+
+      // 2. If Season exists, apply to Season and override snapshot/MatchPlayer
+      if (temporadaId) {
+        snapshot = await applyRankedResult({
+          partidoId: this._id,
+          competenciaId: this.competencia,
+          temporadaId,
+          modalidad,
+          categoria,
+          result: winner
+        });
+      }
 
       this.rankedMeta = this.rankedMeta || {};
       this.rankedMeta.snapshot = snapshot;
