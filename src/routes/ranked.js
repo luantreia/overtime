@@ -305,7 +305,13 @@ router.get('/leaderboard', async (req, res) => {
     const { competition: competenciaId, season: temporadaId, modalidad, categoria, limit = 50, minMatches = 0 } = req.query;
     const q = {};
     if (competenciaId) q.competenciaId = competenciaId;
-    if (temporadaId) q.temporadaId = temporadaId;
+    
+    if (temporadaId === 'null' || temporadaId === 'global' || temporadaId === '') {
+      q.temporadaId = null;
+    } else if (temporadaId) {
+      q.temporadaId = temporadaId;
+    }
+    
     if (modalidad) q.modalidad = modalidad;
     if (categoria) q.categoria = categoria;
 
