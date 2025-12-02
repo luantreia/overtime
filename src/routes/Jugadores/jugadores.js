@@ -242,7 +242,24 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const jugadores = await Jugador.find();
+    const { search, limit = 50, page = 1 } = req.query;
+    const query = {};
+
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      query.$or = [
+        { nombre: regex },
+        { alias: regex },
+        { dni: regex } // Assuming dni field exists or will exist
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const jugadores = await Jugador.find(query)
+      .limit(parseInt(limit))
+      .skip(skip)
+      .sort({ nombre: 1 });
+      
     res.status(200).json(jugadores);
   } catch (error) {
     res.status(400).json({ error: error.message });
