@@ -5,7 +5,7 @@ import { actualizarParticipacionFase } from '../services/participacionFaseServic
 // Obtener partidos con filtro por tipo y otros filtros opcionales
 export async function obtenerPartidos(req, res) {
   try {
-    const { tipo, modalidad, estado, competenciaId } = req.query;
+    const { tipo, modalidad, estado, competenciaId, fase } = req.query;
 
     const filtro = {};
 
@@ -20,12 +20,18 @@ export async function obtenerPartidos(req, res) {
     if (modalidad) filtro.modalidad = modalidad;
     if (estado) filtro.estado = estado;
     if (competenciaId) filtro.competencia = competenciaId;
+    if (fase) filtro.fase = fase;
 
     const partidos = await Partido.find(filtro)
       .select('equipoLocal equipoVisitante marcadorLocal marcadorVisitante fecha estado competencia fase grupo division etapa creadoPor administradores')
       .sort({ fecha: -1 })
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
+      .populate({
+        path: 'fase',
+        select: 'nombre tipo orden temporada',
+        populate: { path: 'temporada', select: 'nombre' }
+      })
       .lean();
 
     res.json(partidos);
