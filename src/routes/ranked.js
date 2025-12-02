@@ -85,7 +85,7 @@ async function syncMatchPlayersFromTeams(partido) {
 // Create ranked match with team assignments (cap 9 per side)
 router.post('/match', async (req, res) => {
   try {
-    const { competenciaId, modalidad, categoria, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
+    const { competenciaId, temporadaId, modalidad, categoria, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
     const rojo = ensureArray(rojoPlayers);
     const azul = ensureArray(azulPlayers);
 
@@ -120,7 +120,7 @@ router.post('/match', async (req, res) => {
       equipoVisitante: visitanteId,
       creadoPor,
       isRanked: true,
-      rankedMeta: { modalidad, categoria, teamColors: { local: 'rojo', visitante: 'azul' }, ...meta }
+      rankedMeta: { modalidad, categoria, teamColors: { local: 'rojo', visitante: 'azul' }, temporadaId, ...meta }
     };
     if (competenciaId && mongoose.isValidObjectId(competenciaId)) {
       partidoPayload.competencia = competenciaId;

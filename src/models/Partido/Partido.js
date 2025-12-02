@@ -272,9 +272,9 @@ PartidoSchema.post('save', async function () {
       if (this.marcadorLocal > this.marcadorVisitante) winner = localColor;
       else if (this.marcadorVisitante > this.marcadorLocal) winner = visitanteColor;
 
-      // Try to get temporadaId from Fase (if exists)
-      let temporadaId = undefined;
-      if (this.fase) {
+      // Try to get temporadaId from Fase (if exists) or rankedMeta
+      let temporadaId = this.rankedMeta?.temporadaId;
+      if (!temporadaId && this.fase) {
         const Fase = mongoose.model('Fase');
         const faseDoc = await Fase.findById(this.fase).populate('temporada');
         temporadaId = faseDoc?.temporada?._id;
