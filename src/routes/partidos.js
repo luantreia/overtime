@@ -190,14 +190,6 @@ router.get('/', async (req, res) => {
         .limit(limit)
     ]);
 
-    // Debug: Ver qué partidos tienen sets
-    console.log('Partidos con sets:', partidos.map(p => ({
-      id: p._id,
-      nombre: p.nombrePartido,
-      setsCount: p.sets ? p.sets.length : 0,
-      sets: p.sets
-    })));
-
     res.json({
       items: partidos,
       total,
