@@ -1,6 +1,6 @@
 // routes/estadisticas.js
 import express from 'express';
-import { obtenerResumenEstadisticasJugador, obtenerResumenEstadisticasEquipo, obtenerEstadisticasJugadorSet, obtenerEstadisticasManual } from '../controllers/estadisticasController.js';
+import { obtenerResumenEstadisticasJugador, obtenerResumenEstadisticasEquipo } from '../controllers/estadisticasController.js';
 
 const router = express.Router();
 
@@ -61,57 +61,5 @@ router.get('/jugador/:jugadorId/resumen', obtenerResumenEstadisticasJugador);
  *         description: Error al obtener resumen
  */
 router.get('/equipo/:equipoId/resumen', obtenerResumenEstadisticasEquipo);
-
-/**
- * @swagger
- * /api/estadisticas/jugador-set:
- *   get:
- *     summary: Obtiene estadísticas de jugadores por set
- *     tags: [Estadisticas]
- *     parameters:
- *       - in: query
- *         name: set
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *     responses:
- *       200:
- *         description: Estadísticas del set
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/EstadisticaJugadorSet'
- *       500:
- *         description: Error al obtener estadísticas
- */
-router.get('/jugador-set', obtenerEstadisticasJugadorSet);
-
-/**
- * @swagger
- * /api/estadisticas/manual:
- *   get:
- *     summary: Obtiene estadísticas manuales de un partido
- *     tags: [Estadisticas]
- *     parameters:
- *       - in: query
- *         name: partido
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *     responses:
- *       200:
- *         description: Estadísticas manuales
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ResumenEstadisticasManual'
- *       500:
- *         description: Error al obtener estadísticas
- */
-router.get('/manual', obtenerEstadisticasManual);
 
 export default router;
