@@ -2,25 +2,11 @@
 import mongoose from 'mongoose';
 import Partido from '../models/Partido/Partido.js';
 import { actualizarParticipacionFase } from '../services/participacionFaseService.js'; // función que debes crear
-import { getPaginationParams } from '../utils/pagination.js';
 
 // Obtener partidos con filtro por tipo y otros filtros opcionales
 export async function obtenerPartidos(req, res) {
   try {
-    const { page, limit, skip } = getPaginationParams(req);
-    const {
-      tipo,
-      modalidad,
-      estado,
-      competenciaId,
-      competencia,
-      fase,
-      temporadaId,
-      temporada,
-      equipo,
-      equipoId,
-      fecha,
-    } = req.query;
+    const { tipo, modalidad, estado, competenciaId, fase, temporadaId } = req.query;
 
     const filtro = {};
 
@@ -31,74 +17,34 @@ export async function obtenerPartidos(req, res) {
       filtro.competencia = { $exists: true, $ne: null };
     }
 
+    // Filtrado adicional por modalidad, estado o competenciaId si se proveen
     if (modalidad) filtro.modalidad = modalidad;
     if (estado) filtro.estado = estado;
-
-    const competenciaFiltro = competenciaId || competencia;
-    if (competenciaFiltro) filtro.competencia = competenciaFiltro;
-
-    const faseFiltro = fase || null;
-    const temporadaFiltro = temporadaId || temporada;
-
-    if (faseFiltro) {
-      filtro.fase = faseFiltro;
-    } else if (temporadaFiltro) {
+    if (competenciaId) filtro.competencia = competenciaId;
+    
+    if (fase) {
+      filtro.fase = fase;
+    } else if (temporadaId) {
+      // Si no hay fase pero hay temporada, buscamos todas las fases de esa temporada
       const Fase = mongoose.model('Fase');
-      const fases = await Fase.find({ temporada: temporadaFiltro }).select('_id');
-      const faseIds = fases.map((f) => f._id);
+      const fases = await Fase.find({ temporada: temporadaId }).select('_id');
+      const faseIds = fases.map(f => f._id);
       filtro.fase = { $in: faseIds };
     }
 
-    const equipoFiltro = equipoId || equipo;
-    if (equipoFiltro) {
-      filtro.$or = [
-        { equipoLocal: equipoFiltro },
-        { equipoVisitante: equipoFiltro },
-      ];
-    }
-
-    if (fecha) {
-      const parsedDate = new Date(fecha);
-      if (!isNaN(parsedDate.getTime())) {
-        const start = new Date(parsedDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(parsedDate);
-        end.setHours(23, 59, 59, 999);
-        filtro.fecha = { $gte: start, $lte: end };
-      }
-    }
-
-    const query = Partido.find(filtro)
+    const partidos = await Partido.find(filtro)
       .select('equipoLocal equipoVisitante marcadorLocal marcadorVisitante fecha estado competencia fase grupo division etapa creadoPor administradores')
       .sort({ fecha: -1 })
-      .skip(skip)
-      .limit(limit)
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
       .populate({
         path: 'fase',
         select: 'nombre tipo orden temporada',
-        populate: { path: 'temporada', select: 'nombre' },
+        populate: { path: 'temporada', select: 'nombre' }
       })
       .lean();
 
-    const [partidos, total] = await Promise.all([
-      query,
-      Partido.countDocuments(filtro),
-    ]);
-
-    res.json({
-      success: true,
-      data: partidos,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-        hasNextPage: skip + limit < total,
-        hasPrevPage: page > 1,
-      },
-    });
+    res.json(partidos);
   } catch (error) {
     console.error('Error al obtener partidos:', error);
     res.status(500).json({ error: error.message || 'Error al obtener partidos.' });

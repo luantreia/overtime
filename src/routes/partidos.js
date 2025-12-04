@@ -5,6 +5,7 @@ import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de importar el modelo
 import mongoose from 'mongoose';
+import { getPaginationParams } from '../utils/pagination.js';
 
 
 const router = express.Router();
@@ -118,8 +119,8 @@ router.get('/', async (req, res) => {
     const filtro = {};
     const andConditions = [];
     
-    // Alias handling
     const compId = competencia || competenciaId;
+    const { page, limit, skip } = getPaginationParams(req);
 
     if (tipo === 'amistoso') {
       filtro.competencia = null;
@@ -128,16 +129,13 @@ router.get('/', async (req, res) => {
         if (mongoose.Types.ObjectId.isValid(fase)) {
           filtro.fase = fase;
         } else {
-          return res.json([]);
+          return res.json({ items: [], total: 0, page, limit, pages: 0 });
         }
       } else if (temporadaId) {
-        // Si no hay fase pero hay temporada, buscamos todas las fases de esa temporada
         if (mongoose.Types.ObjectId.isValid(temporadaId)) {
           const Fase = (await import('../models/Competencia/Fase.js')).default;
           const fases = await Fase.find({ temporada: temporadaId }).select('_id');
           const faseIds = fases.map(f => f._id);
-          
-          // Filter by Phase OR by rankedMeta.temporadaId
           andConditions.push({
             $or: [
               { fase: { $in: faseIds } },
@@ -151,7 +149,7 @@ router.get('/', async (req, res) => {
         if (mongoose.Types.ObjectId.isValid(compId)) {
           filtro.competencia = compId;
         } else {
-          return res.json([]);
+          return res.json({ items: [], total: 0, page, limit, pages: 0 });
         }
       }
     }
@@ -165,8 +163,7 @@ router.get('/', async (req, res) => {
           ]
         });
       } else {
-        // Si el equipo no es un ID válido, retornamos array vacío
-        return res.json([]);
+        return res.json({ items: [], total: 0, page, limit, pages: 0 });
       }
     }
 
@@ -174,20 +171,31 @@ router.get('/', async (req, res) => {
       filtro.$and = andConditions;
     }
 
-    const partidos = await Partido.find(filtro)
-      .populate([
-        'competencia',
-        'fase',
-        'equipoLocal',
-        'equipoVisitante',
-        'participacionFaseLocal',
-        'participacionFaseVisitante',
-        'creadoPor',
-        'administradores'
-      ])
-      .sort({ fecha: 1 });
+    const [total, partidos] = await Promise.all([
+      Partido.countDocuments(filtro),
+      Partido.find(filtro)
+        .populate([
+          'competencia',
+          'fase',
+          'equipoLocal',
+          'equipoVisitante',
+          'participacionFaseLocal',
+          'participacionFaseVisitante',
+          'creadoPor',
+          'administradores'
+        ])
+        .sort({ fecha: 1 })
+        .skip(skip)
+        .limit(limit)
+    ]);
 
-    res.json(partidos);
+    res.json({
+      items: partidos,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit))
+    });
   } catch (err) {
     res.status(500).json({ message: 'Error al obtener partidos', error: err.message });
   }

@@ -8,6 +8,7 @@ import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { verificarEntidad } from '../../middleware/verificarEntidad.js';
 import Usuario from '../../models/Usuario.js';
+import { getPaginationParams } from '../../utils/pagination.js';
 
 /**
  * @swagger
@@ -242,7 +243,8 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { search, limit = 50, page = 1 } = req.query;
+    const { search } = req.query;
+    const { page, limit, skip } = getPaginationParams(req);
     const query = {};
 
     if (search) {
@@ -250,17 +252,26 @@ router.get('/', async (req, res) => {
       query.$or = [
         { nombre: regex },
         { alias: regex },
-        { dni: regex } // Assuming dni field exists or will exist
+        { dni: regex }
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const jugadores = await Jugador.find(query)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .sort({ nombre: 1 });
-      
-    res.status(200).json(jugadores);
+    const [total, jugadores] = await Promise.all([
+      Jugador.countDocuments(query),
+      Jugador.find(query)
+        .limit(limit)
+        .skip(skip)
+        .sort({ nombre: 1 })
+        .lean()
+    ]);
+
+    res.status(200).json({
+      items: jugadores,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit))
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
