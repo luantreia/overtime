@@ -1,6 +1,7 @@
 // server/controllers/partidoController.js
 import mongoose from 'mongoose';
 import Partido from '../models/Partido/Partido.js';
+import '../models/Partido/SetPartido.js'; // Importar para registrar el modelo y que funcione el populate virtual
 import { actualizarParticipacionFase } from '../services/participacionFaseService.js'; // función que debes crear
 
 // Obtener partidos con filtro por tipo y otros filtros opcionales
