@@ -3,6 +3,8 @@ import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPar
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js';
+import EstadisticaJugadorSet from '../models/Partido/EstadisticaJugadorSet.js';
+import MatchPlayer from '../models/Partido/MatchPlayer.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -158,5 +160,62 @@ export async function obtenerResumenEstadisticasEquipo(req, res) {
   } catch (error) {
     logger.error('Error al obtener resumen de estadísticas del equipo:', error);
     res.status(500).json({ error: error.message || 'Error al obtener resumen de estadísticas.' });
+  }
+}
+
+/**
+ * Obtiene estadísticas de jugadores por set
+ */
+export async function obtenerEstadisticasJugadorSet(req, res) {
+  try {
+    const { set } = req.query;
+    if (!set) return res.status(400).json({ error: 'Falta el parámetro set' });
+
+    const estadisticas = await EstadisticaJugadorSet.find({ setPartido: set })
+      .populate({
+        path: 'jugadorPartido',
+        populate: {
+          path: 'playerId',
+          select: 'nombre apellido'
+        }
+      })
+      .lean();
+
+    // Map to the expected format
+    const mapped = estadisticas.map(stat => ({
+      _id: stat._id,
+      jugadorPartido: stat.jugadorPartido,
+      throws: stat.throws,
+      hits: stat.hits,
+      outs: stat.outs,
+      catches: stat.catches,
+      tipoCaptura: stat.tipoCaptura,
+    }));
+
+    res.json(mapped);
+  } catch (error) {
+    logger.error('Error al obtener estadísticas del set:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener estadísticas del set.' });
+  }
+}
+
+/**
+ * Obtiene estadísticas manuales de un partido (placeholder)
+ */
+export async function obtenerEstadisticasManual(req, res) {
+  try {
+    const { partido } = req.query;
+    if (!partido) return res.status(400).json({ error: 'Falta el parámetro partido' });
+
+    // For now, return empty data
+    res.json({
+      jugadores: [],
+      equipos: [],
+      mensaje: 'Estadísticas manuales no implementadas aún',
+      tipo: 'manual'
+    });
+  } catch (error) {
+    logger.error('Error al obtener estadísticas manuales:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener estadísticas manuales.' });
   }
 }
