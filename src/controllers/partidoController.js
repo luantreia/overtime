@@ -43,8 +43,7 @@ export async function obtenerPartidos(req, res) {
         select: 'nombre tipo orden temporada',
         populate: { path: 'temporada', select: 'nombre' }
       })
-      .populate('sets', '_id')
-      .lean();
+      .populate('sets', '_id'); // Quitamos .lean() para asegurar que los virtuals funcionen con toJSON
 
     res.json(partidos);
   } catch (error) {
