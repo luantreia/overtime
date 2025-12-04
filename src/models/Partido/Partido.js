@@ -114,6 +114,13 @@ PartidoSchema.virtual('nombreResumido').get(function () {
   return `${this.nombrePartido || 'Partido'} (${this.fecha?.toLocaleDateString()})`;
 });
 
+// Virtual para sets
+PartidoSchema.virtual('sets', {
+  ref: 'SetPartido',
+  localField: '_id',
+  foreignField: 'partido'
+});
+
 // Método para recalcular marcador a partir de sets
 PartidoSchema.methods.recalcularMarcador = async function () {
   if (this.marcadorModificadoManualmente) {

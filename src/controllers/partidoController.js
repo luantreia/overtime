@@ -42,6 +42,7 @@ export async function obtenerPartidos(req, res) {
         select: 'nombre tipo orden temporada',
         populate: { path: 'temporada', select: 'nombre' }
       })
+      .populate('sets', '_id')
       .lean();
 
     res.json(partidos);
