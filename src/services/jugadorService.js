@@ -81,7 +81,7 @@ export class JugadorService {
 
   static async obtenerJugadoresPaginados(req) {
     const { page, limit, skip } = getPaginationParams(req);
-    
+
     const total = await Jugador.countDocuments();
     const jugadores = await Jugador.find()
       .skip(skip)
@@ -92,9 +92,11 @@ export class JugadorService {
       data: jugadores,
       pagination: {
         total,
-        page: Math.floor(skip / limit) + 1,
+        page,
         pages: Math.ceil(total / limit),
+        limit,
         hasNextPage: skip + limit < total,
+        hasPrevPage: page > 1,
       },
     };
   }
