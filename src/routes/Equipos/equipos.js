@@ -8,6 +8,7 @@ import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { verificarEntidad } from '../../middleware/verificarEntidad.js';
 import Usuario from '../../models/Usuario.js';
+import { getPaginationParams } from '../../utils/pagination.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -154,8 +155,22 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const equipos = await Equipo.find();
-    res.status(200).json(equipos);
+    const { page, limit, skip } = getPaginationParams(req);
+    const [total, equipos] = await Promise.all([
+      Equipo.countDocuments(),
+      Equipo.find()
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    return res.status(200).json({
+      items: equipos,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit))
+    });
   } catch (error) {
     console.error('Error al obtener equipos:', error);
     res.status(500).json({ message: 'Error al obtener equipos', error: error.message });
