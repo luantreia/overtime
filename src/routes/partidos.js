@@ -1,5 +1,8 @@
 import express from 'express';
 import Partido from '../models/Partido/Partido.js';
+import '../models/Partido/SetPartido.js';
+import '../models/Partido/MatchPlayer.js';
+import '../models/Jugador/Jugador.js';
 import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
