@@ -244,7 +244,15 @@ router.get('/:id', validarObjectId, async (req, res) => {
         'participacionFaseVisitante',
         'creadoPor',
         'administradores'
-      ]);
+      ])
+      .populate('sets')
+      .populate({
+        path: 'jugadores',
+        populate: {
+          path: 'playerId',
+          select: 'nombre alias'
+        }
+      });
 
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
     res.json(partido);
