@@ -121,13 +121,6 @@ PartidoSchema.virtual('sets', {
   foreignField: 'partido'
 });
 
-// Virtual para jugadores
-PartidoSchema.virtual('jugadores', {
-  ref: 'MatchPlayer',
-  localField: '_id',
-  foreignField: 'partidoId'
-});
-
 // Método para recalcular marcador a partir de sets
 PartidoSchema.methods.recalcularMarcador = async function () {
   if (this.marcadorModificadoManualmente) {

@@ -170,9 +170,9 @@ const allowedOrigins = [
   // Manager Panel
   'https://overtime-manager.vercel.app',
   'https://overtime-manager.vercel.app/',
-  // DT Panel (nombre viejo: dodgeballmanager)
-  'https://dodgeballmanager.vercel.app',
-  'https://dodgeballmanager.vercel.app/',
+  // DT Panel 
+  'https://overtime-dt.vercel.app',
+  'https://overtime-dt.vercel.app/',
   // Admin Panel
   'https://overtime-admin.vercel.app',
   'https://overtime-admin.vercel.app/',

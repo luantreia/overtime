@@ -1,8 +1,5 @@
 import express from 'express';
 import Partido from '../models/Partido/Partido.js';
-import '../models/Partido/SetPartido.js';
-import '../models/Partido/MatchPlayer.js';
-import '../models/Jugador/Jugador.js';
 import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
@@ -247,15 +244,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
         'participacionFaseVisitante',
         'creadoPor',
         'administradores'
-      ])
-      .populate('sets')
-      .populate({
-        path: 'jugadores',
-        populate: {
-          path: 'playerId',
-          select: 'nombre alias'
-        }
-      });
+      ]);
 
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
     res.json(partido);
