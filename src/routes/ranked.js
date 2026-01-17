@@ -529,6 +529,65 @@ router.post('/match/:id/revert', async (req, res) => {
   }
 });
 
+// Reset rankings for a specific competition/season/modality/category
+router.post('/reset-scope', async (req, res) => {
+  try {
+    const { competenciaId, temporadaId, modalidad, categoria } = req.body;
+    
+    if (!competenciaId || !modalidad || !categoria) {
+      return res.status(400).json({ ok: false, error: 'Se requiere competenciaId, modalidad y categoria' });
+    }
+
+    const query = {
+      competenciaId,
+      modalidad,
+      categoria
+    };
+    
+    // Add temporadaId to query if provided
+    if (temporadaId) {
+      query.temporadaId = temporadaId;
+    }
+
+    // 1. Delete PlayerRating for this scope
+    const prResult = await PlayerRating.deleteMany(query);
+
+    // 2. Delete MatchPlayer for this scope
+    const mpResult = await MatchPlayer.deleteMany(query);
+
+    // 3. Reset Partidos in this scope to unranked state
+    const partidoQuery = {
+      isRanked: true,
+      competencia: competenciaId,
+      'rankedMeta.modalidad': modalidad,
+      'rankedMeta.categoria': categoria
+    };
+    if (temporadaId) {
+      partidoQuery.temporada = temporadaId;
+    }
+
+    const partidoResult = await Partido.updateMany(
+      partidoQuery,
+      {
+        $set: {
+          'rankedMeta.applied': false,
+          'rankedMeta.snapshot': null,
+          ratingDeltas: []
+        }
+      }
+    );
+
+    res.json({ 
+      ok: true, 
+      message: `Rankings reset for scope: ${prResult.deletedCount} PlayerRatings, ${mpResult.deletedCount} MatchPlayers, ${partidoResult.modifiedCount} matches unmarked.`,
+      deleted: { playerRatings: prResult.deletedCount, matchPlayers: mpResult.deletedCount },
+      updated: { matches: partidoResult.modifiedCount }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Dev-only: Reset all rankings (Hard Reset)
 router.post('/dev/reset-all', async (req, res) => {
   try {

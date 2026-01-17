@@ -576,6 +576,17 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
       return res.status(403).json({ message: 'No tiene permiso para eliminar este partido' });
     }
 
+    // Si es un partido ranked que fue aplicado, revertir los stats primero
+    if (partido.isRanked && partido.rankedMeta?.applied) {
+      try {
+        const { revertRankedResult } = await import('../services/ratingService.js');
+        await revertRankedResult({ partidoId: partido._id.toString() });
+      } catch (revertErr) {
+        // Log pero continuar con el borrado de todos modos
+        console.warn('Error revirtiendo stats al borrar partido ranked:', revertErr.message);
+      }
+    }
+
     await partido.deleteOne();
     res.json({ message: 'Partido eliminado correctamente' });
   } catch (err) {
