@@ -24,5 +24,5 @@
     -   Microservicios: Separar el motor de estadísticas o el módulo de Ranked si la carga aumenta.
 
 ## 🔗 Integración
-- **Ranked Mode**: Asegurar que el cálculo de ELO sea idempotente (ya implementado con flags) y transaccional.
+- **Ranked Mode**: Asegurar que el cálculo de ELO sea idempotente (ya implementado con flags) y transaccional. Se ha implementado el endpoint `/recalculate-global` para regeneración total de rankings desde cero.
 - **Public Page**: Exponer endpoints "light" (con `select` de campos) para reducir el payload en la home page.

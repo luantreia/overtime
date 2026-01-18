@@ -529,6 +529,42 @@ router.post('/match/:id/revert', async (req, res) => {
   }
 });
 
+// Regenerate Global Rankings (Recalculate everything from scratch)
+router.post('/recalculate-global', async (req, res) => {
+  try {
+    // 1. Reset all PlayerRating and MatchPlayer
+    await PlayerRating.deleteMany({});
+    await MatchPlayer.deleteMany({});
+
+    // 2. Mark matches as not applied
+    await Partido.updateMany(
+      { isRanked: true },
+      {
+        $set: {
+          'rankedMeta.applied': false,
+          'rankedMeta.snapshot': null,
+          ratingDeltas: []
+        }
+      }
+    );
+
+    // 3. Find all ranked matches, sorted by date
+    const matches = await Partido.find({ isRanked: true, estado: 'finalizado' })
+      .sort({ fecha: 1, createdAt: 1 });
+
+    let count = 0;
+    for (const match of matches) {
+      // Important: Use save() to trigger the post('save') hook in Partido.js
+      await match.save();
+      count++;
+    }
+
+    res.json({ ok: true, message: `Rankings recalculated for ${count} matches.` });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Reset rankings for a specific competition/season/modality/category
 router.post('/reset-scope', async (req, res) => {
   try {
