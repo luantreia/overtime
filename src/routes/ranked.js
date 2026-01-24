@@ -251,50 +251,8 @@ router.post('/match/:id/finalize', async (req, res) => {
     partido.estado = 'finalizado';
     await partido.save();
 
-    // Post-save hook will apply ranking; reload for response
+    // Post-save hook will apply ranking and snapshot to MatchPlayer; reload for response
     const updated = await Partido.findById(partidoId).lean();
-
-    // Snapshot per-player rating changes into MatchPlayer
-    try {
-      const deltas = Array.isArray(updated?.ratingDeltas) ? updated.ratingDeltas : [];
-      if (deltas.length) {
-        const teamDocs = await MatchTeam.find({ partidoId }).lean();
-        const colorByPlayer = new Map();
-        for (const t of teamDocs) {
-          const color = t.color;
-          for (const pid of (Array.isArray(t.players) ? t.players : [])) {
-            colorByPlayer.set(pid.toString(), color);
-          }
-        }
-
-        const modalidad = updated?.rankedMeta?.modalidad || updated?.modalidad;
-        const categoria = updated?.rankedMeta?.categoria || updated?.categoria;
-        const competenciaId = updated?.competencia || undefined;
-
-        const ops = deltas.map(d => ({
-          updateOne: {
-            filter: { partidoId, playerId: d.playerId },
-            update: {
-              $set: {
-                preRating: d.pre,
-                postRating: d.post,
-                delta: d.delta,
-                teamColor: colorByPlayer.get(d.playerId?.toString()) || null,
-                competenciaId,
-                modalidad,
-                categoria,
-              }
-            },
-            upsert: true
-          }
-        }));
-        if (ops.length) {
-          await MatchPlayer.bulkWrite(ops, { ordered: false });
-        }
-      }
-    } catch (snapErr) {
-      // Non-fatal: log server-side if logger exists
-    }
 
     res.json({ ok: true, rankedMeta: updated?.rankedMeta, ratingDeltas: updated?.ratingDeltas });
   } catch (err) {
@@ -424,8 +382,8 @@ router.post('/match/:id/auto-assign', async (req, res) => {
     if (!partido.isRanked) return res.status(400).json({ ok: false, error: 'Partido no es ranked' });
 
     // Determine context for ratings
-    const modalidad = partido.rankedMeta?.modalidad || partido.modalidad;
-    const categoria = partido.rankedMeta?.categoria || partido.categoria;
+    const modalidad = (partido.rankedMeta?.modalidad || partido.modalidad)?.toLowerCase();
+    const categoria = (partido.rankedMeta?.categoria || partido.categoria)?.toLowerCase();
 
     // Optional temporada from fase
     let temporadaId = undefined;
@@ -513,8 +471,8 @@ router.post('/match/:id/mark-ranked', async (req, res) => {
     // Set ranked flags and defaults
     partido.isRanked = true;
     partido.rankedMeta = partido.rankedMeta || {};
-    if (!partido.rankedMeta.modalidad) partido.rankedMeta.modalidad = partido.modalidad;
-    if (!partido.rankedMeta.categoria) partido.rankedMeta.categoria = partido.categoria;
+    if (!partido.rankedMeta.modalidad) partido.rankedMeta.modalidad = partido.modalidad?.toLowerCase();
+    if (!partido.rankedMeta.categoria) partido.rankedMeta.categoria = partido.categoria?.toLowerCase();
     partido.rankedMeta.teamColors = partido.rankedMeta.teamColors || { local: 'rojo', visitante: 'azul' };
     await partido.save();
 
