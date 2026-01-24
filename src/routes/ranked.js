@@ -933,25 +933,39 @@ router.post('/dev/reset-all', async (req, res) => {
 router.post('/players/bulk-delete-rating', async (req, res) => {
   try {
     const { playerIds, modalidad, categoria } = req.body;
-    const competenciaId = req.body.competenciaId || req.body.competition;
-    const temporadaId = req.body.temporadaId || req.body.season;
+    const rawComp = req.body.competenciaId || req.body.competition;
+    const rawSeason = req.body.temporadaId || req.body.season;
     
     if (!Array.isArray(playerIds) || playerIds.length === 0) {
       return res.status(400).json({ ok: false, error: 'Lista de IDs de jugadores requerida' });
     }
 
+    // Explicitly convert IDs to ObjectIds if they are valid strings
+    const validPlayerIds = playerIds
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+
     const query = { 
-      playerId: { $in: playerIds },
-      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
-      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
+      playerId: { $in: validPlayerIds },
+      competenciaId: (rawComp === 'null' || !rawComp) ? null : new mongoose.Types.ObjectId(rawComp),
+      temporadaId: (rawSeason === 'null' || !rawSeason) ? null : new mongoose.Types.ObjectId(rawSeason),
       modalidad: normalizeEnum(modalidad),
       categoria: normalizeEnum(categoria)
     };
 
+    // If we're in "Global" mode (no comp ID), we MUST ensure the query actually looks for null
+    if (!rawComp || rawComp === 'null') query.competenciaId = null;
+    if (!rawSeason || rawSeason === 'null') query.temporadaId = null;
+
     const prResult = await PlayerRating.deleteMany(query);
     const mpResult = await MatchPlayer.deleteMany(query);
 
-    res.json({ ok: true, deletedRating: prResult.deletedCount, deletedHistory: mpResult.deletedCount });
+    res.json({ 
+      ok: true, 
+      deletedRating: prResult.deletedCount, 
+      deletedHistory: mpResult.deletedCount,
+      queryUsed: query // Para debugging si fuera necesario
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -961,13 +975,23 @@ router.post('/players/bulk-delete-rating', async (req, res) => {
 router.post('/cleanup-ghosts', async (req, res) => {
   try {
     const { modalidad, categoria } = req.body;
-    const competenciaId = req.body.competenciaId || req.body.competition;
-    const temporadaId = req.body.temporadaId || req.body.season;
+    const rawComp = req.body.competenciaId || req.body.competition;
+    const rawSeason = req.body.temporadaId || req.body.season;
 
     const query = { matchesPlayed: 0 };
     
-    if (competenciaId) query.competenciaId = (competenciaId === 'null' ? null : competenciaId);
-    if (temporadaId) query.temporadaId = (temporadaId === 'null' ? null : (temporadaId === 'global' ? null : temporadaId));
+    if (rawComp && rawComp !== 'null') {
+      query.competenciaId = new mongoose.Types.ObjectId(rawComp);
+    } else if (rawComp === 'null' || !rawComp) {
+      query.competenciaId = null;
+    }
+
+    if (rawSeason && rawSeason !== 'null' && rawSeason !== 'global') {
+      query.temporadaId = new mongoose.Types.ObjectId(rawSeason);
+    } else {
+      query.temporadaId = null;
+    }
+
     if (modalidad) query.modalidad = normalizeEnum(modalidad);
     if (categoria) query.categoria = normalizeEnum(categoria);
 
