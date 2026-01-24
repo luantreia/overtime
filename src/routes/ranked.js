@@ -332,7 +332,51 @@ router.get('/players/:playerId/detail', async (req, res) => {
     const rating = await PlayerRating.findOne(query).populate('playerId', 'nombre').lean();
     const history = await MatchPlayer.find(query).populate('partidoId').sort({ createdAt: -1 }).lean();
 
-    res.json({ ok: true, rating, history });
+    // Calculate teammate synergies
+    const teammateStats = {};
+    const matchIds = history.map(h => h.partidoId?._id || h.partidoId).filter(Boolean);
+    
+    if (matchIds.length > 0) {
+      const allParticipants = await MatchPlayer.find({ 
+        partidoId: { $in: matchIds }
+      }).populate('playerId', 'nombre').lean();
+
+      for (const h of history) {
+        const pId = h.partidoId?._id || h.partidoId;
+        const isWin = (h.win === true || (h.win === undefined && h.delta > 0));
+        
+        // Find partners in the same match and team
+        const partners = allParticipants.filter(p => 
+          p.partidoId.toString() === pId.toString() && 
+          p.teamColor === h.teamColor && 
+          p.playerId?._id?.toString() !== playerId
+        );
+
+        for (const p of partners) {
+          const tId = p.playerId?._id?.toString();
+          if (!tId) continue;
+          if (!teammateStats[tId]) {
+            teammateStats[tId] = { 
+              id: tId, 
+              name: p.playerId?.nombre || 'Desconocido', 
+              matches: 0, 
+              wins: 0 
+            };
+          }
+          teammateStats[tId].matches++;
+          if (isWin) teammateStats[tId].wins++;
+        }
+      }
+    }
+
+    const synergy = Object.values(teammateStats)
+      .map(s => ({
+        ...s,
+        winrate: (s.wins / s.matches) * 100
+      }))
+      .sort((a, b) => b.matches - a.matches || b.winrate - a.winrate);
+
+    res.json({ ok: true, rating, history, synergy });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
