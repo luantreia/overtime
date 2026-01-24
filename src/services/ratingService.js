@@ -12,14 +12,30 @@ function expectedScore(rA, rB) {
   return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
-export async function getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria }) {
+function normalizeEnum(val) {
+  if (!val) return val;
+  const s = val.toLowerCase().trim();
+  if (s === 'foam') return 'Foam';
+  if (s === 'cloth') return 'Cloth';
+  if (s === 'masculino') return 'Masculino';
+  if (s === 'femenino') return 'Femenino';
+  if (s === 'mixto') return 'Mixto';
+  if (s === 'libre') return 'Libre';
+  return val;
+}
+
+export async function getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat }) {
+  const modalidad = normalizeEnum(rawMod);
+  const categoria = normalizeEnum(rawCat);
   const query = { playerId, competenciaId, temporadaId, modalidad, categoria };
   let pr = await PlayerRating.findOne(query);
   if (!pr) pr = await PlayerRating.create({ ...query });
   return pr;
 }
 
-export async function applyRankedResult({ partidoId, competenciaId, temporadaId, modalidad, categoria, result }) {
+export async function applyRankedResult({ partidoId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, result }) {
+  const modalidad = normalizeEnum(rawMod);
+  const categoria = normalizeEnum(rawCat);
   const teams = await MatchTeam.find({ partidoId }).lean();
   const rojo = teams.find(t => t.color === 'rojo') || { players: [] };
   const azul = teams.find(t => t.color === 'azul') || { players: [] };

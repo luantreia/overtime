@@ -14,6 +14,18 @@ const router = express.Router();
 
 function ensureArray(arr) { return Array.isArray(arr) ? arr : []; }
 
+function normalizeEnum(val) {
+  if (!val) return val;
+  const s = val.toLowerCase().trim();
+  if (s === 'foam') return 'Foam';
+  if (s === 'cloth') return 'Cloth';
+  if (s === 'masculino') return 'Masculino';
+  if (s === 'femenino') return 'Femenino';
+  if (s === 'mixto') return 'Mixto';
+  if (s === 'libre') return 'Libre';
+  return val;
+}
+
 async function syncJugadorPartidoFromTeams(partido, creadoPor = 'ranked-mvp') {
   if (!partido) return;
   const partidoId = (partido._id || partido).toString();
@@ -63,8 +75,8 @@ async function syncMatchPlayersFromTeams(partido) {
   const teams = await MatchTeam.find({ partidoId }).lean();
   if (!teams || !teams.length) return;
 
-  const modalidad = (partido.rankedMeta?.modalidad || partido.modalidad)?.toLowerCase();
-  const categoria = (partido.rankedMeta?.categoria || partido.categoria)?.toLowerCase();
+  const modalidad = normalizeEnum(partido.rankedMeta?.modalidad || partido.modalidad);
+  const categoria = normalizeEnum(partido.rankedMeta?.categoria || partido.categoria);
   const competenciaId = partido.competencia || undefined;
   const temporadaId = partido.rankedMeta?.temporadaId || null;
   const currentPlayers = [];
@@ -106,8 +118,8 @@ router.post('/match', async (req, res) => {
     const { competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
     const rojo = ensureArray(rojoPlayers);
     const azul = ensureArray(azulPlayers);
-    const modalidad = rawMod?.toLowerCase();
-    const categoria = rawCat?.toLowerCase();
+    const modalidad = normalizeEnum(rawMod);
+    const categoria = normalizeEnum(rawCat);
 
     if (rojo.length > 9 || azul.length > 9) {
       return res.status(400).json({ ok: false, error: 'Máximo 9 jugadores por equipo' });
@@ -281,8 +293,8 @@ router.get('/players/:playerId/rating', async (req, res) => {
     const q = { playerId };
     if (competenciaId) q.competenciaId = competenciaId;
     if (temporadaId) q.temporadaId = temporadaId;
-    if (modalidad) q.modalidad = modalidad.toLowerCase();
-    if (categoria) q.categoria = categoria.toLowerCase();
+    if (modalidad) q.modalidad = normalizeEnum(modalidad);
+    if (categoria) q.categoria = normalizeEnum(categoria);
     const pr = await PlayerRating.find(q).lean();
     res.json({ ok: true, items: pr });
   } catch (err) {
@@ -304,8 +316,8 @@ router.get('/leaderboard', async (req, res) => {
       q.temporadaId = temporadaId;
     }
     
-    if (modalidad) q.modalidad = modalidad.toLowerCase();
-    if (categoria) q.categoria = categoria.toLowerCase();
+    if (modalidad) q.modalidad = normalizeEnum(modalidad);
+    if (categoria) q.categoria = normalizeEnum(categoria);
 
     const items = await PlayerRating.find(q)
       .where('matchesPlayed').gte(Number(minMatches))
@@ -382,8 +394,8 @@ router.post('/match/:id/auto-assign', async (req, res) => {
     if (!partido.isRanked) return res.status(400).json({ ok: false, error: 'Partido no es ranked' });
 
     // Determine context for ratings
-    const modalidad = (partido.rankedMeta?.modalidad || partido.modalidad)?.toLowerCase();
-    const categoria = (partido.rankedMeta?.categoria || partido.categoria)?.toLowerCase();
+    const modalidad = normalizeEnum(partido.rankedMeta?.modalidad || partido.modalidad);
+    const categoria = normalizeEnum(partido.rankedMeta?.categoria || partido.categoria);
 
     // Optional temporada from fase
     let temporadaId = undefined;
@@ -471,8 +483,8 @@ router.post('/match/:id/mark-ranked', async (req, res) => {
     // Set ranked flags and defaults
     partido.isRanked = true;
     partido.rankedMeta = partido.rankedMeta || {};
-    if (!partido.rankedMeta.modalidad) partido.rankedMeta.modalidad = partido.modalidad?.toLowerCase();
-    if (!partido.rankedMeta.categoria) partido.rankedMeta.categoria = partido.categoria?.toLowerCase();
+    if (!partido.rankedMeta.modalidad) partido.rankedMeta.modalidad = normalizeEnum(partido.modalidad);
+    if (!partido.rankedMeta.categoria) partido.rankedMeta.categoria = normalizeEnum(partido.categoria);
     partido.rankedMeta.teamColors = partido.rankedMeta.teamColors || { local: 'rojo', visitante: 'azul' };
     await partido.save();
 
@@ -570,8 +582,8 @@ router.post('/reset-scope', async (req, res) => {
 
     const query = {
       competenciaId,
-      modalidad: modalidad.toLowerCase(),
-      categoria: categoria.toLowerCase()
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
     };
     
     // Add temporadaId to query if provided
@@ -589,8 +601,8 @@ router.post('/reset-scope', async (req, res) => {
     const partidoQuery = {
       isRanked: true,
       competencia: competenciaId,
-      'rankedMeta.modalidad': modalidad.toLowerCase(),
-      'rankedMeta.categoria': categoria.toLowerCase()
+      'rankedMeta.modalidad': normalizeEnum(modalidad),
+      'rankedMeta.categoria': normalizeEnum(categoria)
     };
     if (temporadaId) {
       partidoQuery.temporada = temporadaId;

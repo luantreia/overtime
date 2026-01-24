@@ -277,8 +277,20 @@ PartidoSchema.post('save', async function () {
   // 4. Apply ranked rating updates once per finalized match
   try {
     if (this.isRanked && !(this.rankedMeta?.applied)) {
-      const modalidad = (this.rankedMeta?.modalidad || this.modalidad)?.toLowerCase();
-      const categoria = (this.rankedMeta?.categoria || this.categoria)?.toLowerCase();
+      const normalizeEnum = (val) => {
+        if (!val) return val;
+        const s = val.toLowerCase().trim();
+        if (s === 'foam') return 'Foam';
+        if (s === 'cloth') return 'Cloth';
+        if (s === 'masculino') return 'Masculino';
+        if (s === 'femenino') return 'Femenino';
+        if (s === 'mixto') return 'Mixto';
+        if (s === 'libre') return 'Libre';
+        return val;
+      };
+
+      const modalidad = normalizeEnum(this.rankedMeta?.modalidad || this.modalidad);
+      const categoria = normalizeEnum(this.rankedMeta?.categoria || this.categoria);
 
       // Determine winner mapped to team colors
       let winner = 'empate';
