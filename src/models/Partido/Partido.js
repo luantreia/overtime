@@ -81,6 +81,7 @@ const PartidoSchema = new Schema({
       visitante: { type: String, enum: ['rojo', 'azul'] }
     },
     temporadaId: { type: Schema.Types.ObjectId, ref: 'Temporada' },
+    afkPlayers: [{ type: Schema.Types.ObjectId, ref: 'Jugador' }],
     snapshot: {
       players: [
         {
@@ -308,6 +309,7 @@ PartidoSchema.post('save', async function () {
       }
 
       const { applyRankedResult } = await import('../../services/ratingService.js');
+      const afkPlayerIds = (this.rankedMeta?.afkPlayers || []).map(id => id.toString());
 
       // 1. Always apply to Global (temporadaId: null) to keep all-time leaderboard updated
       const globalSnapshot = await applyRankedResult({
@@ -316,7 +318,8 @@ PartidoSchema.post('save', async function () {
         temporadaId: null,
         modalidad,
         categoria,
-        result: winner
+        result: winner,
+        afkPlayerIds
       });
 
       let snapshot = globalSnapshot;
@@ -329,7 +332,8 @@ PartidoSchema.post('save', async function () {
           temporadaId,
           modalidad,
           categoria,
-          result: winner
+          result: winner,
+          afkPlayerIds
         });
       }
 

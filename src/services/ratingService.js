@@ -33,7 +33,7 @@ export async function getOrCreatePlayerRating({ playerId, competenciaId, tempora
   return pr;
 }
 
-export async function applyRankedResult({ partidoId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, result }) {
+export async function applyRankedResult({ partidoId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, result, afkPlayerIds = [] }) {
   const modalidad = normalizeEnum(rawMod);
   const categoria = normalizeEnum(rawCat);
   const teams = await MatchTeam.find({ partidoId }).lean();
@@ -61,15 +61,26 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
   const S_rojo = result === 'rojo' ? 1 : result === 'azul' ? 0 : 0.5;
   const S_azul = 1 - S_rojo;
 
+  // Penalty calculation: if someone is AFK, they lose double the losers' team expected delta
+  const baseK = 32; // Default for penalty calculation
+  const loserExpectedDelta = Math.abs(baseK * (0 - (result === 'rojo' ? (1-E_rojo) : E_rojo)));
+  const afkPenalty = Math.max(15, loserExpectedDelta) * 2;
+
   const updatePlayer = async ({ playerId, preRating, preMatches, teamColor, S_team, E_team }) => {
+    const isAFK = afkPlayerIds.includes(playerId.toString());
     const K = kFactor(preMatches, preRating);
-    const delta = K * (S_team - E_team);
+    let delta = K * (S_team - E_team);
+
+    if (isAFK) {
+      delta = -afkPenalty;
+    }
+
     const post = preRating + delta;
 
     const pr = await getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria });
     pr.rating = post;
     pr.matchesPlayed = (pr.matchesPlayed || 0) + 1;
-    if (S_team === 1) pr.wins = (pr.wins || 0) + 1;
+    if (S_team === 1 && !isAFK) pr.wins = (pr.wins || 0) + 1;
     pr.lastDelta = delta;
     pr.updatedAt = new Date();
     await pr.save();
@@ -79,14 +90,15 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
       {
         $set: {
           partidoId, playerId, teamColor, preRating, postRating: post, delta,
-          win: S_team === 1,
+          win: isAFK ? false : S_team === 1,
+          isAFK,
           competenciaId, temporadaId, modalidad, categoria
         }
       },
       { upsert: true }
     );
 
-    return { playerId, pre: preRating, post, delta, teamColor };
+    return { playerId, pre: preRating, post, delta, teamColor, isAFK };
   };
 
   const rojoSnap = await Promise.all(rojoPre.map(r =>

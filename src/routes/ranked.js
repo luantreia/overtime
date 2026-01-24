@@ -234,7 +234,7 @@ router.post('/match/:id/finalize', async (req, res) => {
     }
 
     // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante, sets, creadoPor = 'ranked-mvp' } = req.body || {};
+    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp' } = req.body || {};
     if (typeof marcadorLocal === 'number') {
       partido.marcadorLocal = marcadorLocal;
       partido.marcadorModificadoManualmente = true;
@@ -242,6 +242,12 @@ router.post('/match/:id/finalize', async (req, res) => {
     if (typeof marcadorVisitante === 'number') {
       partido.marcadorVisitante = marcadorVisitante;
       partido.marcadorModificadoManualmente = true;
+    }
+
+    // Save AFK players if provided
+    if (Array.isArray(afkPlayers)) {
+      partido.rankedMeta = partido.rankedMeta || {};
+      partido.rankedMeta.afkPlayers = afkPlayers;
     }
 
     // Save sets if provided

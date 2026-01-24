@@ -8,6 +8,7 @@ const MatchPlayerSchema = new mongoose.Schema({
   postRating: { type: Number },
   delta: { type: Number },
   win: { type: Boolean },
+  isAFK: { type: Boolean, default: false },
   competenciaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Competencia' },
   temporadaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Temporada' },
   modalidad: { type: String },
