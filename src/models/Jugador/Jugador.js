@@ -5,7 +5,7 @@ const { Schema, model } = mongoose;
 const jugadorSchema = new Schema({
   nombre: { type: String, required: true },
   alias: { type: String },
-  fechaNacimiento: { type: Date, required: true },
+  fechaNacimiento: { type: Date },
   genero: { type: String, enum: ['masculino', 'femenino', 'otro'], default: 'otro' },
   foto: { type: String },
   nacionalidad: { type: String, default: '' },

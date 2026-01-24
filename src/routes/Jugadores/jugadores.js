@@ -77,14 +77,14 @@ const router = express.Router();
 router.post('/', verificarToken, async (req, res) => {
   try {
     const { nombre, alias, fechaNacimiento, genero, foto } = req.body;
-    if (!nombre || !fechaNacimiento) {
-      return res.status(400).json({ message: 'Nombre y fechaNacimiento son obligatorios' });
+    if (!nombre) {
+      return res.status(400).json({ message: 'El nombre es obligatorio' });
     }
 
     const jugador = new Jugador({
       nombre,
       alias,
-      fechaNacimiento,
+      fechaNacimiento: fechaNacimiento || undefined,
       genero,
       foto,
       creadoPor: req.user.uid,  // <- asigna creador aquí
