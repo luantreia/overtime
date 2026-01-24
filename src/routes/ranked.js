@@ -281,8 +281,8 @@ router.get('/players/:playerId/rating', async (req, res) => {
     const q = { playerId };
     if (competenciaId) q.competenciaId = competenciaId;
     if (temporadaId) q.temporadaId = temporadaId;
-    if (modalidad) q.modalidad = modalidad;
-    if (categoria) q.categoria = categoria;
+    if (modalidad) q.modalidad = modalidad.toLowerCase();
+    if (categoria) q.categoria = categoria.toLowerCase();
     const pr = await PlayerRating.find(q).lean();
     res.json({ ok: true, items: pr });
   } catch (err) {
@@ -304,8 +304,8 @@ router.get('/leaderboard', async (req, res) => {
       q.temporadaId = temporadaId;
     }
     
-    if (modalidad) q.modalidad = modalidad;
-    if (categoria) q.categoria = categoria;
+    if (modalidad) q.modalidad = modalidad.toLowerCase();
+    if (categoria) q.categoria = categoria.toLowerCase();
 
     const items = await PlayerRating.find(q)
       .where('matchesPlayed').gte(Number(minMatches))
