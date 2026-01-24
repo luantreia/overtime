@@ -224,7 +224,14 @@ router.post('/match/:id/finalize', async (req, res) => {
     const partido = await Partido.findById(partidoId);
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
     if (!partido.isRanked) return res.status(400).json({ ok: false, error: 'Partido no es ranked' });
-    if (partido?.rankedMeta?.applied) return res.status(400).json({ ok: false, error: 'Ranking ya aplicado' });
+    
+    // Auto-revert if already applied to allow correction
+    if (partido?.rankedMeta?.applied) {
+      const { revertRankedResult } = await import('../services/ratingService.js');
+      await revertRankedResult({ partidoId });
+      partido.rankedMeta.applied = false;
+      partido.rankedMeta.snapshot = null;
+    }
 
     // Optionally set scores from body
     const { marcadorLocal, marcadorVisitante, sets, creadoPor = 'ranked-mvp' } = req.body || {};
@@ -518,6 +525,7 @@ router.post('/match/:id/revert', async (req, res) => {
     // If partido exists, unmark it as applied
     const partido = await Partido.findById(partidoId);
     if (partido) {
+      partido.estado = 'en_juego'; // Allow re-editing in tools
       if (partido.rankedMeta) {
         partido.rankedMeta.applied = false;
         partido.rankedMeta.snapshot = null;

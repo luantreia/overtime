@@ -276,7 +276,7 @@ PartidoSchema.post('save', async function () {
 
   // 4. Apply ranked rating updates once per finalized match
   try {
-    if (this.isRanked && !(this.rankedMeta?.applied)) {
+    if (this.isRanked && this.estado === 'finalizado' && !(this.rankedMeta?.applied)) {
       const normalizeEnum = (val) => {
         if (!val) return val;
         const s = val.toLowerCase().trim();
