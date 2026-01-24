@@ -262,11 +262,17 @@ router.put('/match/:id/config', async (req, res) => {
 // Get match ranked detail
 router.get('/match/:id', async (req, res) => {
   try {
-    const partido = await Partido.findById(req.params.id).lean();
+    const partidoId = req.params.id;
+    const partido = await Partido.findById(partidoId).lean();
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
-    const teams = await MatchTeam.find({ partidoId: partido._id }).populate('players').lean();
-    const players = await MatchPlayer.find({ partidoId: partido._id }).populate('playerId').lean();
-    res.json({ ok: true, partido, teams, players });
+    
+    const [teams, players, sets] = await Promise.all([
+      MatchTeam.find({ partidoId }).populate('players').lean(),
+      MatchPlayer.find({ partidoId }).populate('playerId').lean(),
+      SetPartido.find({ partido: partidoId }).sort('numeroSet').lean()
+    ]);
+    
+    res.json({ ok: true, partido, teams, players, sets });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
