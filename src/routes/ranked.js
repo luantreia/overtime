@@ -309,6 +309,96 @@ router.get('/players/:playerId/rating', async (req, res) => {
   }
 });
 
+// Get player rating detail with match history
+router.get('/players/:playerId/detail', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.query;
+    
+    const query = { 
+      playerId, 
+      competenciaId: competenciaId || undefined, 
+      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
+    };
+
+    const rating = await PlayerRating.findOne(query).populate('playerId', 'nombre').lean();
+    const history = await MatchPlayer.find(query).populate('partidoId').sort({ createdAt: -1 }).lean();
+
+    res.json({ ok: true, rating, history });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Force recalculate a single player's rating based on their MatchPlayer history
+router.post('/players/:playerId/recalculate', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.body;
+    
+    const query = { 
+      playerId, 
+      competenciaId: competenciaId || undefined, 
+      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
+    };
+
+    const history = await MatchPlayer.find(query).sort({ createdAt: 1 }).lean();
+    
+    let currentRating = 1500;
+    let matchesCount = 0;
+    let lastDelta = 0;
+
+    for (const match of history) {
+      if (typeof match.delta === 'number') {
+        currentRating += match.delta;
+        matchesCount++;
+        lastDelta = match.delta;
+      }
+    }
+
+    const pr = await PlayerRating.findOneAndUpdate(
+      query,
+      { $set: { rating: currentRating, matchesPlayed: matchesCount, lastDelta, updatedAt: new Date() } },
+      { upsert: true, new: true }
+    );
+
+    res.json({ ok: true, pr });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Delete a player's rating record (removes them from leaderboard)
+router.delete('/players/:playerId/rating', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria, deleteHistory = 'true' } = req.query;
+    
+    const query = { 
+      playerId, 
+      competenciaId: competenciaId || undefined, 
+      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
+    };
+
+    const prResult = await PlayerRating.deleteOne(query);
+    let mpResult = { deletedCount: 0 };
+    
+    if (deleteHistory === 'true') {
+      mpResult = await MatchPlayer.deleteMany(query);
+    }
+
+    res.json({ ok: true, deletedRating: prResult.deletedCount, deletedHistory: mpResult.deletedCount });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Leaderboard
 router.get('/leaderboard', async (req, res) => {
   try {
