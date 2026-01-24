@@ -401,6 +401,77 @@ router.delete('/players/:playerId/rating', async (req, res) => {
   }
 });
 
+// Dev-only: Sync all player wins from their MatchPlayer history
+router.post('/dev/sync-all-wins', async (req, res) => {
+  try {
+    const ratings = await PlayerRating.find({});
+    let updatedCount = 0;
+
+    for (const pr of ratings) {
+      const query = { 
+        playerId: pr.playerId, 
+        competenciaId: pr.competenciaId, 
+        temporadaId: pr.temporadaId,
+        modalidad: pr.modalidad,
+        categoria: pr.categoria
+      };
+
+      const history = await MatchPlayer.find(query).lean();
+      let wins = 0;
+      for (const h of history) {
+        if (h.win === true || (h.win === undefined && h.delta > 0)) wins++;
+      }
+
+      pr.wins = wins;
+      await pr.save();
+      updatedCount++;
+    }
+
+    res.json({ ok: true, updatedCount });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Delete a specific match snapshot (MatchPlayer) and optionally recalculate
+router.delete('/match-player/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const mp = await MatchPlayer.findById(id);
+    if (!mp) return res.status(404).json({ ok: false, error: 'Snapshot no encontrado' });
+
+    const { playerId, competenciaId, temporadaId, modalidad, categoria } = mp;
+    await mp.deleteOne();
+
+    // Trigger recalculate for this player in this specific context
+    const history = await MatchPlayer.find({ playerId, competenciaId, temporadaId, modalidad, categoria }).sort({ createdAt: 1 }).lean();
+    
+    let currentRating = 1500;
+    let matchesCount = 0;
+    let winsCount = 0;
+    let lastDelta = 0;
+
+    for (const match of history) {
+      if (typeof match.delta === 'number') {
+        currentRating += match.delta;
+        matchesCount++;
+        if (match.win || (match.win === undefined && match.delta > 0)) winsCount++;
+        lastDelta = match.delta;
+      }
+    }
+
+    const pr = await PlayerRating.findOneAndUpdate(
+      { playerId, competenciaId, temporadaId, modalidad, categoria },
+      { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
+      { upsert: true, new: true }
+    );
+
+    res.json({ ok: true, message: 'Snapshot eliminado y ranking recalibrado', pr });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Leaderboard
 router.get('/leaderboard', async (req, res) => {
   try {
