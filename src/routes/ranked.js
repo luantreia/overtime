@@ -932,7 +932,9 @@ router.post('/dev/reset-all', async (req, res) => {
 // Delete multiple player ratings at once for a specific scope
 router.post('/players/bulk-delete-rating', async (req, res) => {
   try {
-    const { playerIds, competenciaId, temporadaId, modalidad, categoria } = req.body;
+    const { playerIds, modalidad, categoria } = req.body;
+    const competenciaId = req.body.competenciaId || req.body.competition;
+    const temporadaId = req.body.temporadaId || req.body.season;
     
     if (!Array.isArray(playerIds) || playerIds.length === 0) {
       return res.status(400).json({ ok: false, error: 'Lista de IDs de jugadores requerida' });
@@ -958,7 +960,9 @@ router.post('/players/bulk-delete-rating', async (req, res) => {
 // Clean up all player ratings with 0 matches played (ghosts)
 router.post('/cleanup-ghosts', async (req, res) => {
   try {
-    const { competenciaId, temporadaId, modalidad, categoria } = req.body;
+    const { modalidad, categoria } = req.body;
+    const competenciaId = req.body.competenciaId || req.body.competition;
+    const temporadaId = req.body.temporadaId || req.body.season;
 
     const query = { matchesPlayed: 0 };
     
