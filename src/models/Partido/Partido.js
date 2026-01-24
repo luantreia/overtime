@@ -84,6 +84,10 @@ const PartidoSchema = new Schema({
     afkPlayers: [{ type: Schema.Types.ObjectId, ref: 'Jugador' }],
     startTime: { type: Date },
     endTime: { type: Date },
+    // Configuración de tiempos
+    matchDuration: { type: Number, default: 1200 }, // segundos
+    setDuration: { type: Number, default: 180 },    // segundos
+    suddenDeathLimit: { type: Number, default: 180 }, // segundos
     snapshot: {
       players: [
         {

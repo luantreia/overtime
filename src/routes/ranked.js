@@ -227,6 +227,38 @@ router.post('/match/:id/start-timer', async (req, res) => {
   }
 });
 
+// Update match config (timers, sudden death, etc)
+router.put('/match/:id/config', async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const { matchDuration, setDuration, suddenDeathLimit } = req.body;
+
+    const update = {};
+    if (typeof matchDuration === 'number') {
+      update['timerMatchValue'] = matchDuration;
+      update['rankedMeta.matchDuration'] = matchDuration;
+    }
+    if (typeof setDuration === 'number') {
+      update['rankedMeta.setDuration'] = setDuration;
+    }
+    if (typeof suddenDeathLimit === 'number') {
+      update['rankedMeta.suddenDeathLimit'] = suddenDeathLimit;
+    }
+
+    const partido = await Partido.findByIdAndUpdate(
+      partidoId,
+      { $set: update },
+      { new: true }
+    );
+
+    if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
+
+    res.json({ ok: true, rankedMeta: partido.rankedMeta });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Get match ranked detail
 router.get('/match/:id', async (req, res) => {
   try {
@@ -282,6 +314,9 @@ router.post('/match/:id/finalize', async (req, res) => {
     // Save sets if provided
     if (Array.isArray(sets) && sets.length > 0) {
       await SetPartido.deleteMany({ partido: partidoId });
+      
+      const suddenDeathLimit = partido.rankedMeta?.suddenDeathLimit || 180;
+
       const setDocs = sets.map((s, idx) => {
         const prevSetTime = idx > 0 ? sets[idx - 1].time : 0;
         const durationMs = s.time - prevSetTime;
@@ -292,7 +327,7 @@ router.post('/match/:id/finalize', async (req, res) => {
           ganadorSet: s.winner,
           estadoSet: 'finalizado',
           duracionReal: durationSec,
-          suddenDeathMode: durationSec > 180,
+          suddenDeathMode: durationSec > suddenDeathLimit,
           meta: { matchRelativeTime: s.time },
           creadoPor
         };
