@@ -82,6 +82,8 @@ const PartidoSchema = new Schema({
     },
     temporadaId: { type: Schema.Types.ObjectId, ref: 'Temporada' },
     afkPlayers: [{ type: Schema.Types.ObjectId, ref: 'Jugador' }],
+    startTime: { type: Date },
+    endTime: { type: Date },
     snapshot: {
       players: [
         {

@@ -204,6 +204,29 @@ router.post('/match/:id/assign', async (req, res) => {
   }
 });
 
+// Update match timer state (to sync with Mesa de Control)
+router.post('/match/:id/start-timer', async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const { startTime, timerMatchValue = 1200 } = req.body;
+    
+    const update = {
+      estado: 'en_juego',
+      timerMatchRunning: true,
+      timerMatchLastUpdate: new Date(),
+      timerMatchValue,
+      'rankedMeta.startTime': startTime ? new Date(startTime) : new Date()
+    };
+
+    const partido = await Partido.findByIdAndUpdate(partidoId, { $set: update }, { new: true });
+    if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
+
+    res.json({ ok: true, partido });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Get match ranked detail
 router.get('/match/:id', async (req, res) => {
   try {
@@ -234,7 +257,7 @@ router.post('/match/:id/finalize', async (req, res) => {
     }
 
     // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp' } = req.body || {};
+    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp', startTime } = req.body || {};
     if (typeof marcadorLocal === 'number') {
       partido.marcadorLocal = marcadorLocal;
       partido.marcadorModificadoManualmente = true;
@@ -244,22 +267,36 @@ router.post('/match/:id/finalize', async (req, res) => {
       partido.marcadorModificadoManualmente = true;
     }
 
+    partido.rankedMeta = partido.rankedMeta || {};
+
+    if (startTime) {
+      partido.rankedMeta.startTime = new Date(startTime);
+    }
+    partido.rankedMeta.endTime = new Date();
+
     // Save AFK players if provided
     if (Array.isArray(afkPlayers)) {
-      partido.rankedMeta = partido.rankedMeta || {};
       partido.rankedMeta.afkPlayers = afkPlayers;
     }
 
     // Save sets if provided
     if (Array.isArray(sets) && sets.length > 0) {
       await SetPartido.deleteMany({ partido: partidoId });
-      const setDocs = sets.map((s, idx) => ({
-        partido: partidoId,
-        numeroSet: idx + 1,
-        ganadorSet: s.winner,
-        estadoSet: 'finalizado',
-        creadoPor
-      }));
+      const setDocs = sets.map((s, idx) => {
+        const prevSetTime = idx > 0 ? sets[idx - 1].time : 0;
+        const durationMs = s.time - prevSetTime;
+        const durationSec = Math.round(durationMs / 1000);
+        return {
+          partido: partidoId,
+          numeroSet: idx + 1,
+          ganadorSet: s.winner,
+          estadoSet: 'finalizado',
+          duracionReal: durationSec,
+          suddenDeathMode: durationSec > 180,
+          meta: { matchRelativeTime: s.time },
+          creadoPor
+        };
+      });
       await SetPartido.insertMany(setDocs);
     }
 

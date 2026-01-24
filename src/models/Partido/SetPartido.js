@@ -41,6 +41,8 @@ const SetPartidoSchema = new mongoose.Schema({
   duracionSetTimer: { type: Number, default: null }, // How much of the 3:00 was used (180 - timerSetValue at finish)
   duracionSuddenDeath: { type: Number, default: null }, // Sudden death duration if applicable
 
+  meta: { type: mongoose.Schema.Types.Mixed },
+
   creadoPor: {
     type: String,
     ref: 'Usuario',
