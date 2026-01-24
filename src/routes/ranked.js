@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Partido from '../models/Partido/Partido.js';
 import MatchTeam from '../models/Partido/MatchTeam.js';
+import SetPartido from '../models/Partido/SetPartido.js';
 import PlayerRating from '../models/Jugador/PlayerRating.js';
 import Equipo from '../models/Equipo/Equipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -195,7 +196,7 @@ router.post('/match/:id/finalize', async (req, res) => {
     if (partido?.rankedMeta?.applied) return res.status(400).json({ ok: false, error: 'Ranking ya aplicado' });
 
     // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante } = req.body || {};
+    const { marcadorLocal, marcadorVisitante, sets } = req.body || {};
     if (typeof marcadorLocal === 'number') {
       partido.marcadorLocal = marcadorLocal;
       partido.marcadorModificadoManualmente = true;
@@ -203,6 +204,18 @@ router.post('/match/:id/finalize', async (req, res) => {
     if (typeof marcadorVisitante === 'number') {
       partido.marcadorVisitante = marcadorVisitante;
       partido.marcadorModificadoManualmente = true;
+    }
+
+    // Save sets if provided
+    if (Array.isArray(sets) && sets.length > 0) {
+      await SetPartido.deleteMany({ partido: partidoId });
+      const setDocs = sets.map((s, idx) => ({
+        partido: partidoId,
+        numeroSet: idx + 1,
+        ganadorSet: s.winner,
+        estadoSet: 'finalizado'
+      }));
+      await SetPartido.insertMany(setDocs);
     }
 
     // Check playoff tie restriction
