@@ -196,7 +196,7 @@ router.post('/match/:id/finalize', async (req, res) => {
     if (partido?.rankedMeta?.applied) return res.status(400).json({ ok: false, error: 'Ranking ya aplicado' });
 
     // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante, sets } = req.body || {};
+    const { marcadorLocal, marcadorVisitante, sets, creadoPor = 'ranked-mvp' } = req.body || {};
     if (typeof marcadorLocal === 'number') {
       partido.marcadorLocal = marcadorLocal;
       partido.marcadorModificadoManualmente = true;
@@ -213,7 +213,8 @@ router.post('/match/:id/finalize', async (req, res) => {
         partido: partidoId,
         numeroSet: idx + 1,
         ganadorSet: s.winner,
-        estadoSet: 'finalizado'
+        estadoSet: 'finalizado',
+        creadoPor
       }));
       await SetPartido.insertMany(setDocs);
     }
