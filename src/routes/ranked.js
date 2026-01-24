@@ -929,4 +929,49 @@ router.post('/dev/reset-all', async (req, res) => {
   }
 });
 
+// Delete multiple player ratings at once for a specific scope
+router.post('/players/bulk-delete-rating', async (req, res) => {
+  try {
+    const { playerIds, competenciaId, temporadaId, modalidad, categoria } = req.body;
+    
+    if (!Array.isArray(playerIds) || playerIds.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Lista de IDs de jugadores requerida' });
+    }
+
+    const query = { 
+      playerId: { $in: playerIds },
+      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
+      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
+    };
+
+    const prResult = await PlayerRating.deleteMany(query);
+    const mpResult = await MatchPlayer.deleteMany(query);
+
+    res.json({ ok: true, deletedRating: prResult.deletedCount, deletedHistory: mpResult.deletedCount });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Clean up all player ratings with 0 matches played (ghosts)
+router.post('/cleanup-ghosts', async (req, res) => {
+  try {
+    const { competenciaId, temporadaId, modalidad, categoria } = req.body;
+
+    const query = { matchesPlayed: 0 };
+    
+    if (competenciaId) query.competenciaId = (competenciaId === 'null' ? null : competenciaId);
+    if (temporadaId) query.temporadaId = (temporadaId === 'null' ? null : (temporadaId === 'global' ? null : temporadaId));
+    if (modalidad) query.modalidad = normalizeEnum(modalidad);
+    if (categoria) query.categoria = normalizeEnum(categoria);
+
+    const result = await PlayerRating.deleteMany(query);
+    res.json({ ok: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 export default router;
