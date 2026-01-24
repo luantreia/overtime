@@ -182,9 +182,10 @@ router.get('/', async (req, res) => {
           'participacionFaseLocal',
           'participacionFaseVisitante',
           'creadoPor',
-          'administradores'
+          'administradores',
+          'matchTeams'
         ])
-        .populate('sets', '_id numeroSet estadoSet ganadorSet')
+        .populate('sets', '_id numeroSet estadoSet ganadorSet duracionReal')
         .sort({ fecha: 1 })
         .skip(skip)
         .limit(limit)

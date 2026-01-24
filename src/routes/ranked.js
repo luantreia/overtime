@@ -14,31 +14,41 @@ const router = express.Router();
 
 function ensureArray(arr) { return Array.isArray(arr) ? arr : []; }
 
-async function syncJugadorPartidoFromTeams(partido) {
+async function syncJugadorPartidoFromTeams(partido, creadoPor = 'ranked-mvp') {
   if (!partido) return;
-  const partidoId = partido._id?.toString?.() || partido.toString?.();
-  if (!partidoId) return;
-  const teams = await MatchTeam.find({ partidoId: partidoId }).lean();
+  const partidoId = (partido._id || partido).toString();
+  const teams = await MatchTeam.find({ partidoId }).lean();
   if (!teams || !teams.length) return;
+
   const localId = partido.equipoLocal?.toString?.();
   const visitId = partido.equipoVisitante?.toString?.();
+  const currentPlayers = [];
   const ops = [];
+
   for (const t of teams) {
     const equipo = t.color === 'rojo' ? localId : t.color === 'azul' ? visitId : undefined;
     if (!equipo) continue;
     for (const pid of (Array.isArray(t.players) ? t.players : [])) {
       const playerId = pid?.toString?.();
       if (!playerId) continue;
+      currentPlayers.push(playerId);
       ops.push({
         updateOne: {
           filter: { partido: partidoId, jugador: playerId },
-          update: { $set: { equipo, rol: 'jugador', estado: 'aceptado' } },
+          update: { 
+            $set: { equipo, rol: 'jugador', estado: 'aceptado', confirmoAsistencia: true },
+            $setOnInsert: { creadoPor }
+          },
           upsert: true,
         }
       });
     }
   }
-  if (ops.length) {
+
+  // Remove players no longer in teams
+  await JugadorPartido.deleteMany({ partido: partidoId, jugador: { $nin: currentPlayers } });
+
+  if (ops.length > 0) {
     try {
       await JugadorPartido.bulkWrite(ops, { ordered: false });
     } catch (e) {
@@ -49,22 +59,26 @@ async function syncJugadorPartidoFromTeams(partido) {
 
 async function syncMatchPlayersFromTeams(partido) {
   if (!partido) return;
-  const partidoId = partido._id?.toString?.() || partido.toString?.();
-  if (!partidoId) return;
-  const teams = await MatchTeam.find({ partidoId: partidoId }).lean();
+  const partidoId = (partido._id || partido).toString();
+  const teams = await MatchTeam.find({ partidoId }).lean();
   if (!teams || !teams.length) return;
-  const modalidad = partido.rankedMeta?.modalidad || partido.modalidad;
-  const categoria = partido.rankedMeta?.categoria || partido.categoria;
+
+  const modalidad = (partido.rankedMeta?.modalidad || partido.modalidad)?.toLowerCase();
+  const categoria = (partido.rankedMeta?.categoria || partido.categoria)?.toLowerCase();
   const competenciaId = partido.competencia || undefined;
+  const temporadaId = partido.rankedMeta?.temporadaId || null;
+  const currentPlayers = [];
   const ops = [];
+
   for (const t of teams) {
     const color = t.color;
     for (const pid of (Array.isArray(t.players) ? t.players : [])) {
       const playerId = pid?.toString?.();
       if (!playerId) continue;
+      currentPlayers.push(playerId);
       ops.push({
         updateOne: {
-          filter: { partidoId, playerId },
+          filter: { partidoId, playerId, temporadaId },
           update: {
             $setOnInsert: { competenciaId, modalidad, categoria },
             $set: { teamColor: color },
@@ -74,11 +88,14 @@ async function syncMatchPlayersFromTeams(partido) {
       });
     }
   }
+
+  await MatchPlayer.deleteMany({ partidoId, playerId: { $nin: currentPlayers } });
+
   if (ops.length) {
     try {
       await MatchPlayer.bulkWrite(ops, { ordered: false });
     } catch (e) {
-      // non-fatal
+      console.error('[syncMatchPlayersFromTeams] bulkWrite error', e);
     }
   }
 }
@@ -86,9 +103,11 @@ async function syncMatchPlayersFromTeams(partido) {
 // Create ranked match with team assignments (cap 9 per side)
 router.post('/match', async (req, res) => {
   try {
-    const { competenciaId, temporadaId, modalidad, categoria, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
+    const { competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
     const rojo = ensureArray(rojoPlayers);
     const azul = ensureArray(azulPlayers);
+    const modalidad = rawMod?.toLowerCase();
+    const categoria = rawCat?.toLowerCase();
 
     if (rojo.length > 9 || azul.length > 9) {
       return res.status(400).json({ ok: false, error: 'Máximo 9 jugadores por equipo' });
@@ -135,7 +154,7 @@ router.post('/match', async (req, res) => {
     await MatchTeam.create({ partidoId: partido._id, color: 'azul', players: azulValid });
 
     // Mirror initial assignment to JugadorPartido
-    try { await syncJugadorPartidoFromTeams(partido); } catch (e) {}
+    try { await syncJugadorPartidoFromTeams(partido, creadoPor); } catch (e) {}
     // Upsert placeholder MatchPlayer entries (teamColor and context)
     try { await syncMatchPlayersFromTeams(partido); } catch (e) {}
 
@@ -164,7 +183,7 @@ router.post('/match/:id/assign', async (req, res) => {
     // Mirror to JugadorPartido so stats UI works
     try {
       const partido = await Partido.findById(partidoId);
-      await syncJugadorPartidoFromTeams(partido);
+      await syncJugadorPartidoFromTeams(partido, partido.creadoPor);
       await syncMatchPlayersFromTeams(partido);
     } catch (e) {}
     res.json({ ok: true });
@@ -535,6 +554,9 @@ router.post('/match/:id/revert', async (req, res) => {
       }
       partido.ratingDeltas = [];
       await partido.save();
+      // Ensure rosters are still synced after revert (if any players remained)
+      await syncJugadorPartidoFromTeams(partido, partido.creadoPor);
+      await syncMatchPlayersFromTeams(partido);
     }
 
     res.json({ ok: true, message: 'Ranked stats reverted' });
