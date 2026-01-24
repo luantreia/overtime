@@ -9,6 +9,7 @@ import Jugador from '../models/Jugador/Jugador.js';
 import { getOrCreatePlayerRating } from '../services/ratingService.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import MatchPlayer from '../models/Partido/MatchPlayer.js';
+import TimerManager from '../services/TimerManager.js';
 
 const router = express.Router();
 
@@ -220,6 +221,13 @@ router.post('/match/:id/start-timer', async (req, res) => {
 
     const partido = await Partido.findByIdAndUpdate(partidoId, { $set: update }, { new: true });
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
+
+    // Sincronizar con el TimerManager de sockets
+    try {
+      await TimerManager.startMatch(partidoId);
+    } catch (e) {
+      console.error('[Ranked] Failed to sync TimerManager on start-timer:', e.message);
+    }
 
     res.json({ ok: true, partido });
   } catch (err) {
