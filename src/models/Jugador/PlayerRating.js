@@ -8,6 +8,7 @@ const PlayerRatingSchema = new mongoose.Schema({
   categoria: { type: String }, // 'Masculino' | 'Femenino' | 'Mixto' | 'Libre'
   rating: { type: Number, default: 1500 },
   matchesPlayed: { type: Number, default: 0 },
+  wins: { type: Number, default: 0 },
   lastDelta: { type: Number, default: 0 },
   updatedAt: { type: Date, default: Date.now },
   meta: { type: mongoose.Schema.Types.Mixed }

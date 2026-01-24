@@ -69,6 +69,7 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
     const pr = await getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria });
     pr.rating = post;
     pr.matchesPlayed = (pr.matchesPlayed || 0) + 1;
+    if (S_team === 1) pr.wins = (pr.wins || 0) + 1;
     pr.lastDelta = delta;
     pr.updatedAt = new Date();
     await pr.save();
@@ -78,6 +79,7 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
       {
         $set: {
           partidoId, playerId, teamColor, preRating, postRating: post, delta,
+          win: S_team === 1,
           competenciaId, temporadaId, modalidad, categoria
         }
       },

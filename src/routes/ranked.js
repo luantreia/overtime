@@ -350,19 +350,21 @@ router.post('/players/:playerId/recalculate', async (req, res) => {
     
     let currentRating = 1500;
     let matchesCount = 0;
+    let winsCount = 0;
     let lastDelta = 0;
 
     for (const match of history) {
       if (typeof match.delta === 'number') {
         currentRating += match.delta;
         matchesCount++;
+        if (match.win || match.delta > 0) winsCount++; // fallback to delta > 0 for old records
         lastDelta = match.delta;
       }
     }
 
     const pr = await PlayerRating.findOneAndUpdate(
       query,
-      { $set: { rating: currentRating, matchesPlayed: matchesCount, lastDelta, updatedAt: new Date() } },
+      { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
       { upsert: true, new: true }
     );
 

@@ -7,6 +7,7 @@ const MatchPlayerSchema = new mongoose.Schema({
   preRating: { type: Number },
   postRating: { type: Number },
   delta: { type: Number },
+  win: { type: Boolean },
   competenciaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Competencia' },
   temporadaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Temporada' },
   modalidad: { type: String },
