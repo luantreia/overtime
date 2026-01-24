@@ -277,8 +277,8 @@ PartidoSchema.post('save', async function () {
   // 4. Apply ranked rating updates once per finalized match
   try {
     if (this.isRanked && !(this.rankedMeta?.applied)) {
-      const modalidad = this.rankedMeta?.modalidad || this.modalidad;
-      const categoria = this.rankedMeta?.categoria || this.categoria;
+      const modalidad = (this.rankedMeta?.modalidad || this.modalidad)?.toLowerCase();
+      const categoria = (this.rankedMeta?.categoria || this.categoria)?.toLowerCase();
 
       // Determine winner mapped to team colors
       let winner = 'empate';

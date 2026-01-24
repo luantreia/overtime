@@ -570,8 +570,8 @@ router.post('/reset-scope', async (req, res) => {
 
     const query = {
       competenciaId,
-      modalidad,
-      categoria
+      modalidad: modalidad.toLowerCase(),
+      categoria: categoria.toLowerCase()
     };
     
     // Add temporadaId to query if provided
@@ -589,8 +589,8 @@ router.post('/reset-scope', async (req, res) => {
     const partidoQuery = {
       isRanked: true,
       competencia: competenciaId,
-      'rankedMeta.modalidad': modalidad,
-      'rankedMeta.categoria': categoria
+      'rankedMeta.modalidad': modalidad.toLowerCase(),
+      'rankedMeta.categoria': categoria.toLowerCase()
     };
     if (temporadaId) {
       partidoQuery.temporada = temporadaId;
