@@ -126,7 +126,8 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
 export async function revertRankedResult({ partidoId }) {
   const snapshots = await MatchPlayer.find({ partidoId });
   
-  for (const snap of snapshots) {
+  // Parallelize player rating adjustments
+  await Promise.all(snapshots.map(async (snap) => {
     const pr = await PlayerRating.findOne({
       playerId: snap.playerId,
       competenciaId: snap.competenciaId,
@@ -138,9 +139,15 @@ export async function revertRankedResult({ partidoId }) {
     if (pr) {
       pr.rating = (pr.rating || 1500) - (snap.delta || 0);
       pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
+      
+      // If we are reverting a win, decrement win count
+      if (snap.win === true || (snap.win === undefined && snap.delta > 0)) {
+        pr.wins = Math.max(0, (pr.wins || 0) - 1);
+      }
+      
       await pr.save();
     }
-    
-    await MatchPlayer.deleteOne({ _id: snap._id });
-  }
+  }));
+  
+  await MatchPlayer.deleteMany({ partidoId });
 }
