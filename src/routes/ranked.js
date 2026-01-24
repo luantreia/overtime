@@ -317,7 +317,7 @@ router.get('/players/:playerId/detail', async (req, res) => {
     
     const query = { 
       playerId, 
-      competenciaId: competenciaId || undefined, 
+      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
       temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
       modalidad: normalizeEnum(modalidad),
       categoria: normalizeEnum(categoria)
@@ -340,7 +340,7 @@ router.post('/players/:playerId/recalculate', async (req, res) => {
     
     const query = { 
       playerId, 
-      competenciaId: competenciaId || undefined, 
+      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
       temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
       modalidad: normalizeEnum(modalidad),
       categoria: normalizeEnum(categoria)
@@ -380,7 +380,7 @@ router.delete('/players/:playerId/rating', async (req, res) => {
     
     const query = { 
       playerId, 
-      competenciaId: competenciaId || undefined, 
+      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
       temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
       modalidad: normalizeEnum(modalidad),
       categoria: normalizeEnum(categoria)
@@ -404,7 +404,10 @@ router.get('/leaderboard', async (req, res) => {
   try {
     const { competition: competenciaId, season: temporadaId, modalidad, categoria, limit = 50, minMatches = 0 } = req.query;
     const q = {};
-    if (competenciaId) q.competenciaId = competenciaId;
+    
+    if (competenciaId && competenciaId !== 'null') {
+      q.competenciaId = competenciaId;
+    }
     
     // Default to Global (temporadaId: null) if season is not specified or explicit 'global'
     if (!temporadaId || temporadaId === 'null' || temporadaId === 'global') {
