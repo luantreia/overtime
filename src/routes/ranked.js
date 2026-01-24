@@ -321,13 +321,27 @@ router.get('/players/:playerId/detail', async (req, res) => {
     const { playerId } = req.params;
     const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.query;
     
-    const query = { 
-      playerId, 
-      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
-      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
-      modalidad: normalizeEnum(modalidad),
-      categoria: normalizeEnum(categoria)
-    };
+    const query = { playerId };
+    
+    if (competenciaId && competenciaId !== 'null') {
+      query.competenciaId = competenciaId;
+    } else {
+      query.competenciaId = null;
+    }
+
+    if (temporadaId && temporadaId !== 'null' && temporadaId !== 'global') {
+      query.temporadaId = temporadaId;
+    } else {
+      query.temporadaId = null;
+    }
+
+    if (modalidad && modalidad !== 'null' && modalidad !== '') {
+      query.modalidad = normalizeEnum(modalidad);
+    }
+    
+    if (categoria && categoria !== 'null' && categoria !== '') {
+      query.categoria = normalizeEnum(categoria);
+    }
 
     const rating = await PlayerRating.findOne(query).populate('playerId', 'nombre').lean();
     const history = await MatchPlayer.find(query).populate('partidoId').sort({ createdAt: -1 }).lean();
@@ -388,13 +402,27 @@ router.post('/players/:playerId/recalculate', async (req, res) => {
     const { playerId } = req.params;
     const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.body;
     
-    const query = { 
-      playerId, 
-      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
-      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
-      modalidad: normalizeEnum(modalidad),
-      categoria: normalizeEnum(categoria)
-    };
+    const query = { playerId };
+
+    if (competenciaId && competenciaId !== 'null') {
+      query.competenciaId = competenciaId;
+    } else {
+      query.competenciaId = null;
+    }
+
+    if (temporadaId && temporadaId !== 'null' && temporadaId !== 'global') {
+      query.temporadaId = temporadaId;
+    } else {
+      query.temporadaId = null;
+    }
+
+    if (modalidad && modalidad !== 'null' && modalidad !== '') {
+      query.modalidad = normalizeEnum(modalidad);
+    }
+    
+    if (categoria && categoria !== 'null' && categoria !== '') {
+      query.categoria = normalizeEnum(categoria);
+    }
 
     const history = await MatchPlayer.find(query).sort({ createdAt: 1 }).lean();
     
@@ -430,13 +458,27 @@ router.delete('/players/:playerId/rating', async (req, res) => {
     const { playerId } = req.params;
     const { competition: competenciaId, season: temporadaId, modalidad, categoria, deleteHistory = 'true' } = req.query;
     
-    const query = { 
-      playerId, 
-      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
-      temporadaId: (temporadaId === 'null' || !temporadaId) ? null : temporadaId,
-      modalidad: normalizeEnum(modalidad),
-      categoria: normalizeEnum(categoria)
-    };
+    const query = { playerId };
+
+    if (competenciaId && competenciaId !== 'null') {
+      query.competenciaId = competenciaId;
+    } else {
+      query.competenciaId = null;
+    }
+
+    if (temporadaId && temporadaId !== 'null' && temporadaId !== 'global') {
+      query.temporadaId = temporadaId;
+    } else {
+      query.temporadaId = null;
+    }
+
+    if (modalidad && modalidad !== 'null' && modalidad !== '') {
+      query.modalidad = normalizeEnum(modalidad);
+    }
+    
+    if (categoria && categoria !== 'null' && categoria !== '') {
+      query.categoria = normalizeEnum(categoria);
+    }
 
     const prResult = await PlayerRating.deleteOne(query);
     let mpResult = { deletedCount: 0 };

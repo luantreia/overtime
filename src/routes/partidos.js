@@ -589,6 +589,24 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
     }
 
     await partido.deleteOne();
+
+    // Limpieza de colecciones relacionadas
+    try {
+      const MatchPlayer = mongoose.model('MatchPlayer');
+      const MatchTeam = mongoose.model('MatchTeam');
+      const EquipoPartido = mongoose.model('EquipoPartido');
+      const SetPartido = mongoose.model('SetPartido');
+
+      await Promise.all([
+        MatchPlayer.deleteMany({ partidoId: req.params.id }),
+        MatchTeam.deleteMany({ partidoId: req.params.id }),
+        EquipoPartido.deleteMany({ partido: req.params.id }),
+        SetPartido.deleteMany({ partido: req.params.id })
+      ]);
+    } catch (cleanErr) {
+      console.warn('Error en limpieza de tablas relacionadas:', cleanErr.message);
+    }
+
     res.json({ message: 'Partido eliminado correctamente' });
   } catch (err) {
     res.status(500).json({ message: 'Error al eliminar el partido', error: err.message });

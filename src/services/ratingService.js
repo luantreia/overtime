@@ -40,6 +40,15 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
   const rojo = teams.find(t => t.color === 'rojo') || { players: [] };
   const azul = teams.find(t => t.color === 'azul') || { players: [] };
 
+  const currentPlayers = [...rojo.players, ...azul.players].map(id => id.toString());
+  
+  // Cleanup any "ghost" MatchPlayer records that are not in the final teams for this specific season context
+  await MatchPlayer.deleteMany({ 
+    partidoId, 
+    temporadaId,
+    playerId: { $nin: currentPlayers } 
+  });
+
   const loadPreRatings = async (playerIds) => {
     const ratings = await Promise.all((playerIds || []).map(async pid => {
       const pr = await getOrCreatePlayerRating({ playerId: pid, competenciaId, temporadaId, modalidad, categoria });
