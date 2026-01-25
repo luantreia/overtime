@@ -1,6 +1,12 @@
 import express from 'express';
-import  Jugador  from '../../models/Jugador/Jugador.js';
+import Jugador from '../../models/Jugador/Jugador.js';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
+import JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
+import PlayerRating from '../../models/Jugador/PlayerRating.js';
+import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
+import MatchPlayer from '../../models/Partido/MatchPlayer.js';
+import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 import mongoose from 'mongoose';
 import { esAdminDeEntidad } from '../../middleware/esAdminDeEntidad.js';
 import verificarToken from '../../middleware/authMiddleware.js';
@@ -360,6 +366,190 @@ router.get('/:id', validarObjectId, async (req, res) => {
   } catch (error) {
     console.error('Error al obtener jugador:', error);
     res.status(500).json({ message: 'Error al obtener jugador' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/competencias:
+ *   get:
+ *     summary: Obtiene todas las competencias en las que participa un jugador
+ *     tags: [Jugadores]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de competencias
+ */
+router.get('/:id/competencias', validarObjectId, async (req, res) => {
+  try {
+    const jugadorId = req.params.id;
+    console.log(`[Competencias] Buscando para jugador: ${jugadorId}`);
+    
+    // 1. Registro directo (JugadorCompetencia)
+    const directRel = await JugadorCompetencia.find({ jugador: jugadorId })
+      .populate({
+        path: 'competencia',
+        populate: { path: 'organizacion', select: 'nombre' }
+      })
+      .lean();
+    console.log(`[Competencias] Directas: ${directRel.length}`);
+    
+    // 2. Ranked (PlayerRating)
+    const ratings = await PlayerRating.find({ playerId: jugadorId, competenciaId: { $ne: null } })
+      .populate({
+        path: 'competenciaId',
+        populate: { path: 'organizacion', select: 'nombre' }
+      })
+      .lean();
+    console.log(`[Competencias] Ranked: ${ratings.length}`);
+      
+    // 3. Por Equipo (JugadorEquipo -> EquipoCompetencia)
+    const teams = await JugadorEquipo.find({ jugador: jugadorId, estado: 'aceptado' }).lean();
+    const teamIds = teams.map(t => t.equipo).filter(Boolean);
+    console.log(`[Competencias] Equipos encontrados: ${teamIds.length}`);
+    
+    let teamComps = [];
+    if (teamIds.length > 0) {
+      teamComps = await EquipoCompetencia.find({ equipo: { $in: teamIds }, estado: 'aceptado' })
+        .populate({
+          path: 'competencia',
+          populate: { path: 'organizacion', select: 'nombre' }
+        })
+        .lean();
+    }
+    console.log(`[Competencias] Competencias por equipo: ${teamComps.length}`);
+    
+    // 4. Determinar la temporada más "atractiva" (donde más jugó o la más reciente)
+    const matchStats = await MatchPlayer.aggregate([
+      { $match: { playerId: new mongoose.Types.ObjectId(jugadorId) } },
+      { $group: { 
+          _id: { comp: '$competenciaId', temp: '$temporadaId' }, 
+          count: { $sum: 1 } 
+      }},
+      { $sort: { count: -1 } }
+    ]);
+
+    const compBestSeason = new Map();
+    const compTotalMatches = new Map();
+
+    matchStats.forEach(stat => {
+      const cid = stat._id.comp?.toString();
+      const tid = stat._id.temp?.toString();
+      if (cid) {
+        if (!compBestSeason.has(cid)) compBestSeason.set(cid, tid);
+        compTotalMatches.set(cid, (compTotalMatches.get(cid) || 0) + stat.count);
+      }
+    });
+
+    // Buscar registros en temporadas por si no hay partidos
+    const registrations = await JugadorTemporada.find({ jugador: jugadorId })
+      .populate({
+        path: 'participacionTemporada',
+        select: 'temporada',
+        populate: { path: 'temporada', select: 'competencia' }
+      })
+      .lean();
+    
+    registrations.forEach(reg => {
+      const temp = reg.participacionTemporada?.temporada;
+      if (temp) {
+        const cid = temp.competencia?.toString();
+        const tid = temp._id?.toString();
+        if (cid && !compBestSeason.has(cid)) {
+          compBestSeason.set(cid, tid);
+        }
+      }
+    });
+
+    // 5. Fallback: Temporada con más equipos de toda la competencia
+    const uniqueCompIds = Array.from(new Set([
+      ...directRel.map(r => r.competencia?._id?.toString()),
+      ...ratings.map(r => r.competenciaId?._id?.toString()),
+      ...teamComps.map(r => r.competencia?._id?.toString())
+    ])).filter(Boolean);
+
+    if (uniqueCompIds.length > 0) {
+      const objectCompIds = uniqueCompIds.map(id => new mongoose.Types.ObjectId(id));
+      
+      const seasonsStats = await ParticipacionTemporada.aggregate([
+        { $lookup: {
+            from: 'temporadas',
+            localField: 'temporada',
+            foreignField: '_id',
+            as: 'tempDoc'
+        }},
+        { $unwind: '$tempDoc' },
+        { $match: { 'tempDoc.competencia': { $in: objectCompIds } } },
+        { $group: {
+            _id: { comp: '$tempDoc.competencia', temp: '$temporada' },
+            teamCount: { $sum: 1 }
+        }},
+        { $sort: { teamCount: -1 } }
+      ]);
+
+      seasonsStats.forEach(stat => {
+        const cid = stat._id.comp?.toString();
+        const tid = stat._id.temp?.toString();
+        if (cid && !compBestSeason.has(cid)) {
+          compBestSeason.set(cid, tid);
+        }
+      });
+    }
+
+    // Unificar y quitar duplicados por ID de competencia
+    const compMap = new Map();
+    
+    directRel.forEach(r => {
+      if (r.competencia?._id || r.competencia?.id) {
+        const c = r.competencia;
+        const id = (c._id || c.id).toString();
+        compMap.set(id, { 
+          ...c, 
+          id, 
+          matchCount: compTotalMatches.get(id) || 0,
+          preferredSeasonId: compBestSeason.get(id)
+        });
+      }
+    });
+    
+    ratings.forEach(r => {
+      if (r.competenciaId?._id || r.competenciaId?.id) {
+        const c = r.competenciaId;
+        const id = (c._id || c.id).toString();
+        compMap.set(id, { 
+          ...c, 
+          id, 
+          matchCount: compTotalMatches.get(id) || 0,
+          preferredSeasonId: compBestSeason.get(id)
+        });
+      }
+    });
+    
+    teamComps.forEach(r => {
+      if (r.competencia?._id || r.competencia?.id) {
+        const c = r.competencia;
+        const id = (c._id || c.id).toString();
+        compMap.set(id, { 
+          ...c, 
+          id, 
+          matchCount: compTotalMatches.get(id) || 0,
+          preferredSeasonId: compBestSeason.get(id)
+        });
+      }
+    });
+    
+    const finalResult = Array.from(compMap.values());
+    console.log(`[Competencias] Total unificadas: ${finalResult.length}`);
+    res.json(finalResult);
+  } catch (error) {
+    console.error('Error al obtener competencias del jugador:', error);
+    res.status(500).json({ message: 'Error al obtener competencias del jugador' });
   }
 });
 

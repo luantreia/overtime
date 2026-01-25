@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
 import verificarToken from '../../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
@@ -68,9 +69,17 @@ const router = express.Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', async (req, res) => {
-  const { competencia } = req.query;
+  const { competencia, jugador } = req.query;
   const filtro = {};
   if (competencia) filtro.competencia = competencia;
+  
+  if (jugador) {
+    if (mongoose.Types.ObjectId.isValid(jugador)) {
+      filtro.jugador = new mongoose.Types.ObjectId(jugador);
+    } else {
+      filtro.jugador = jugador;
+    }
+  }
 
   try {
     const items = await JugadorCompetencia.find(filtro)
@@ -78,6 +87,7 @@ router.get('/', async (req, res) => {
         path: 'jugador',
         select: 'nombre apellido foto',
       })
+      .populate('competencia')
       .lean();
 
     res.json(items);

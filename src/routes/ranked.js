@@ -511,6 +511,69 @@ router.get('/players/:playerId/detail', async (req, res) => {
   }
 });
 
+router.get('/players/:playerId/rank-context', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.query;
+
+    const q = {};
+    if (competenciaId && competenciaId !== 'null') q.competenciaId = competenciaId;
+    if (!temporadaId || temporadaId === 'null' || temporadaId === 'global') {
+      q.temporadaId = null;
+    } else {
+      q.temporadaId = temporadaId;
+    }
+    if (modalidad) q.modalidad = normalizeEnum(modalidad);
+    if (categoria) q.categoria = normalizeEnum(categoria);
+
+    // Get the player's rating first
+    const playerRating = await PlayerRating.findOne({ ...q, playerId })
+      .populate('playerId', 'nombre foto')
+      .lean();
+    if (!playerRating) {
+      return res.json({ ok: true, rank: null, context: [] });
+    }
+
+    // Get the rank (count how many have higher rating)
+    const rank = await PlayerRating.countDocuments({
+      ...q,
+      rating: { $gt: playerRating.rating }
+    }) + 1;
+
+    // Get 3 above and 3 below
+    // Above: smallest rating > playerRating.rating
+    const above = await PlayerRating.find({
+      ...q,
+      rating: { $gt: playerRating.rating }
+    })
+    .sort({ rating: 1 })
+    .limit(3)
+    .populate('playerId', 'nombre foto')
+    .lean();
+
+    // Below: largest rating < playerRating.rating
+    const below = await PlayerRating.find({
+      ...q,
+      rating: { $lt: playerRating.rating }
+    })
+    .sort({ rating: -1 })
+    .limit(3)
+    .populate('playerId', 'nombre foto')
+    .lean();
+
+    // Combine and sort
+    const context = [
+      ...above.reverse().map((p, i) => ({ ...p, rank: rank - (above.length - i) })),
+      { ...playerRating, rank, isCurrent: true },
+      ...below.map((p, i) => ({ ...p, rank: rank + i + 1 }))
+    ];
+
+    res.json({ ok: true, rank, context });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Force recalculate a single player's rating based on their MatchPlayer history
 router.post('/players/:playerId/recalculate', async (req, res) => {
   try {
