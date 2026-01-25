@@ -239,7 +239,19 @@ router.post('/match/:id/start-timer', async (req, res) => {
 router.put('/match/:id/config', async (req, res) => {
   try {
     const partidoId = req.params.id;
-    const { matchDuration, setDuration, suddenDeathLimit } = req.body;
+    const { 
+      matchDuration, 
+      setDuration, 
+      suddenDeathLimit, 
+      useSuddenDeath, 
+      autoPauseGlobal,
+      enableCountdown,
+      enableWhistle,
+      voiceVolume,
+      buzzerVolume,
+      voiceRate,
+      voiceIndex
+    } = req.body;
 
     const update = {};
     if (typeof matchDuration === 'number') {
@@ -252,6 +264,20 @@ router.put('/match/:id/config', async (req, res) => {
     if (typeof suddenDeathLimit === 'number') {
       update['rankedMeta.suddenDeathLimit'] = suddenDeathLimit;
     }
+    if (typeof useSuddenDeath === 'boolean') {
+      update['rankedMeta.useSuddenDeath'] = useSuddenDeath;
+    }
+    if (typeof autoPauseGlobal === 'boolean') {
+      update['rankedMeta.autoPauseGlobal'] = autoPauseGlobal;
+    }
+
+    // Audio Settings
+    if (typeof enableCountdown === 'boolean') update['rankedMeta.enableCountdown'] = enableCountdown;
+    if (typeof enableWhistle === 'boolean') update['rankedMeta.enableWhistle'] = enableWhistle;
+    if (typeof voiceVolume === 'number') update['rankedMeta.voiceVolume'] = voiceVolume;
+    if (typeof buzzerVolume === 'number') update['rankedMeta.buzzerVolume'] = buzzerVolume;
+    if (typeof voiceRate === 'number') update['rankedMeta.voiceRate'] = voiceRate;
+    if (typeof voiceIndex === 'number') update['rankedMeta.voiceIndex'] = voiceIndex;
 
     const partido = await Partido.findByIdAndUpdate(
       partidoId,
