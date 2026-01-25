@@ -487,10 +487,12 @@ router.get('/players/:playerId/detail', async (req, res) => {
               id: tId, 
               name: p.playerId?.nombre || 'Desconocido', 
               matches: 0, 
-              wins: 0 
+              wins: 0,
+              matchIds: []
             };
           }
           teammateStats[tId].matches++;
+          teammateStats[tId].matchIds.push(pId.toString());
           if (isWin) teammateStats[tId].wins++;
         }
       }
