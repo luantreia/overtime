@@ -540,35 +540,59 @@ router.get('/players/:playerId/rank-context', async (req, res) => {
       rating: { $gt: playerRating.rating }
     }) + 1;
 
-    // Get 3 above and 3 below
-    // Above: smallest rating > playerRating.rating
+    // Get 3 above and 3 below using stable sort (rating DESC, _id ASC)
+    // To get above: (rating > current) OR (rating == current AND _id < current)
     const above = await PlayerRating.find({
       ...q,
-      rating: { $gt: playerRating.rating }
+      $or: [
+        { rating: { $gt: playerRating.rating } },
+        { rating: playerRating.rating, _id: { $lt: playerRating._id } }
+      ]
     })
-    .sort({ rating: 1 })
+    .sort({ rating: 1, _id: -1 }) // Closest first
     .limit(3)
     .populate('playerId', 'nombre foto')
     .lean();
 
-    // Below: largest rating < playerRating.rating
+    // To get below: (rating < current) OR (rating == current AND _id > current)
     const below = await PlayerRating.find({
       ...q,
-      rating: { $lt: playerRating.rating }
+      $or: [
+        { rating: { $lt: playerRating.rating } },
+        { rating: playerRating.rating, _id: { $gt: playerRating._id } }
+      ]
     })
-    .sort({ rating: -1 })
+    .sort({ rating: -1, _id: 1 }) // Closest first
     .limit(3)
     .populate('playerId', 'nombre foto')
     .lean();
 
-    // Combine and sort
-    const context = [
-      ...above.reverse().map((p, i) => ({ ...p, rank: rank - (above.length - i) })),
-      { ...playerRating, rank, isCurrent: true },
-      ...below.map((p, i) => ({ ...p, rank: rank + i + 1 }))
-    ];
+    // Combine all to calculate individual ranks
+    const allContext = [...above, playerRating, ...below];
+    
+    // Function to get rank for a specific rating
+    const getRankForRating = async (r) => {
+      return await PlayerRating.countDocuments({
+        ...q,
+        rating: { $gt: r }
+      }) + 1;
+    };
 
-    res.json({ ok: true, rank, context });
+    // Build the final context with real ranks
+    const contextPromises = allContext.map(async (p) => {
+      const pRank = await getRankForRating(p.rating);
+      return {
+        ...p,
+        rank: pRank,
+        isCurrent: p.playerId?._id?.toString() === playerId || p.playerId?.toString() === playerId
+      };
+    });
+
+    const finalContext = await Promise.all(contextPromises);
+    // Final sort to ensure they are displayed from best to worst
+    finalContext.sort((a, b) => b.rating - a.rating || (a._id.toString() < b._id.toString() ? -1 : 1));
+
+    res.json({ ok: true, rank, context: finalContext });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
