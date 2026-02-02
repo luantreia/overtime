@@ -57,8 +57,13 @@ export function generarEliminatoriaDirecta(participaciones, datosBase, fase) {
     const visitante = padded[visitIdx];
 
     if (local || visitante) {
+      const isBye = (local && !visitante) || (!local && visitante);
+      
       partidos.push({
         ...datosBase,
+        estado: isBye ? 'finalizado' : datosBase.estado,
+        marcadorLocal: (local && !visitante) ? 1 : 0,
+        marcadorVisitante: (!local && visitante) ? 1 : 0,
         equipoLocal: local?.participacionTemporada?.equipo?._id || local?.participacionTemporada?.equipo || null,
         equipoVisitante: visitante?.participacionTemporada?.equipo?._id || visitante?.participacionTemporada?.equipo || null,
         participacionFaseLocal: local?._id || null,

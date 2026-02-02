@@ -168,7 +168,7 @@ router.post(
 
       // Validación de estructura de partidos antes de guardar
       const partidosValidos = partidos.filter(p =>
-        p.equipoLocal && p.equipoVisitante && p.fecha && p.categoria && p.modalidad
+        (p.equipoLocal || p.equipoVisitante) && p.fecha && p.categoria && p.modalidad
       );
 
       if (partidosValidos.length === 0) {
@@ -179,22 +179,29 @@ router.post(
 
       // Crear equipoPartido para cada partido generado
       for (const partido of partidosGuardados) {
-        await EquipoPartido.create([
-          {
+        const batch = [];
+        if (partido.equipoLocal) {
+          batch.push({
             partido: partido._id,
             equipo: partido.equipoLocal,
             participacionFase: partido.participacionFaseLocal,
             esLocal: true,
             creadoPor: req.user.uid,
-          },
-          {
+          });
+        }
+        if (partido.equipoVisitante) {
+          batch.push({
             partido: partido._id,
             equipo: partido.equipoVisitante,
             participacionFase: partido.participacionFaseVisitante,
             esLocal: false,
             creadoPor: req.user.uid,
-          },
-        ]);
+          });
+        }
+        
+        if (batch.length > 0) {
+           await EquipoPartido.create(batch);
+        }
       }
 
       res.status(201).json({

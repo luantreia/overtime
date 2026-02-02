@@ -32,8 +32,8 @@ const PartidoSchema = new Schema({
   fecha: { type: Date, required: true },
   ubicacion: { type: String, trim: true },
 
-  equipoLocal: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
-  equipoVisitante: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
+  equipoLocal: { type: Schema.Types.ObjectId, ref: 'Equipo', required: false },
+  equipoVisitante: { type: Schema.Types.ObjectId, ref: 'Equipo', required: false },
   participacionFaseLocal: { type: Schema.Types.ObjectId, ref: 'ParticipacionFase' },
   participacionFaseVisitante: { type: Schema.Types.ObjectId, ref: 'ParticipacionFase' },
 
