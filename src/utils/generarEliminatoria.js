@@ -29,12 +29,33 @@ export function generarEliminatoriaDirecta(participaciones, datosBase, fase) {
   const partidos = [];
   const totalPartidos = powerOfTwo / 2;
 
-  // Lógica de emparejamiento de torneo
-  for (let i = 0; i < totalPartidos; i++) {
-    const local = padded[i];
-    const visitante = padded[powerOfTwo - 1 - i];
+  // Lógica de emparejamiento profesional (1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6)
+  // Esta secuencia asegura que el #1 y #2 solo se crucen en la final.
+  const getBracketOrder = (size) => {
+    let order = [0, 1];
+    for (let i = 2; i <= Math.log2(size); i++) {
+        let nextOrder = [];
+        const currentSize = Math.pow(2, i);
+        for (let j = 0; j < order.length; j++) {
+            nextOrder.push(order[j]);
+            nextOrder.push(currentSize - 1 - order[j]);
+        }
+        order = nextOrder;
+    }
+    // Para size 8, order es [0, 7, 3, 4, 1, 6, 2, 5]
+    // Pero nosotros necesitamos los PARES de partidos.
+    return order;
+  };
 
-    // Solo creamos el partido si hay al menos un equipo real
+  const order = getBracketOrder(powerOfTwo);
+  
+  for (let i = 0; i < order.length; i += 2) {
+    const localIdx = order[i];
+    const visitIdx = order[i+1];
+    
+    const local = padded[localIdx];
+    const visitante = padded[visitIdx];
+
     if (local || visitante) {
       partidos.push({
         ...datosBase,
