@@ -137,6 +137,15 @@ router.post(
           },
         })
         .lean();
+
+      // Verificar si ya existen partidos para evitar duplicados accidentales
+      const partidosExistentes = await Partido.countDocuments({ fase: faseId });
+      if (partidosExistentes > 0) {
+        return res.status(400).json({ 
+          error: 'Ya existen partidos en esta fase. Por favor, elimínalos manualmente antes de volver a generar el fixture para evitar duplicados.' 
+        });
+      }
+
       if (participaciones.length < 2) {
         return res.status(400).json({
           error: 'Se necesitan al menos 2 equipos para generar partidos',
