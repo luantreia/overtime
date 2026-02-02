@@ -54,6 +54,11 @@ const FaseSchema = new mongoose.Schema({
       },
       destinoGanadores: { type: mongoose.Schema.Types.ObjectId, ref: 'Fase' },
       destinoPerdedores: { type: mongoose.Schema.Types.ObjectId, ref: 'Fase' }, // Consolation bracket / Copa de Plata
+      estrategiaSembrado: { 
+        type: String, 
+        enum: ['posicion_directa', 'manual', 'aleatorio'], 
+        default: 'posicion_directa' 
+      }
     },
 
     // Detalle de Playoff (si aplica)

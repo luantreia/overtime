@@ -129,6 +129,10 @@ export const StandingsService = {
     if (progresion.destinoGanadores && progresion.clasificanDirecto > 0) {
       const ganadores = standings.filter(p => p.posicion <= progresion.clasificanDirecto);
       
+      // Obtener semillas ya ocupadas en el destino para no sobreescribir invitados
+      const ocupados = await ParticipacionFase.find({ fase: progresion.destinoGanadores, seed: { $ne: null } }).select('seed').lean();
+      const seedsOcupados = ocupados.map(o => o.seed);
+
       for (const p of ganadores) {
         try {
           const ptId = p.participacionTemporada?._id || p.participacionTemporada;
@@ -141,11 +145,21 @@ export const StandingsService = {
           });
 
           if (!existe) {
+            let seed = null;
+            if (progresion.estrategiaSembrado === 'posicion_directa') {
+              seed = p.posicion;
+              // Si la semilla está ocupada por un invitado, buscamos la siguiente libre
+              while (seedsOcupados.includes(seed)) {
+                seed++;
+              }
+            }
+
             await ParticipacionFase.create({
               participacionTemporada: ptId,
               fase: progresion.destinoGanadores,
-              seed: p.posicion // Usamos su posición final como seed inicial
+              seed: seed
             });
+            seedsOcupados.push(seed);
             resultados.ganadores++;
           }
         } catch (err) {
