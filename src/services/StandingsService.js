@@ -25,41 +25,64 @@ export const StandingsService = {
     // Obtener todos los partidos para el desempate "cara a cara"
     const partidos = await Partido.find({ fase: faseId, estado: 'finalizado' }).lean();
 
-    // Ordenamiento principal
-    const sorted = [...participaciones].sort((a, b) => {
-      for (const criterio of criterios) {
-        if (criterio === 'PUNTOS') {
-          if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+    // Función para procesar y ordenar un grupo de participaciones
+    const ordenarGrupo = (lista) => {
+      return [...lista].sort((a, b) => {
+        for (const criterio of criterios) {
+          if (criterio === 'PUNTOS') {
+            if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+          }
+          if (criterio === 'DIF_SETS') {
+            const difA = a.statsSets?.diferencia || 0;
+            const difB = b.statsSets?.diferencia || 0;
+            if (difB !== difA) return difB - difA;
+          }
+          if (criterio === 'DIF_PUNTOS') {
+            if (b.diferenciaPuntos !== a.diferenciaPuntos) return b.diferenciaPuntos - a.diferenciaPuntos;
+          }
+          if (criterio === 'CARA_A_CARA') {
+            const resultado = this._compareHeadToHead(a, b, partidos);
+            if (resultado !== 0) return resultado;
+          }
+          if (criterio === 'SETS_FAVOR') {
+            const favorA = a.statsSets?.ganados || 0;
+            const favorB = b.statsSets?.ganados || 0;
+            if (favorB !== favorA) return favorB - favorA;
+          }
         }
-        
-        if (criterio === 'DIF_SETS') {
-          const difA = a.statsSets?.diferencia || 0;
-          const difB = b.statsSets?.diferencia || 0;
-          if (difB !== difA) return difB - difA;
-        }
+        return 0;
+      });
+    };
 
-        if (criterio === 'DIF_PUNTOS') {
-          if (b.diferenciaPuntos !== a.diferenciaPuntos) return b.diferenciaPuntos - a.diferenciaPuntos;
-        }
+    let sorted = [];
+    
+    // Si la fase es de tipo 'grupo', ordenamos CADA GRUPO INDEPENDIENTEMENTE
+    if (fase.tipo === 'grupo') {
+      const grupos = {};
+      participaciones.forEach(p => {
+        const g = p.grupo || 'General';
+        if (!grupos[g]) grupos[g] = [];
+        grupos[g].push(p);
+      });
 
-        if (criterio === 'CARA_A_CARA') {
-          const resultado = this._compareHeadToHead(a, b, partidos);
-          if (resultado !== 0) return resultado;
-        }
-
-        if (criterio === 'SETS_FAVOR') {
-          const favorA = a.statsSets?.ganados || 0;
-          const favorB = b.statsSets?.ganados || 0;
-          if (favorB !== favorA) return favorB - favorA;
-        }
-      }
-      return 0;
-    });
+      // Ordenamos cada grupo y concatenamos
+      Object.keys(grupos).sort().forEach(g => {
+        const sortedGrupo = ordenarGrupo(grupos[g]);
+        // Asignamos posición relativa dentro del grupo para guardar
+        sortedGrupo.forEach((p, idx) => {
+          p.posicionRelativa = idx + 1;
+        });
+        sorted = sorted.concat(sortedGrupo);
+      });
+    } else {
+      sorted = ordenarGrupo(participaciones);
+    }
 
     // Actualizar posiciones en la base de datos
     for (let i = 0; i < sorted.length; i++) {
-      const pos = i + 1;
-      const id = sorted[i]._id;
+      const p = sorted[i];
+      const pos = p.posicionRelativa || (i + 1);
+      const id = p._id;
       
       const updateData = { posicion: pos };
       
@@ -71,11 +94,12 @@ export const StandingsService = {
           updateData.eliminado = false;
         } else {
           updateData.clasificado = false;
-          // Aquí podríamos marcar como eliminado si no hay más chances
         }
       }
 
       await ParticipacionFase.findByIdAndUpdate(id, updateData);
+      // Actualizamos el objeto local para que processProgression lo use bien
+      p.posicion = pos;
     }
 
     return sorted;
@@ -147,7 +171,16 @@ export const StandingsService = {
           if (!existe) {
             let seed = null;
             if (progresion.estrategiaSembrado === 'posicion_directa') {
-              seed = p.posicion;
+              // Si es por grupos, el seed es Posicion + Offset por Grupo
+              // Ej: Pos 1 Grupo A = Seed 1, Pos 1 Grupo B = Seed 2...
+              if (fase.tipo === 'grupo') {
+                const gruposOrdenados = [...new Set(standings.map(s => s.grupo || 'General'))].sort();
+                const indexGrupo = gruposOrdenados.indexOf(p.grupo || 'General');
+                seed = (p.posicion - 1) * gruposOrdenados.length + (indexGrupo + 1);
+              } else {
+                seed = p.posicion;
+              }
+
               // Si la semilla está ocupada por un invitado, buscamos la siguiente libre
               while (seedsOcupados.includes(seed)) {
                 seed++;
