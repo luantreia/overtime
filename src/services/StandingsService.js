@@ -113,13 +113,79 @@ export const StandingsService = {
    * Útil para Copas, Playoffs y ascensos.
    */
   async processProgression(faseId) {
-    const fase = await Fase.findById(faseId).populate('configuracion.progresion.destinoGanadores configuracion.progresion.destinoPerdedores');
-    if (!fase || !fase.configuracion?.progresion) return;
+    const fase = await Fase.findById(faseId);
+    if (!fase) throw new Error('Fase no encontrada');
 
-    const { progresion } = fase.configuracion;
+    const config = fase.configuracion || {};
+    const { progresion } = config;
+    if (!progresion) return { mensaje: 'No hay configuración de progresión' };
+
+    // Calculamos standings finales
     const standings = await this.calculateStandings(faseId);
 
-    // TODO: Implementar lógica de creación de ParticipacionFase en la fase destino
-    // y asignación de seeds si es un playoff.
+    const resultados = { ganadores: 0, perdedores: 0, errores: [] };
+
+    // 1. Procesar Ganadores (Clasificados directos)
+    if (progresion.destinoGanadores && progresion.clasificanDirecto > 0) {
+      const ganadores = standings.filter(p => p.posicion <= progresion.clasificanDirecto);
+      
+      for (const p of ganadores) {
+        try {
+          const ptId = p.participacionTemporada?._id || p.participacionTemporada;
+          if (!ptId) continue;
+
+          // Verificar si ya existe en la fase destino
+          const existe = await ParticipacionFase.findOne({ 
+            participacionTemporada: ptId, 
+            fase: progresion.destinoGanadores 
+          });
+
+          if (!existe) {
+            await ParticipacionFase.create({
+              participacionTemporada: ptId,
+              fase: progresion.destinoGanadores,
+              seed: p.posicion // Usamos su posición final como seed inicial
+            });
+            resultados.ganadores++;
+          }
+        } catch (err) {
+          resultados.errores.push(`Error con ganador ${p._id}: ${err.message}`);
+        }
+      }
+    }
+
+    // 2. Procesar Perdedores (Aquellos que no clasificaron directo, ej. a Copa de Plata)
+    if (progresion.destinoPerdedores && progresion.clasificanDirecto > 0) {
+      const perdedores = standings.filter(p => p.posicion > progresion.clasificanDirecto);
+
+      for (const p of perdedores) {
+        try {
+          const ptId = p.participacionTemporada?._id || p.participacionTemporada;
+          if (!ptId) continue;
+
+          const existe = await ParticipacionFase.findOne({ 
+            participacionTemporada: ptId, 
+            fase: progresion.destinoPerdedores 
+          });
+
+          if (!existe) {
+            await ParticipacionFase.create({
+              participacionTemporada: ptId,
+              fase: progresion.destinoPerdedores
+            });
+            resultados.perdedores++;
+          }
+        } catch (err) {
+          resultados.errores.push(`Error con perdedor ${p._id}: ${err.message}`);
+        }
+      }
+    }
+
+    // Marcar fase como finalizada
+    fase.estado = 'finalizada';
+    await fase.save();
+
+    console.log(`[PROGRESION] Fase ${faseId} finalizada. Ganadores: ${resultados.ganadores}, Perdedores: ${resultados.perdedores}`);
+    return resultados;
   }
 };

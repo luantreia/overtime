@@ -9,6 +9,7 @@ import Partido from '../../models/Partido/Partido.js';
 import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
 import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 import { generarFixturePorTipo } from '../../utils/generadorFixturePorTipo.js';
+import { StandingsService } from '../../services/StandingsService.js';
 
 const router = express.Router();
 
@@ -375,6 +376,27 @@ router.delete(
       res.json({ mensaje: 'Fase eliminada correctamente' });
     } catch (error) {
       res.status(400).json({ error: 'Error al eliminar fase' });
+    }
+  }
+);
+
+// Finalizar fase y procesar progresiones
+router.post(
+  '/:id/finalizar',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Fase, 'fase'),
+  async (req, res) => {
+    try {
+      const resultados = await StandingsService.processProgression(req.params.id);
+      res.json({ 
+        mensaje: 'Fase finalizada y equipos promovidos con éxito',
+        detalles: resultados 
+      });
+    } catch (error) {
+      console.error('Error al finalizar fase:', error);
+      res.status(500).json({ error: 'Error al finalizar la fase', detalles: error.message });
     }
   }
 );

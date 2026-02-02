@@ -11,6 +11,11 @@ const FaseSchema = new mongoose.Schema({
     default: 'otro',
     required: true 
   },
+  estado: {
+    type: String,
+    enum: ['programada', 'en_curso', 'finalizada'],
+    default: 'programada'
+  },
   orden: { type: Number, required: true, default: 0 },
   descripcion: String,
 
