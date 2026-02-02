@@ -668,7 +668,21 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
       if (nuevoRol !== undefined) relacion.rol = nuevoRol;
       if (foto !== undefined) relacion.foto = foto;
       if (desde !== undefined) relacion.desde = desde;
-      if (hasta !== undefined) relacion.hasta = hasta;
+      if (hasta !== undefined) {
+        relacion.hasta = hasta;
+        // Si se pone una fecha de fin pasada, marcamos automáticamente como 'baja'
+        if (hasta && new Date(hasta) < new Date()) {
+          relacion.estado = 'baja';
+        } else if (relacion.estado === 'baja' && (!hasta || new Date(hasta) >= new Date())) {
+          // Si era baja y quitamos la fecha o ponemos una a futuro, vuelve a aceptado
+          relacion.estado = 'aceptado';
+        }
+      }
+
+      // Si el usuario envía explícitamente un estado válido (ej. 'baja' o 'aceptado')
+      if (estado && ['aceptado', 'baja'].includes(estado)) {
+        relacion.estado = estado;
+      }
 
       await relacion.save();
       return res.status(200).json(relacion);
@@ -736,7 +750,10 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
  */
 router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolicitante, async (req, res) => {
   try {
-    if (req.relacion.estado === 'aceptado') {
+    const isAdmin = (req.user.rol || '').toLowerCase() === 'admin';
+    const isExpired = req.relacion.hasta && new Date(req.relacion.hasta) < new Date();
+
+    if (req.relacion.estado === 'aceptado' && !isExpired && !isAdmin) {
       return res.status(403).json({ message: 'No se puede eliminar un contrato activo. Marcar como finalizado.' });
     }
 
