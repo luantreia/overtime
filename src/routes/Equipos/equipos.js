@@ -314,6 +314,47 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
   }
 });
 
+// Eliminar equipo
+/**
+ * @swagger
+ * /api/equipos/{id}:
+ *   delete:
+ *     summary: Elimina un equipo
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Equipo eliminado
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.delete('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
+  try {
+    const equipo = await Equipo.findByIdAndDelete(req.params.id);
+    if (!equipo) {
+      return res.status(404).json({ message: 'Equipo no encontrado' });
+    }
+    res.status(200).json({ message: 'Equipo eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar equipo:', error);
+    res.status(500).json({ message: 'Error al eliminar equipo', error: error.message });
+  }
+});
+
 /**
  * @swagger
  * /api/equipos/{id}/administradores:
