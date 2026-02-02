@@ -137,6 +137,90 @@ router.get('/', verificarToken, async (req, res) => {
 
 /**
  * @swagger
+ * /api/jugador-equipo:
+ *   post:
+ *     summary: Crea una relación jugador-equipo directamente
+ *     description: |
+ *       Crea una relación activa entre un jugador y un equipo.
+ *       Requiere autenticación.
+ *     tags: [JugadorEquipo]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jugadorId
+ *               - equipoId
+ *             properties:
+ *               jugadorId:
+ *                 type: string
+ *                 format: ObjectId
+ *               equipoId:
+ *                 type: string
+ *                 format: ObjectId
+ *               rol:
+ *                 type: string
+ *               desde:
+ *                 type: string
+ *                 format: date
+ *               hasta:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       201:
+ *         description: Relación creada exitosamente
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ */
+router.post('/', verificarToken, async (req, res) => {
+  try {
+    const { jugadorId, equipoId, rol, desde, hasta } = req.body;
+    if (!jugadorId || !equipoId) {
+      return res.status(400).json({ message: 'jugadorId y equipoId son obligatorios' });
+    }
+
+    // Verificar si ya existe
+    const existe = await JugadorEquipo.findOne({ 
+      jugador: jugadorId, 
+      equipo: equipoId, 
+      estado: 'aceptado' 
+    });
+    
+    if (existe) {
+      return res.status(400).json({ message: 'El jugador ya pertenece a este equipo' });
+    }
+
+    const relacion = new JugadorEquipo({
+      jugador: jugadorId,
+      equipo: equipoId,
+      rol: rol || 'jugador',
+      desde: desde || new Date(),
+      hasta,
+      estado: 'aceptado',
+      activo: true,
+      origen: 'equipo',
+      creadoPor: req.user.uid
+    });
+
+    await relacion.save();
+    
+    // Devolver poblado
+    const poblado = await JugadorEquipo.findById(relacion._id)
+      .populate('jugador', 'nombre alias genero')
+      .populate('equipo', 'nombre escudo');
+
+    res.status(201).json(poblado);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al crear relación', error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/jugador-equipo/opciones:
  *   get:
  *     summary: Obtiene opciones disponibles para crear nuevas relaciones
@@ -496,7 +580,7 @@ router.get('/:id', validarObjectId, verificarToken, async (req, res) => {
  *               jugador: 5f8d0f3b5d7a8e4c3c8d4f5b
  *               equipo: 5f8d0f3b5d7a8e4c3c8d4f5c
  *               estado: "aceptado"
- *               rol: "delantero"
+ *               rol: "entrenador"
  *               desde: "2023-01-01"
  *               hasta: "2023-12-31"
  *               activo: true
