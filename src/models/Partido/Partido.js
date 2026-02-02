@@ -8,7 +8,7 @@ const PartidoSchema = new Schema({
 
   etapa: {
     type: String,
-    enum: ['octavos', 'cuartos', 'semifinal', 'final', 'tercer_puesto', 'repechaje', 'otro'],
+    enum: ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinal', 'final', 'tercer_puesto', 'repechaje', 'otro'],
     default: null
   },
 

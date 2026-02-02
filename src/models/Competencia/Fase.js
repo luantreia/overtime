@@ -56,6 +56,7 @@ const FaseSchema = new mongoose.Schema({
       formato: { type: String, enum: ['simple', 'doble_eliminacion'], default: 'simple' },
       idaYVuelta: { type: Boolean, default: false },
       tercerPuesto: { type: Boolean, default: false },
+      rondasConConsolacion: [{ type: String }], // Ej: ['Octavos', 'Cuartos']
     }
   },
 

@@ -96,6 +96,37 @@ export async function actualizarParticipacionFase(id, faseId) {
       partidosEmpatados++;
       puntos += (rules.empate ?? 1);
     }
+
+    // --- PROGRESIÓN DE PERDEDORES (Copa de Plata) ---
+    // Si el equipo perdió y la fase tiene configurada salida de perdedores para esta ronda
+    const perdio = marcadorEquipo < marcadorRival;
+    const esPlayoff = fase.tipo === 'playoff';
+    const destinoPerdedores = config.progresion?.destinoPerdedores;
+    const rondasConRevancha = config.playoff?.rondasConConsolacion || [];
+
+    if (perdio && esPlayoff && destinoPerdedores && p.etapa && rondasConRevancha.includes(p.etapa)) {
+      try {
+        const ptId = pf.participacionTemporada?._id || pf.participacionTemporada;
+        if (ptId) {
+          // Verificar si ya existe en la fase destino
+          const existe = await ParticipacionFase.findOne({ 
+            participacionTemporada: ptId, 
+            fase: destinoPerdedores 
+          });
+          
+          if (!existe) {
+            await ParticipacionFase.create({
+              participacionTemporada: ptId,
+              fase: destinoPerdedores,
+              // Podríamos asignar un seed basado en de qué ronda viene
+            });
+            console.log(`[PROGRESION] Equipo ${equipoId} enviado a fase ${destinoPerdedores} desde ${p.etapa}`);
+          }
+        }
+      } catch (err) {
+        console.error('[PROGRESION] Error enviando perdedor a fase destino:', err);
+      }
+    }
   }
 
   pf.puntos = puntos;

@@ -329,7 +329,12 @@ router.put(
       const actualizada = await req.fase.save();
       res.json(actualizada);
     } catch (error) {
-      res.status(400).json({ error: 'Error al actualizar fase' });
+      console.error('Error al actualizar fase:', error);
+      res.status(400).json({ 
+        error: 'Error al actualizar fase', 
+        detalles: error.message,
+        validacion: error.errors 
+      });
     }
   }
 );
