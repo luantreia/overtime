@@ -24,8 +24,10 @@ const FaseSchema = new mongoose.Schema({
       victoria: { type: Number, default: 3 },
       empate: { type: Number, default: 1 },
       derrota: { type: Number, default: 0 },
-      setGanado: { type: Number, default: 0 }, // Puntos extra por set ganado (ej: Foam)
+      setGanado: { type: Number, default: 0 }, // Puntos extra por set ganado (opcional)
       perderPorW: { type: Number, default: 0 }, // Puntos si pierde por Walkover
+      arbitroPresentado: { type: Number, default: 0 }, // Puntos extra por traer árbitro
+      penalizacionNoArbitro: { type: Number, default: 0 }, // Puntos menos por no traer árbitro
     },
     
     // Criterios de desempate en orden de prioridad
