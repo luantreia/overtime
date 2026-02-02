@@ -20,7 +20,8 @@ export const StandingsService = {
       .lean();
 
     const config = fase.configuracion || {};
-    const criterios = config.criteriosDesempate || ['PUNTOS', 'DIF_SETS', 'CARA_A_CARA', 'DIF_PUNTOS'];
+    // Normalizar criterios a mayúsculas para evitar errores de configuración
+    const criterios = (config.criteriosDesempate || ['PUNTOS', 'DIF_SETS', 'CARA_A_CARA', 'DIF_PUNTOS']).map(c => c.toUpperCase());
 
     // Obtener todos los partidos para el desempate "cara a cara"
     const partidos = await Partido.find({ fase: faseId, estado: 'finalizado' }).lean();
@@ -30,23 +31,27 @@ export const StandingsService = {
       return [...lista].sort((a, b) => {
         for (const criterio of criterios) {
           if (criterio === 'PUNTOS') {
-            if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+            const ptsA = Number(a.puntos || 0);
+            const ptsB = Number(b.puntos || 0);
+            if (ptsB !== ptsA) return ptsB - ptsA;
           }
           if (criterio === 'DIF_SETS') {
-            const difA = a.statsSets?.diferencia || 0;
-            const difB = b.statsSets?.diferencia || 0;
+            const difA = Number(a.statsSets?.diferencia || 0);
+            const difB = Number(b.statsSets?.diferencia || 0);
             if (difB !== difA) return difB - difA;
           }
           if (criterio === 'DIF_PUNTOS') {
-            if (b.diferenciaPuntos !== a.diferenciaPuntos) return b.diferenciaPuntos - a.diferenciaPuntos;
+            const difPA = Number(a.diferenciaPuntos || 0);
+            const difPB = Number(b.diferenciaPuntos || 0);
+            if (difPB !== difPA) return difPB - difPA;
           }
           if (criterio === 'CARA_A_CARA') {
             const resultado = this._compareHeadToHead(a, b, partidos);
             if (resultado !== 0) return resultado;
           }
           if (criterio === 'SETS_FAVOR') {
-            const favorA = a.statsSets?.ganados || 0;
-            const favorB = b.statsSets?.ganados || 0;
+            const favorA = Number(a.statsSets?.ganados || 0);
+            const favorB = Number(b.statsSets?.ganados || 0);
             if (favorB !== favorA) return favorB - favorA;
           }
         }
@@ -109,10 +114,26 @@ export const StandingsService = {
    * Compara dos equipos basándose en sus enfrentamientos directos.
    */
   _compareHeadToHead(a, b, partidos) {
-    const enfrentamientos = partidos.filter(p => 
-      (p.equipoLocal?.toString() === a.participacionTemporada.equipo?.toString() && p.equipoVisitante?.toString() === b.participacionTemporada.equipo?.toString()) ||
-      (p.equipoLocal?.toString() === b.participacionTemporada.equipo?.toString() && p.equipoVisitante?.toString() === a.participacionTemporada.equipo?.toString())
-    );
+    const getEquipoId = (p) => {
+      // Intentar obtener el ID del equipo desde diferentes estructuras posibles
+      if (!p) return null;
+      if (p.participacionTemporada?.equipo?._id) return p.participacionTemporada.equipo._id.toString();
+      if (p.participacionTemporada?.equipo) return p.participacionTemporada.equipo.toString();
+      if (p.equipo?._id) return p.equipo._id.toString();
+      if (p.equipo) return p.equipo.toString();
+      return null;
+    };
+
+    const idA = getEquipoId(a);
+    const idB = getEquipoId(b);
+
+    if (!idA || !idB) return 0;
+
+    const enfrentamientos = partidos.filter(p => {
+      const loc = p.equipoLocal?.toString();
+      const vis = p.equipoVisitante?.toString();
+      return (loc === idA && vis === idB) || (loc === idB && vis === idA);
+    });
 
     if (enfrentamientos.length === 0) return 0;
 
@@ -120,12 +141,12 @@ export const StandingsService = {
     let puntosB = 0;
 
     enfrentamientos.forEach(p => {
-      const isALocal = p.equipoLocal?.toString() === a.participacionTemporada.equipo?.toString();
-      const marcadorA = isALocal ? p.marcadorLocal : p.marcadorVisitante;
-      const marcadorB = isALocal ? p.marcadorVisitante : p.marcadorLocal;
+      const isALocal = p.equipoLocal?.toString() === idA;
+      const marcA = Number(isALocal ? p.marcadorLocal : p.marcadorVisitante) || 0;
+      const marcB = Number(isALocal ? p.marcadorVisitante : p.marcadorLocal) || 0;
 
-      if (marcadorA > marcadorB) puntosA += 3;
-      else if (marcadorB > marcadorA) puntosB += 3;
+      if (marcA > marcB) puntosA += 3;
+      else if (marcB > marcA) puntosB += 3;
       else { puntosA += 1; puntosB += 1; }
     });
 
