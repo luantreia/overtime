@@ -146,3 +146,11 @@ export async function actualizarParticipacionFase(id, faseId) {
     console.error('Error al recalcular standings:', error);
   }
 }
+
+export async function recalcularFase(faseId) {
+  const participantes = await ParticipacionFase.find({ fase: faseId });
+  for (const p of participantes) {
+    // Si no tiene partidos terminados, actualizarParticipacionFase los pondrá en 0
+    await actualizarParticipacionFase(p._id, faseId);
+  }
+}

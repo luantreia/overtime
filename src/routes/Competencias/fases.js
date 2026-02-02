@@ -10,6 +10,7 @@ import { generarRoundRobinPorDivision } from '../../utils/fixtureGenerator.js';
 import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 import { generarFixturePorTipo } from '../../utils/generadorFixturePorTipo.js';
 import { StandingsService } from '../../services/StandingsService.js';
+import { recalcularFase } from '../../services/participacionFaseService.js';
 
 const router = express.Router();
 
@@ -214,7 +215,23 @@ router.post(
     }
   }
 );
-
+// Recalcular estadísticas de una fase
+router.post(
+  '/:id/recalcular',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Fase, 'fase'),
+  async (req, res) => {
+    try {
+      await recalcularFase(req.params.id);
+      res.json({ mensaje: 'Estadísticas de la fase recalculadas correctamente.' });
+    } catch (error) {
+      console.error('Error al recalcular fase:', error);
+      res.status(500).json({ error: error.message || 'Error al recalcular fase' });
+    }
+  }
+);
 // Obtener fase por ID
 /**
  * @swagger

@@ -360,7 +360,18 @@ export async function quitarAdministrador(req, res) {
 export async function eliminarPartido(req, res) {
   try {
     const partido = req.partido;
+    const { equipoLocal, equipoVisitante, fase } = partido;
+    
     await partido.deleteOne();
+
+    // Actualizar estadísticas de los equipos si el partido pertenecía a una fase
+    if (fase) {
+      const promesas = [];
+      if (equipoLocal) promesas.push(actualizarParticipacionFase(equipoLocal, fase));
+      if (equipoVisitante) promesas.push(actualizarParticipacionFase(equipoVisitante, fase));
+      if (promesas.length > 0) await Promise.all(promesas);
+    }
+
     res.json({ mensaje: 'Partido eliminado correctamente.' });
   } catch (error) {
     console.error('Error al eliminar partido:', error);
