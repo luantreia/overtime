@@ -61,6 +61,7 @@ export function generarEliminatoriaDirecta(participaciones, datosBase, fase) {
       
       partidos.push({
         ...datosBase,
+        posicionBracket: i / 2,
         estado: isBye ? 'finalizado' : datosBase.estado,
         marcadorLocal: (local && !visitante) ? 1 : 0,
         marcadorVisitante: (!local && visitante) ? 1 : 0,

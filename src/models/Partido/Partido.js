@@ -15,6 +15,9 @@ const PartidoSchema = new Schema({
   grupo: { type: String, default: null },
   division: { type: String, default: null },
 
+  // Posición en la llave/bracket (0, 1, 2, 3...) para mantener orden de ramas
+  posicionBracket: { type: Number, default: 0 },
+
   nombrePartido: { type: String, trim: true },
 
   modalidad: {
