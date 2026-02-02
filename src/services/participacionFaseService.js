@@ -2,6 +2,8 @@ import Partido from '../models/Partido/Partido.js'
 import ParticipacionFase from '../models/Equipo/ParticipacionFase.js'
 import Fase from '../models/Competencia/Fase.js'
 import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js'
+import SetPartido from '../models/Partido/SetPartido.js'
+import { StandingsService } from './StandingsService.js'
 
 export async function actualizarParticipacionFase(id, faseId) {
   // id puede ser: ParticipacionFaseId o EquipoId
@@ -14,6 +16,12 @@ export async function actualizarParticipacionFase(id, faseId) {
   } catch (_) {
     // Ignorar si no es ObjectId válido
   }
+
+  const fase = await Fase.findById(faseId).lean();
+  if (!fase) return;
+
+  const config = fase.configuracion || {};
+  const rules = config.puntuacion || { victoria: 3, empate: 1, derrota: 0, setGanado: 0 };
 
   let equipoId = null;
 
@@ -52,6 +60,8 @@ export async function actualizarParticipacionFase(id, faseId) {
   let partidosPerdidos = 0;
   let partidosEmpatados = 0;
   let diferenciaPuntos = 0;
+  let setsGanados = 0;
+  let setsPerdidos = 0;
 
   for (const p of partidos) {
     partidosJugados++;
@@ -65,14 +75,26 @@ export async function actualizarParticipacionFase(id, faseId) {
 
     diferenciaPuntos += (marcadorEquipo - marcadorRival);
 
+    // Conteo de sets (si están registrados)
+    const sets = await SetPartido.find({ partido: p._id, estadoSet: 'finalizado' }).lean();
+    for (const s of sets) {
+      if (s.ganadorSet === (esLocal ? 'local' : 'visitante')) {
+        setsGanados++;
+        puntos += (rules.setGanado || 0);
+      } else if (s.ganadorSet === (esLocal ? 'visitante' : 'local')) {
+        setsPerdidos++;
+      }
+    }
+
     if (marcadorEquipo > marcadorRival) {
       partidosGanados++;
-      puntos += 3; // 3 por victoria
+      puntos += (rules.victoria ?? 3);
     } else if (marcadorEquipo < marcadorRival) {
       partidosPerdidos++;
+      puntos += (rules.derrota ?? 0);
     } else {
       partidosEmpatados++;
-      puntos += 1; // 1 por empate
+      puntos += (rules.empate ?? 1);
     }
   }
 
@@ -83,5 +105,13 @@ export async function actualizarParticipacionFase(id, faseId) {
   pf.partidosEmpatados = partidosEmpatados;
   pf.diferenciaPuntos = diferenciaPuntos;
 
+  // Actualizar estadísticas de sets
+  pf.set('statsSets', { ganados: setsGanados, perdidos: setsPerdidos, diferencia: setsGanados - setsPerdidos }, { strict: false });
+
   await pf.save();
+  try {
+    await StandingsService.calculateStandings(faseId);
+  } catch (error) {
+    console.error('Error al recalcular standings:', error);
+  }
 }

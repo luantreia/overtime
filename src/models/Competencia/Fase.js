@@ -17,7 +17,47 @@ const FaseSchema = new mongoose.Schema({
   fechaInicio: { type: Date },
   fechaFin: { type: Date },
 
-  // Solo para tipo 'grupo'
+  // CONFIGURACIÓN Y REGLAMENTO DE LA FASE
+  configuracion: {
+    // Reglas de puntuación (Liga/Grupos)
+    puntuacion: {
+      victoria: { type: Number, default: 3 },
+      empate: { type: Number, default: 1 },
+      derrota: { type: Number, default: 0 },
+      setGanado: { type: Number, default: 0 }, // Puntos extra por set ganado (ej: Foam)
+      perderPorW: { type: Number, default: 0 }, // Puntos si pierde por Walkover
+    },
+    
+    // Criterios de desempate en orden de prioridad
+    // Ej: ['PUNTOS', 'DIF_SETS', 'SETS_FAVOR', 'CARA_A_CARA']
+    criteriosDesempate: [
+      {
+        type: String,
+        enum: ['PUNTOS', 'DIF_SETS', 'SETS_FAVOR', 'PUNTOS_FAVOR', 'DIF_PUNTOS', 'CARA_A_CARA', 'MENOS_TARJETAS'],
+      }
+    ],
+
+    // Reglas de progresión a siguientes fases
+    progresion: {
+      clasificanDirecto: { type: Number, default: 0 }, // X primeros pasan
+      mejoresAdicionales: {
+        cantidad: { type: Number, default: 0 }, // Ej: el mejor 3ro
+        posicion: { type: Number }, // De qué posición tomarlos
+        criterio: { type: String, enum: ['global', 'por_grupo'] },
+      },
+      destinoGanadores: { type: mongoose.Schema.Types.ObjectId, ref: 'Fase' },
+      destinoPerdedores: { type: mongoose.Schema.Types.ObjectId, ref: 'Fase' }, // Consolation bracket / Copa de Plata
+    },
+
+    // Detalle de Playoff (si aplica)
+    playoff: {
+      formato: { type: String, enum: ['simple', 'doble_eliminacion'], default: 'simple' },
+      idaYVuelta: { type: Boolean, default: false },
+      tercerPuesto: { type: Boolean, default: false },
+    }
+  },
+
+  // Solo para tipo 'grupo' (Mantenido por compatibilidad, se puede migrar a configuracion.progresion)
   numeroClasificados: {
     type: Number,
     validate: {
