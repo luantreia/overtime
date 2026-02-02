@@ -144,6 +144,8 @@ router.post(
 
       // Datos base para cada partido
       const datosBase = {
+        competencia: competencia._id,
+        temporada: fase.temporada?._id,
         fase: faseId,
         estado: 'programado',
         creadoPor: req.user.uid,

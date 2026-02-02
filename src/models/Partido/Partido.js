@@ -3,6 +3,7 @@ const Schema = mongoose.Schema;
 
 const PartidoSchema = new Schema({
   competencia: { type: Schema.Types.ObjectId, ref: 'Competencia' },
+  temporada: { type: Schema.Types.ObjectId, ref: 'Temporada' },
   fase: { type: Schema.Types.ObjectId, ref: 'Fase' },
 
   etapa: {
@@ -176,15 +177,18 @@ PartidoSchema.pre('save', async function (next) {
     const ParticipacionFase = mongoose.model('ParticipacionFase');
     const Competencia = mongoose.model('Competencia');
 
-    // --- 1. Completar competencia desde fase ---
-    if (!this.competencia && this.fase) {
+    // --- 1. Completar competencia y temporada desde fase ---
+    if ((!this.competencia || !this.temporada) && this.fase) {
       const fase = await Fase.findById(this.fase)
       .populate({
         path: 'temporada',
         populate: { path: 'competencia' }
       });
-      if (fase?.temporada?.competencia?._id) {
+      if (fase?.temporada?.competencia?._id && !this.competencia) {
         this.competencia = fase.temporada.competencia._id;
+      }
+      if (fase?.temporada?._id && !this.temporada) {
+        this.temporada = fase.temporada._id;
       }
     }
 

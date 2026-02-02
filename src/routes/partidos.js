@@ -308,16 +308,19 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       data.equipoVisitante = pfVisitante?.participacionTemporada?.equipo?._id;
     }
 
-  // --- Completar competencia desde fase ---
-  if (!data.competencia && data.fase) {
+  // --- Completar competencia y temporada desde fase ---
+  if ((!data.competencia || !data.temporada) && data.fase) {
     const fase = await Fase.findById(data.fase)
       .populate({
         path: 'temporada',
         populate: { path: 'competencia' }
       });
 
-    if (fase?.temporada?.competencia?._id) {
+    if (fase?.temporada?.competencia?._id && !data.competencia) {
       data.competencia = fase.temporada.competencia._id;
+    }
+    if (fase?.temporada?._id && !data.temporada) {
+      data.temporada = fase.temporada._id;
     }
   }
 
