@@ -20,7 +20,7 @@ const router = express.Router();
  *   get:
  *     summary: Obtiene las relaciones entre jugadores y competencias
  *     description: |
- *       Retorna una lista de relaciones entre jugadores y competencias.
+ *       Retorna unaa lista de relaciones entre jugadores y competencias.
  *       Permite filtrar por ID de competencia.
  *       No requiere autenticación.
  *     tags: [JugadorCompetencia]
