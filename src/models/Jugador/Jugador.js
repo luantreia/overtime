@@ -10,6 +10,10 @@ const jugadorSchema = new Schema({
   foto: { type: String },
   nacionalidad: { type: String, default: '' },
 
+  // Vínculo con el Usuario (Dueño del perfil)
+  userId: { type: String, ref: 'Usuario', default: null },
+  perfilReclamado: { type: Boolean, default: false },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 }, { timestamps: true });

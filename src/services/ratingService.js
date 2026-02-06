@@ -95,7 +95,7 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
     await pr.save();
 
     await MatchPlayer.updateOne(
-      { partidoId, playerId, temporadaId },
+      { partidoId, playerId, temporadaId, competenciaId },
       {
         $set: {
           partidoId, playerId, teamColor, preRating, postRating: post, delta,

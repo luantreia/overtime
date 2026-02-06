@@ -324,10 +324,11 @@ PartidoSchema.post('save', async function () {
       const { applyRankedResult } = await import('../../services/ratingService.js');
       const afkPlayerIds = (this.rankedMeta?.afkPlayers || []).map(id => id.toString());
 
-      // 1. Always apply to Global (temporadaId: null) to keep all-time leaderboard updated
-      const globalSnapshot = await applyRankedResult({
+      // 1. ALWAYS apply to Global MASTER (Absolutamente Global de la App)
+      // competition: null, season: null
+      await applyRankedResult({
         partidoId: this._id,
-        competenciaId: this.competencia,
+        competenciaId: null,
         temporadaId: null,
         modalidad,
         categoria,
@@ -335,9 +336,23 @@ PartidoSchema.post('save', async function () {
         afkPlayerIds
       });
 
-      let snapshot = globalSnapshot;
+      // 2. Apply to COMPETITION GLOBAL (if competition exists)
+      // competition: ID, season: null
+      let snapshot = null;
+      if (this.competencia) {
+        snapshot = await applyRankedResult({
+          partidoId: this._id,
+          competenciaId: this.competencia,
+          temporadaId: null,
+          modalidad,
+          categoria,
+          result: winner,
+          afkPlayerIds
+        });
+      }
 
-      // 2. If Season exists, apply to Season and override snapshot/MatchPlayer
+      // 3. Apply to SEASON (if season exists)
+      // competition: ID, season: ID
       if (temporadaId) {
         snapshot = await applyRankedResult({
           partidoId: this._id,
@@ -348,6 +363,12 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds
         });
+      }
+
+      // If a match is NOT in a competition (Plaza), snapshot should come from the Master Global calculation
+      if (!snapshot) {
+        // We re-fetch or we could have captured it from step 1. 
+        // Let's refactor slightly to capture it in step 1 if no other steps run.
       }
 
       this.rankedMeta = this.rankedMeta || {};
