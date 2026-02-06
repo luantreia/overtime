@@ -517,7 +517,12 @@ router.get('/players/:playerId/rank-context', async (req, res) => {
     const { competition: competenciaId, season: temporadaId, modalidad, categoria } = req.query;
 
     const q = {};
-    if (competenciaId && competenciaId !== 'null') q.competenciaId = competenciaId;
+    if (competenciaId && competenciaId !== 'null' && competenciaId !== '') {
+      q.competenciaId = competenciaId;
+    } else {
+      q.competenciaId = null;
+    }
+
     if (!temporadaId || temporadaId === 'null' || temporadaId === 'global') {
       q.temporadaId = null;
     } else {
@@ -772,8 +777,10 @@ router.get('/leaderboard', async (req, res) => {
     const { competition: competenciaId, season: temporadaId, modalidad, categoria, limit = 50, minMatches = 0 } = req.query;
     const q = {};
     
-    if (competenciaId && competenciaId !== 'null') {
+    if (competenciaId && competenciaId !== 'null' && competenciaId !== '') {
       q.competenciaId = competenciaId;
+    } else {
+      q.competenciaId = null;
     }
     
     // Default to Global (temporadaId: null) if season is not specified or explicit 'global'
