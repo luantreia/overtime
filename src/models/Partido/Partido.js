@@ -313,12 +313,28 @@ PartidoSchema.post('save', async function () {
       if (this.marcadorLocal > this.marcadorVisitante) winner = localColor;
       else if (this.marcadorVisitante > this.marcadorLocal) winner = visitanteColor;
 
-      // Try to get temporadaId from Fase (if exists) or rankedMeta
-      let temporadaId = this.rankedMeta?.temporadaId;
-      if (!temporadaId && this.fase) {
+      // Try to resolve competenciaId and temporadaId from all possible fields
+      let competenciaId = this.competencia || this.rankedMeta?.competenciaId;
+      let temporadaId = this.temporada || this.rankedMeta?.temporadaId;
+
+      // If we have a phase, we can derive season and possibly competition
+      if ((!temporadaId || !competenciaId) && this.fase) {
         const Fase = mongoose.model('Fase');
-        const faseDoc = await Fase.findById(this.fase).populate('temporada');
-        temporadaId = faseDoc?.temporada?._id;
+        const faseDoc = await Fase.findById(this.fase).populate({
+          path: 'temporada',
+          populate: { path: 'competencia' }
+        });
+        if (faseDoc?.temporada) {
+          if (!temporadaId) temporadaId = faseDoc.temporada._id;
+          if (!competenciaId) competenciaId = faseDoc.temporada.competencia?._id || faseDoc.temporada.competencia;
+        }
+      }
+
+      // If we still miss competition but have season, try to get it from Season model
+      if (!competenciaId && temporadaId) {
+        const Temporada = mongoose.model('Temporada');
+        const tempDoc = await Temporada.findById(temporadaId);
+        if (tempDoc?.competencia) competenciaId = tempDoc.competencia;
       }
 
       const { applyRankedResult } = await import('../../services/ratingService.js');
@@ -326,7 +342,7 @@ PartidoSchema.post('save', async function () {
 
       // 1. ALWAYS apply to Global MASTER (Absolutamente Global de la App)
       // competition: null, season: null
-      await applyRankedResult({
+      let snapshot = await applyRankedResult({
         partidoId: this._id,
         competenciaId: null,
         temporadaId: null,
@@ -338,11 +354,10 @@ PartidoSchema.post('save', async function () {
 
       // 2. Apply to COMPETITION GLOBAL (if competition exists)
       // competition: ID, season: null
-      let snapshot = null;
-      if (this.competencia) {
+      if (competenciaId) {
         snapshot = await applyRankedResult({
           partidoId: this._id,
-          competenciaId: this.competencia,
+          competenciaId,
           temporadaId: null,
           modalidad,
           categoria,
@@ -353,10 +368,10 @@ PartidoSchema.post('save', async function () {
 
       // 3. Apply to SEASON (if season exists)
       // competition: ID, season: ID
-      if (temporadaId) {
+      if (temporadaId && competenciaId) {
         snapshot = await applyRankedResult({
           partidoId: this._id,
-          competenciaId: this.competencia,
+          competenciaId,
           temporadaId,
           modalidad,
           categoria,
@@ -365,17 +380,22 @@ PartidoSchema.post('save', async function () {
         });
       }
 
-      // If a match is NOT in a competition (Plaza), snapshot should come from the Master Global calculation
-      if (!snapshot) {
-        // We re-fetch or we could have captured it from step 1. 
-        // Let's refactor slightly to capture it in step 1 if no other steps run.
-      }
-
       this.rankedMeta = this.rankedMeta || {};
       this.rankedMeta.snapshot = snapshot;
       this.rankedMeta.applied = true;
-      this.ratingDeltas = snapshot.players.map(p => ({ player: p.playerId, delta: p.delta }));
-      await this.save();
+      this.ratingDeltas = (snapshot?.players || []).map(p => ({ player: p.playerId, delta: p.delta }));
+      
+      // Update without re-triggering this hook to avoid recursion
+      await mongoose.model('Partido').updateOne(
+        { _id: this._id },
+        { 
+          $set: { 
+            'rankedMeta.applied': true,
+            'rankedMeta.snapshot': snapshot,
+            'ratingDeltas': this.ratingDeltas
+          } 
+        }
+      );
     }
   } catch (err) {
     console.error('[Partido.postSave ranked] error', err);

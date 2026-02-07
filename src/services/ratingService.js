@@ -42,9 +42,10 @@ export async function applyRankedResult({ partidoId, competenciaId, temporadaId,
 
   const currentPlayers = [...rojo.players, ...azul.players].map(id => id.toString());
   
-  // Cleanup any "ghost" MatchPlayer records that are not in the final teams for this specific season context
+  // Cleanup any "ghost" MatchPlayer records that are not in the final teams for this specific scope
   await MatchPlayer.deleteMany({ 
     partidoId, 
+    competenciaId,
     temporadaId,
     playerId: { $nin: currentPlayers } 
   });
