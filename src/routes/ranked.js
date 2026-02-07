@@ -78,8 +78,8 @@ async function syncMatchPlayersFromTeams(partido) {
 
   const modalidad = normalizeEnum(partido.rankedMeta?.modalidad || partido.modalidad);
   const categoria = normalizeEnum(partido.rankedMeta?.categoria || partido.categoria);
-  const competenciaId = partido.competencia || undefined;
-  const temporadaId = partido.rankedMeta?.temporadaId || null;
+  const competenciaId = partido.competencia?._id || partido.competencia || null;
+  const temporadaId = partido.rankedMeta?.temporadaId || partido.temporada?._id || partido.temporada || null;
   const currentPlayers = [];
   const ops = [];
 
@@ -91,9 +91,9 @@ async function syncMatchPlayersFromTeams(partido) {
       currentPlayers.push(playerId);
       ops.push({
         updateOne: {
-          filter: { partidoId, playerId, temporadaId },
+          filter: { partidoId, playerId, temporadaId, competenciaId },
           update: {
-            $setOnInsert: { competenciaId, modalidad, categoria },
+            $setOnInsert: { competenciaId, temporadaId, modalidad, categoria },
             $set: { teamColor: color },
           },
           upsert: true,
@@ -334,7 +334,7 @@ router.post('/match/:id/finalize', async (req, res) => {
     }
 
     // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp', startTime } = req.body || {};
+    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp', startTime, rojoPlayers, azulPlayers } = req.body || {};
     if (typeof marcadorLocal === 'number') {
       partido.marcadorLocal = marcadorLocal;
       partido.marcadorModificadoManualmente = true;
@@ -350,6 +350,18 @@ router.post('/match/:id/finalize', async (req, res) => {
       partido.rankedMeta.startTime = new Date(startTime);
     }
     partido.rankedMeta.endTime = new Date();
+
+    // Optional: if teams are sent on finalize, persist them here to avoid missing rosters
+    if (Array.isArray(rojoPlayers) || Array.isArray(azulPlayers)) {
+      const rojo = ensureArray(rojoPlayers).filter(id => mongoose.isValidObjectId(id));
+      const azul = ensureArray(azulPlayers).filter(id => mongoose.isValidObjectId(id));
+      await MatchTeam.updateOne({ partidoId, color: 'rojo' }, { $set: { players: rojo } }, { upsert: true });
+      await MatchTeam.updateOne({ partidoId, color: 'azul' }, { $set: { players: azul } }, { upsert: true });
+      try {
+        await syncJugadorPartidoFromTeams(partido, partido.creadoPor);
+        await syncMatchPlayersFromTeams(partido);
+      } catch (e) {}
+    }
 
     // Save AFK players if provided
     if (Array.isArray(afkPlayers)) {
@@ -387,6 +399,13 @@ router.post('/match/:id/finalize', async (req, res) => {
       if (faseDoc?.tipo === 'playoff' && partido.marcadorLocal === partido.marcadorVisitante) {
         return res.status(400).json({ ok: false, error: 'Empates no permitidos en playoff' });
       }
+    }
+
+    // Ensure teams exist before finalizing (avoid silent zero-player rankings)
+    const teams = await MatchTeam.find({ partidoId }).lean();
+    const totalPlayers = (teams || []).reduce((sum, t) => sum + (Array.isArray(t.players) ? t.players.length : 0), 0);
+    if (totalPlayers === 0) {
+      return res.status(400).json({ ok: false, error: 'No hay jugadores asignados. Guardá equipos antes de finalizar.' });
     }
 
     // Mark as finalizado if not already (optional)
