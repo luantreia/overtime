@@ -402,8 +402,29 @@ router.post('/match/:id/finalize', async (req, res) => {
     }
 
     // Ensure teams exist before finalizing (avoid silent zero-player rankings)
-    const teams = await MatchTeam.find({ partidoId }).lean();
-    const totalPlayers = (teams || []).reduce((sum, t) => sum + (Array.isArray(t.players) ? t.players.length : 0), 0);
+    let teams = await MatchTeam.find({ partidoId }).lean();
+    let totalPlayers = (teams || []).reduce((sum, t) => sum + (Array.isArray(t.players) ? t.players.length : 0), 0);
+
+    // Fallback: try to rebuild rosters from JugadorPartido if teams are missing
+    if (totalPlayers === 0) {
+      const jps = await JugadorPartido.find({ partido: partidoId, estado: 'aceptado', rol: 'jugador' }).lean();
+      const localId = partido.equipoLocal?.toString();
+      const visitId = partido.equipoVisitante?.toString();
+      const rojoPlayers = jps.filter(jp => jp.equipo?.toString() === localId).map(jp => jp.jugador?.toString()).filter(Boolean).slice(0, 9);
+      const azulPlayers = jps.filter(jp => jp.equipo?.toString() === visitId).map(jp => jp.jugador?.toString()).filter(Boolean).slice(0, 9);
+
+      if (rojoPlayers.length || azulPlayers.length) {
+        await MatchTeam.updateOne({ partidoId, color: 'rojo' }, { $set: { players: rojoPlayers } }, { upsert: true });
+        await MatchTeam.updateOne({ partidoId, color: 'azul' }, { $set: { players: azulPlayers } }, { upsert: true });
+        try {
+          await syncJugadorPartidoFromTeams(partido, partido.creadoPor);
+          await syncMatchPlayersFromTeams(partido);
+        } catch (e) {}
+        teams = await MatchTeam.find({ partidoId }).lean();
+        totalPlayers = (teams || []).reduce((sum, t) => sum + (Array.isArray(t.players) ? t.players.length : 0), 0);
+      }
+    }
+
     if (totalPlayers === 0) {
       return res.status(400).json({ ok: false, error: 'No hay jugadores asignados. Guardá equipos antes de finalizar.' });
     }
