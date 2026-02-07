@@ -1177,6 +1177,62 @@ router.post('/reset-scope', async (req, res) => {
   }
 });
 
+// Recalculate rankings for a specific competition/season/modality/category from MatchPlayer snapshots
+router.post('/recalculate-scope', async (req, res) => {
+  try {
+    const { competenciaId, temporadaId, modalidad, categoria } = req.body;
+
+    if (!competenciaId || !modalidad || !categoria) {
+      return res.status(400).json({ ok: false, error: 'Se requiere competenciaId, modalidad y categoria' });
+    }
+
+    const query = {
+      competenciaId,
+      modalidad: normalizeEnum(modalidad),
+      categoria: normalizeEnum(categoria)
+    };
+    if (temporadaId) query.temporadaId = temporadaId;
+    else query.temporadaId = null;
+
+    // Reset PlayerRating for this scope, then rebuild from MatchPlayer history
+    await PlayerRating.deleteMany(query);
+
+    const playerIds = await MatchPlayer.distinct('playerId', query);
+    let updatedCount = 0;
+
+    for (const playerId of playerIds) {
+      const history = await MatchPlayer.find({ ...query, playerId })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      let currentRating = 1500;
+      let matchesCount = 0;
+      let winsCount = 0;
+      let lastDelta = 0;
+
+      for (const match of history) {
+        if (typeof match.delta === 'number') {
+          currentRating += match.delta;
+          matchesCount++;
+          if (match.win || (match.win === undefined && match.delta > 0)) winsCount++;
+          lastDelta = match.delta;
+        }
+      }
+
+      await PlayerRating.findOneAndUpdate(
+        { ...query, playerId },
+        { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
+        { upsert: true, new: true }
+      );
+      updatedCount++;
+    }
+
+    res.json({ ok: true, updatedCount, scope: query });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Dev-only: Reset all rankings (Hard Reset)
 router.post('/dev/reset-all', async (req, res) => {
   try {
