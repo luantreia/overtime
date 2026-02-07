@@ -122,6 +122,8 @@ import dashboardRoutes from './src/routes/dashboard.js';
 dotenv.config(); // inicializar dotenv
 
 const app = express();
+// Trust proxy (Render/NGINX) so rate-limit can read X-Forwarded-For safely
+app.set('trust proxy', 1);
 
 // Security Middleware
 app.use(helmet());
@@ -154,6 +156,29 @@ mongoose.connect(process.env.MONGO_URI, {
   .catch((error) => {
     console.error('Error al conectar a MongoDB:', error);
   });
+
+// Ensure MatchPlayer index matches triple-scope uniqueness
+mongoose.connection.once('open', async () => {
+  try {
+    const collection = mongoose.connection.collection('matchplayers');
+    const indexes = await collection.indexes();
+    const hasOld = indexes.some(i => i.name === 'partidoId_1_playerId_1_temporadaId_1');
+    if (hasOld) {
+      await collection.dropIndex('partidoId_1_playerId_1_temporadaId_1');
+      console.log('[DB] Dropped old MatchPlayer index partidoId_1_playerId_1_temporadaId_1');
+    }
+    const hasNew = indexes.some(i => i.name === 'partidoId_1_playerId_1_temporadaId_1_competenciaId_1');
+    if (!hasNew) {
+      await collection.createIndex(
+        { partidoId: 1, playerId: 1, temporadaId: 1, competenciaId: 1 },
+        { unique: true }
+      );
+      console.log('[DB] Created MatchPlayer index partidoId_1_playerId_1_temporadaId_1_competenciaId_1');
+    }
+  } catch (err) {
+    console.error('[DB] MatchPlayer index migration failed:', err?.message || err);
+  }
+});
 
 // Middleware
 // Configurar CORS para aceptar solicitudes desde cualquier origen
