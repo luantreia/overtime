@@ -132,19 +132,22 @@ export async function applyRankedResult({ partidoId, competenciaId: rawCompId, t
 }
 
 export async function revertRankedResult({ partidoId }) {
+  console.log(`[Ranked] Reverting results for match ${partidoId}...`);
   const snapshots = await MatchPlayer.find({ partidoId });
+  console.log(`[Ranked] Found ${snapshots.length} player snapshots to revert.`);
   
   // Parallelize player rating adjustments
   await Promise.all(snapshots.map(async (snap) => {
     const pr = await PlayerRating.findOne({
       playerId: snap.playerId,
-      competenciaId: snap.competenciaId,
-      temporadaId: snap.temporadaId,
+      competenciaId: snap.competenciaId || null,
+      temporadaId: snap.temporadaId || null,
       modalidad: snap.modalidad,
       categoria: snap.categoria
     });
 
     if (pr) {
+      const oldRating = pr.rating;
       pr.rating = (pr.rating || 1500) - (snap.delta || 0);
       pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
       
@@ -154,8 +157,10 @@ export async function revertRankedResult({ partidoId }) {
       }
       
       await pr.save();
+      // console.log(`[Ranked] Reverted player ${snap.playerId} in scope ${snap.competenciaId}/${snap.temporadaId}: ${oldRating} -> ${pr.rating}`);
     }
   }));
   
-  await MatchPlayer.deleteMany({ partidoId });
+  const delResult = await MatchPlayer.deleteMany({ partidoId });
+  console.log(`[Ranked] Deleted ${delResult.deletedCount} snapshots for match ${partidoId}`);
 }

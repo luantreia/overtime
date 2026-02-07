@@ -320,12 +320,17 @@ router.post('/match/:id/finalize', async (req, res) => {
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
     if (!partido.isRanked) return res.status(400).json({ ok: false, error: 'Partido no es ranked' });
     
-    // Auto-revert if already applied to allow correction
-    if (partido?.rankedMeta?.applied) {
+    // Al finalizar o corregir, SIEMPRE intentamos revertir cualquier rastro previo para evitar duplicados
+    // Incluso si applied es false, por seguridad si el estado es 'finalizado' previo.
+    if (partido?.rankedMeta?.applied || partido.estado === 'finalizado') {
       const { revertRankedResult } = await import('../services/ratingService.js');
       await revertRankedResult({ partidoId });
+      
+      // Limpiamos los campos antes de volver a aplicar
+      if (!partido.rankedMeta) partido.rankedMeta = {};
       partido.rankedMeta.applied = false;
       partido.rankedMeta.snapshot = null;
+      partido.ratingDeltas = [];
     }
 
     // Optionally set scores from body

@@ -314,19 +314,23 @@ PartidoSchema.post('save', async function () {
       else if (this.marcadorVisitante > this.marcadorLocal) winner = visitanteColor;
 
       // Try to resolve competenciaId and temporadaId from all possible fields
-      let competenciaId = this.competencia || this.rankedMeta?.competenciaId;
-      let temporadaId = this.temporada || this.rankedMeta?.temporadaId;
+      let competenciaId = this.competencia?._id || this.competencia || this.rankedMeta?.competenciaId;
+      let temporadaId = this.temporada?._id || this.temporada || this.rankedMeta?.temporadaId;
+
+      console.log(`[Ranked] Processing match ${this._id}. Current resolved IDs - Comp: ${competenciaId}, Temp: ${temporadaId}`);
 
       // If we have a phase, we can derive season and possibly competition
       if ((!temporadaId || !competenciaId) && this.fase) {
         const Fase = mongoose.model('Fase');
-        const faseDoc = await Fase.findById(this.fase).populate({
+        const phaseId = this.fase?._id || this.fase;
+        const faseDoc = await Fase.findById(phaseId).populate({
           path: 'temporada',
           populate: { path: 'competencia' }
         });
         if (faseDoc?.temporada) {
           if (!temporadaId) temporadaId = faseDoc.temporada._id;
           if (!competenciaId) competenciaId = faseDoc.temporada.competencia?._id || faseDoc.temporada.competencia;
+          console.log(`[Ranked] Resolved from Phase ${phaseId} -> Temp: ${temporadaId}, Comp: ${competenciaId}`);
         }
       }
 
@@ -334,15 +338,20 @@ PartidoSchema.post('save', async function () {
       if (!competenciaId && temporadaId) {
         const Temporada = mongoose.model('Temporada');
         const tempDoc = await Temporada.findById(temporadaId);
-        if (tempDoc?.competencia) competenciaId = tempDoc.competencia;
+        if (tempDoc?.competencia) {
+           competenciaId = tempDoc.competencia;
+           console.log(`[Ranked] Resolved Comp from Season ${temporadaId} -> ${competenciaId}`);
+        }
       }
 
       const { applyRankedResult } = await import('../../services/ratingService.js');
       const afkPlayerIds = (this.rankedMeta?.afkPlayers || []).map(id => id.toString());
 
+      let finalSnapshot = null;
+
       // 1. ALWAYS apply to Global MASTER (Absolutamente Global de la App)
       // competition: null, season: null
-      let snapshot = await applyRankedResult({
+      const snap1 = await applyRankedResult({
         partidoId: this._id,
         competenciaId: null,
         temporadaId: null,
@@ -351,12 +360,13 @@ PartidoSchema.post('save', async function () {
         result: winner,
         afkPlayerIds
       });
+      finalSnapshot = snap1;
       console.log(`[Ranked] Level 1 (Master) applied for match ${this._id}`);
 
       // 2. Apply to COMPETITION GLOBAL (if competition exists)
       // competition: ID, season: null
       if (competenciaId) {
-        snapshot = await applyRankedResult({
+        const snap2 = await applyRankedResult({
           partidoId: this._id,
           competenciaId,
           temporadaId: null,
@@ -365,13 +375,14 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds
         });
+        finalSnapshot = snap2;
         console.log(`[Ranked] Level 2 (Competition ${competenciaId}) applied for match ${this._id}`);
       }
 
       // 3. Apply to SEASON (if season exists)
       // competition: ID, season: ID
       if (temporadaId && competenciaId) {
-        snapshot = await applyRankedResult({
+        const snap3 = await applyRankedResult({
           partidoId: this._id,
           competenciaId,
           temporadaId,
@@ -380,13 +391,17 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds
         });
+        finalSnapshot = snap3;
         console.log(`[Ranked] Level 3 (Season ${temporadaId}) applied for match ${this._id}`);
       }
 
       this.rankedMeta = this.rankedMeta || {};
-      this.rankedMeta.snapshot = snapshot;
+      this.rankedMeta.snapshot = finalSnapshot;
       this.rankedMeta.applied = true;
-      this.ratingDeltas = (snapshot?.players || []).map(p => ({ player: p.playerId, delta: p.delta }));
+      const ratingDeltas = (finalSnapshot?.players || []).map(p => ({ 
+        player: p.playerId, 
+        delta: Math.round(p.delta * 10) / 10 
+      }));
       
       // Update without re-triggering this hook to avoid recursion
       await mongoose.model('Partido').updateOne(
@@ -394,11 +409,12 @@ PartidoSchema.post('save', async function () {
         { 
           $set: { 
             'rankedMeta.applied': true,
-            'rankedMeta.snapshot': snapshot,
-            'ratingDeltas': this.ratingDeltas
+            'rankedMeta.snapshot': finalSnapshot,
+            'ratingDeltas': ratingDeltas
           } 
         }
       );
+      console.log(`[Ranked] Match ${this._id} finalized at all levels. Deltas saved.`);
     }
   } catch (err) {
     console.error('[Partido.postSave ranked] error', err);
