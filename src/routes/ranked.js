@@ -463,17 +463,16 @@ router.get('/players/:playerId/detail', async (req, res) => {
     const rating = await PlayerRating.findOne(query).populate('playerId', 'nombre').lean();
     
     // History logic: 
-    // If season is provided, show only matches for that season.
-    // If season is null (global competency view), show ALL matches for this competency regardless of season.
-    const historyQuery = { playerId, competenciaId };
-    if (temporadaId && temporadaId !== 'null' && temporadaId !== 'global') {
-      historyQuery.temporadaId = temporadaId;
-    } else {
-      // In global competency view, we include everything for that competency
-      // However, we must ensure MODALITY and CATEGORY match too
-      if (query.modalidad) historyQuery.modalidad = query.modalidad;
-      if (query.categoria) historyQuery.categoria = query.categoria;
-    }
+    // We must be specific about the temporadaId to avoid duplicate records per match 
+    // (since we save at Master, Competition Global, and Season levels).
+    const historyQuery = { 
+      playerId, 
+      competenciaId: (competenciaId === 'null' || !competenciaId) ? null : competenciaId,
+      temporadaId: (temporadaId === 'null' || !temporadaId || temporadaId === 'global') ? null : temporadaId
+    };
+
+    if (modalidad && modalidad !== 'null') historyQuery.modalidad = normalizeEnum(modalidad);
+    if (categoria && categoria !== 'null') historyQuery.categoria = normalizeEnum(categoria);
 
     const history = await MatchPlayer.find(historyQuery).populate('partidoId').sort({ createdAt: -1 }).lean();
 
