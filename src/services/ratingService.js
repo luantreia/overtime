@@ -91,11 +91,14 @@ export async function applyRankedResult({ partidoId, competenciaId: rawCompId, t
     if (isAFK) {
       delta = -afkPenalty;
     }
+    
+    // Round delta to 1 decimal place to keep data clean and avoid JS float issues
+    delta = Math.round(delta * 10) / 10;
 
     const post = preRating + delta;
 
     const pr = await getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria });
-    pr.rating = post;
+    pr.rating = Math.round(post * 10) / 10;
     pr.matchesPlayed = (pr.matchesPlayed || 0) + 1;
     if (S_team === 1 && !isAFK) pr.wins = (pr.wins || 0) + 1;
     pr.lastDelta = delta;
@@ -106,7 +109,7 @@ export async function applyRankedResult({ partidoId, competenciaId: rawCompId, t
       { partidoId, playerId, temporadaId, competenciaId },
       {
         $set: {
-          partidoId, playerId, teamColor, preRating, postRating: post, delta,
+          partidoId, playerId, teamColor, preRating, postRating: pr.rating, delta,
           win: isAFK ? false : S_team === 1,
           isAFK,
           competenciaId, temporadaId, modalidad, categoria
@@ -138,6 +141,9 @@ export async function revertRankedResult({ partidoId }) {
   
   // Parallelize player rating adjustments
   await Promise.all(snapshots.map(async (snap) => {
+    // Only revert if this snapshot was actually applied (has a delta)
+    if (typeof snap.delta !== 'number') return;
+
     const pr = await PlayerRating.findOne({
       playerId: snap.playerId,
       competenciaId: snap.competenciaId || null,
@@ -148,7 +154,7 @@ export async function revertRankedResult({ partidoId }) {
 
     if (pr) {
       const oldRating = pr.rating;
-      pr.rating = (pr.rating || 1500) - (snap.delta || 0);
+      pr.rating = (pr.rating || 1500) - snap.delta;
       pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
       
       // If we are reverting a win, decrement win count
@@ -157,7 +163,6 @@ export async function revertRankedResult({ partidoId }) {
       }
       
       await pr.save();
-      // console.log(`[Ranked] Reverted player ${snap.playerId} in scope ${snap.competenciaId}/${snap.temporadaId}: ${oldRating} -> ${pr.rating}`);
     }
   }));
   
