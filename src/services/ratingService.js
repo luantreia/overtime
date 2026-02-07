@@ -24,18 +24,25 @@ function normalizeEnum(val) {
   return val;
 }
 
-export async function getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat }) {
+export async function getOrCreatePlayerRating({ playerId, competenciaId: rawCompId, temporadaId: rawTempId, modalidad: rawMod, categoria: rawCat }) {
   const modalidad = normalizeEnum(rawMod);
   const categoria = normalizeEnum(rawCat);
+  const competenciaId = rawCompId || null;
+  const temporadaId = rawTempId || null;
   const query = { playerId, competenciaId, temporadaId, modalidad, categoria };
   let pr = await PlayerRating.findOne(query);
   if (!pr) pr = await PlayerRating.create({ ...query });
   return pr;
 }
 
-export async function applyRankedResult({ partidoId, competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, result, afkPlayerIds = [] }) {
+export async function applyRankedResult({ partidoId, competenciaId: rawCompId, temporadaId: rawTempId, modalidad: rawMod, categoria: rawCat, result, afkPlayerIds = [] }) {
   const modalidad = normalizeEnum(rawMod);
   const categoria = normalizeEnum(rawCat);
+
+  // Normalize IDs to handle both null and undefined as null
+  const competenciaId = rawCompId || null;
+  const temporadaId = rawTempId || null;
+
   const teams = await MatchTeam.find({ partidoId }).lean();
   const rojo = teams.find(t => t.color === 'rojo') || { players: [] };
   const azul = teams.find(t => t.color === 'azul') || { players: [] };

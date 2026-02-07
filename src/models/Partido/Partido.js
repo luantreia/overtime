@@ -351,6 +351,7 @@ PartidoSchema.post('save', async function () {
         result: winner,
         afkPlayerIds
       });
+      console.log(`[Ranked] Level 1 (Master) applied for match ${this._id}`);
 
       // 2. Apply to COMPETITION GLOBAL (if competition exists)
       // competition: ID, season: null
@@ -364,6 +365,7 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds
         });
+        console.log(`[Ranked] Level 2 (Competition ${competenciaId}) applied for match ${this._id}`);
       }
 
       // 3. Apply to SEASON (if season exists)
@@ -378,6 +380,7 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds
         });
+        console.log(`[Ranked] Level 3 (Season ${temporadaId}) applied for match ${this._id}`);
       }
 
       this.rankedMeta = this.rankedMeta || {};
