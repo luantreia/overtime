@@ -435,8 +435,22 @@ router.post('/match/:id/finalize', async (req, res) => {
 
     // Post-save hook will apply ranking and snapshot to MatchPlayer; reload for response
     const updated = await Partido.findById(partidoId).lean();
+    const teamsAfter = await MatchTeam.find({ partidoId }).lean();
+    const matchPlayersAfter = await MatchPlayer.find({ partidoId }).lean();
+    const totalPlayersAfter = (teamsAfter || []).reduce((sum, t) => sum + (Array.isArray(t.players) ? t.players.length : 0), 0);
+    const deltaCount = matchPlayersAfter.filter(mp => typeof mp.delta === 'number').length;
 
-    res.json({ ok: true, rankedMeta: updated?.rankedMeta, ratingDeltas: updated?.ratingDeltas });
+    res.json({
+      ok: true,
+      rankedMeta: updated?.rankedMeta,
+      ratingDeltas: updated?.ratingDeltas,
+      debug: {
+        teams: teamsAfter.length,
+        totalPlayers: totalPlayersAfter,
+        matchPlayers: matchPlayersAfter.length,
+        withDelta: deltaCount
+      }
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
