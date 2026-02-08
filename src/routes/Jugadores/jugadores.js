@@ -7,6 +7,8 @@ import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
 import MatchPlayer from '../../models/Partido/MatchPlayer.js';
 import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
 import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
+import KarmaLog from '../../models/Plaza/KarmaLog.js';
+import Lobby from '../../models/Plaza/Lobby.js';
 import mongoose from 'mongoose';
 import { esAdminDeEntidad } from '../../middleware/esAdminDeEntidad.js';
 import verificarToken from '../../middleware/authMiddleware.js';
@@ -1273,6 +1275,19 @@ router.get('/:id/radar', async (req, res) => {
     // 1. Get Master Ranking (Level 1)
     const masterRating = await PlayerRating.findOne({ playerId: id, competenciaId: null }).lean();
     
+    // 1.1. Get Karma Stats
+    const karmaStats = await KarmaLog.aggregate([
+      { $match: { targetPlayer: new mongoose.Types.ObjectId(id) } },
+      { $group: { _id: null, totalKarma: { $sum: '$points' } } }
+    ]);
+    const totalKarma = karmaStats.length > 0 ? karmaStats[0].totalKarma : 0;
+
+    // 1.2. Get Plaza Stats
+    const plazaMatches = await Lobby.countDocuments({ 
+      'players.player': new mongoose.Types.ObjectId(id),
+      status: 'finished'
+    });
+
     // 2. Get Recent Match History to calculate tendency
     const recentMatches = await MatchPlayer.find({ playerId: id })
       .sort({ createdAt: -1 })
@@ -1334,7 +1349,9 @@ router.get('/:id/radar', async (req, res) => {
       versatility: Math.round(versatility),
       elo: masterRating?.rating || 1500,
       totalMatches,
-      winrate: Math.round(winrate * 100)
+      winrate: Math.round(winrate * 100),
+      karma: totalKarma,
+      plazaMatches
     });
   } catch (error) {
     console.error('Error in radar calc:', error);

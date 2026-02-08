@@ -45,19 +45,16 @@ Para dar seriedad profesional incluso en la plaza.
 - [x] Frontend Public: Explorar, Crear, Lobby y Reporte.
 - [x] Integración con Ranking Global 0.3x/0.5x.
 
-### Fase 2: Confianza y Karma (95% COMPLETADO)
+### Fase 2: Confianza y Karma (100% COMPLETADO ⭐)
 - [x] Consenso 2 de 3 con badges de identificación (Host/Capitán).
 - [x] Geofencing para Check-in GPS.
-- [x] Interfaz de corrección de resultados y visualización previa.
-- [ ] Dashboard de Karma en el Perfil de Atleta.
+- [x] Interfaz de corrección de resultados y visualización previa (Host/Captain cross-team).
+- [x] Dashboard de Karma en el Perfil de Atleta: Visualización de conducta y partidos de plaza.
 
-### Fase 3: El Mapa y Discovery (EN DESARROLLO)
+### Fase 3: El Mapa y Discovery (50% COMPLETADO)
 - [x] Integración con Leaflet en creación.
-- [ ] Vista de Mapa en "Explorar Lobbies".
+- [x] Vista de Mapa en "Explorar Lobbies" con geolocalización de usuario.
 - [ ] Notificaciones Push proximidad.
-
----
-> *"El Dodgeball nace en la plaza, se pule en la liga y se consagra en el Ranking Global."*
 
 ---
 > *"El Dodgeball nace en la plaza, se pule en la liga y se consagra en el Ranking Global."*
