@@ -92,12 +92,112 @@ router.post('/lobbies', verificarToken, async (req, res) => {
 router.get('/lobbies/:id', validarObjectId, async (req, res) => {
   try {
     const lobby = await Lobby.findById(req.params.id)
-      .populate('players.player', 'nombre alias foto elo');
+      .populate('players.player', 'nombre alias foto')
+      .populate('officials.player', 'nombre alias foto')
+      .lean();
     
     if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    // --- ENRIQUECER CON ELO Y KARMA ---
+    
+    // 1. Obtener IDs de todos los involucrados (Host, Jugadores, Oficiales)
+    const hostPlayer = await Jugador.findOne({ userId: lobby.host });
+    const participantPlayerIds = [
+      ...(hostPlayer ? [hostPlayer._id] : []),
+      ...lobby.players.map(p => p.player._id),
+      ...lobby.officials.map(o => o.player._id)
+    ];
+
+    // 2. Obtener Ratings (ELO Global)
+    const ratings = await PlayerRating.find({
+      playerId: { $in: participantPlayerIds },
+      competenciaId: null,
+      modalidad: lobby.modalidad
+    }).lean();
+
+    const ratingMap = ratings.reduce((acc, curr) => {
+      acc[curr.playerId.toString()] = curr.rating;
+      return acc;
+    }, {});
+
+    // 3. Obtener Karma
+    const karmaStats = await KarmaLog.aggregate([
+      { $match: { targetPlayer: { $in: participantPlayerIds } } },
+      { $group: { _id: '$targetPlayer', totalKarma: { $sum: '$points' } } }
+    ]);
+
+    const karmaMap = karmaStats.reduce((acc, curr) => {
+      acc[curr._id.toString()] = curr.totalKarma;
+      return acc;
+    }, {});
+
+    // 4. Inyectar datos en el objeto de respuesta
+    if (hostPlayer) {
+      lobby.hostInfo = {
+        nombre: hostPlayer.nombre || hostPlayer.alias,
+        elo: ratingMap[hostPlayer._id.toString()] || 1500,
+        karma: karmaMap[hostPlayer._id.toString()] || 0
+      };
+    }
+
+    lobby.players = lobby.players.map(p => ({
+      ...p,
+      player: {
+        ...p.player,
+        elo: ratingMap[p.player._id.toString()] || 1500,
+        karma: karmaMap[p.player._id.toString()] || 0
+      }
+    }));
+
+    lobby.officials = lobby.officials.map(o => ({
+      ...o,
+      player: {
+        ...o.player,
+        elo: ratingMap[o.player._id.toString()] || 1500,
+        karma: karmaMap[o.player._id.toString()] || 0
+      }
+    }));
+
+    // 5. Calcular ELO Promedio de los que están anotados (excluyendo al que está consultando si no está unido?) 
+    // No, simplemente el promedio de todos los jugadores en la lista.
+    const joinedElo = lobby.players.map(p => p.player.elo);
+    lobby.averageElo = joinedElo.length > 0 
+      ? Math.round(joinedElo.reduce((a, b) => a + b, 0) / joinedElo.length) 
+      : 1500;
+
     res.json(lobby);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener lobby', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/plaza/lobbies/{id}/officials/{uid}:
+ *   delete:
+ *     summary: (Host) Expulsa a un oficial del lobby
+ *     tags: [Plaza]
+ */
+router.delete('/lobbies/:id/officials/:uid', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    // Solo el host puede expulsar a un oficial antes de que empiece el partido
+    if (lobby.host !== req.user.uid) {
+      return res.status(403).json({ message: 'Solo el Host puede expulsar oficiales' });
+    }
+
+    if (lobby.status === 'playing' || lobby.status === 'finished') {
+      return res.status(400).json({ message: 'No se puede expulsar autoridades una vez iniciado el partido' });
+    }
+
+    lobby.officials = lobby.officials.filter(o => o.userUid !== req.params.uid);
+    await lobby.save();
+
+    res.json({ message: 'Oficial expulsado correctamente', lobby });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al expulsar oficial', error: error.message });
   }
 });
 
