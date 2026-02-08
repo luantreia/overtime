@@ -530,8 +530,9 @@ router.get('/players/:playerId/detail', async (req, res) => {
 
     const history = await MatchPlayer.find(historyQuery).populate('partidoId').sort({ createdAt: -1 }).lean();
 
-    // Calculate teammate synergies
+    // Calculate teammate synergies and rivalries
     const teammateStats = {};
+    const rivalStats = {};
     const matchIds = history.map(h => h.partidoId?._id || h.partidoId).filter(Boolean);
     
     if (matchIds.length > 0) {
@@ -544,28 +545,42 @@ router.get('/players/:playerId/detail', async (req, res) => {
         const pId = h.partidoId?._id || h.partidoId;
         const isWin = (h.win === true || (h.win === undefined && h.delta > 0));
         
-        // Find partners in the same match and team
-        const partners = allParticipants.filter(p => 
-          p.partidoId.toString() === pId.toString() && 
-          p.teamColor === h.teamColor && 
-          p.playerId?._id?.toString() !== playerId
-        );
+        // Find participants in the same match
+        const participants = allParticipants.filter(p => p.partidoId.toString() === pId.toString());
 
-        for (const p of partners) {
+        for (const p of participants) {
           const tId = p.playerId?._id?.toString();
-          if (!tId) continue;
-          if (!teammateStats[tId]) {
-            teammateStats[tId] = { 
-              id: tId, 
-              name: p.playerId?.nombre || 'Desconocido', 
-              matches: 0, 
-              wins: 0,
-              matchIds: []
-            };
+          if (!tId || tId === playerId) continue;
+          
+          if (p.teamColor === h.teamColor) {
+            // Teammate
+            if (!teammateStats[tId]) {
+              teammateStats[tId] = { 
+                id: tId, 
+                name: p.playerId?.nombre || 'Desconocido', 
+                matches: 0, 
+                wins: 0,
+                matchIds: []
+              };
+            }
+            teammateStats[tId].matches++;
+            teammateStats[tId].matchIds.push(pId.toString());
+            if (isWin) teammateStats[tId].wins++;
+          } else {
+            // Rival
+            if (!rivalStats[tId]) {
+              rivalStats[tId] = { 
+                id: tId, 
+                name: p.playerId?.nombre || 'Desconocido', 
+                matches: 0, 
+                wins: 0,
+                matchIds: []
+              };
+            }
+            rivalStats[tId].matches++;
+            rivalStats[tId].matchIds.push(pId.toString());
+            if (isWin) rivalStats[tId].wins++;
           }
-          teammateStats[tId].matches++;
-          teammateStats[tId].matchIds.push(pId.toString());
-          if (isWin) teammateStats[tId].wins++;
         }
       }
     }
@@ -577,7 +592,14 @@ router.get('/players/:playerId/detail', async (req, res) => {
       }))
       .sort((a, b) => b.matches - a.matches || b.winrate - a.winrate);
 
-    res.json({ ok: true, rating, history, synergy });
+    const rivalry = Object.values(rivalStats)
+      .map(s => ({
+        ...s,
+        winrate: (s.wins / s.matches) * 100
+      }))
+      .sort((a, b) => b.matches - a.matches || a.winrate - b.winrate);
+
+    res.json({ ok: true, rating, history, synergy, rivalry });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
