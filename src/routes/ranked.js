@@ -538,7 +538,8 @@ router.get('/players/:playerId/detail', async (req, res) => {
     if (matchIds.length > 0) {
       const allParticipants = await MatchPlayer.find({ 
         partidoId: { $in: matchIds },
-        temporadaId: query.temporadaId
+        competenciaId: historyQuery.competenciaId,
+        temporadaId: historyQuery.temporadaId
       }).populate('playerId', 'nombre').lean();
 
       for (const h of history) {
