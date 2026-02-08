@@ -27,7 +27,7 @@ const LobbySchema = new Schema({
   },
 
   scheduledDate: { type: Date, required: true },
-  maxPlayers: { type: Number, default: 12 },
+  maxPlayers: { type: Number, default: 18 }, // 6v6 + 3 shaggers por equipo
   
   status: {
     type: String,
@@ -37,20 +37,47 @@ const LobbySchema = new Schema({
 
   players: [{
     player: { type: Schema.Types.ObjectId, ref: 'Jugador' },
-    userUid: { type: String }, // Para linkear con el usuario que se unió
+    userUid: { type: String }, 
     team: { type: String, enum: ['A', 'B', 'none'], default: 'none' },
     joinedAt: { type: Date, default: Date.now },
-    confirmed: { type: Boolean, default: false } // Check-in en el lugar
+    confirmed: { type: Boolean, default: false }, // Check-in via GPS
+    isAFK: { type: Boolean, default: false } // Para penalización de ELO
   }],
 
-  // Resultados (para el doble-check)
+  officials: [{
+    player: { type: Schema.Types.ObjectId, ref: 'Jugador' },
+    userUid: { type: String },
+    type: { 
+      type: String, 
+      enum: ['principal', 'secundario', 'linea'], 
+      required: true 
+    },
+    confirmed: { type: Boolean, default: false }
+  }],
+
+  // Registro detallado de la partida
+  matchData: {
+    sets: [{
+      winner: { type: String, enum: ['A', 'B', 'empate'] },
+      scoreA: Number,
+      scoreB: Number,
+      timestamp: { type: Date, default: Date.now }
+    }],
+    duration: Number, // en segundos
+    ballType: { type: String, enum: ['Foam', 'Cloth'] }
+  },
+
+  // Resultados finales (para el doble-check o validación del árbitro)
   result: {
     scoreA: { type: Number, default: 0 },
     scoreB: { type: Number, default: 0 },
-    submittedBy: { type: String }, // UID
+    submittedBy: { type: String }, // UID de quien cargó el resultado
     confirmedByOpponent: { type: Boolean, default: false },
+    validatedByOfficial: { type: Boolean, default: false }, // Si el principal confirma
     disputed: { type: Boolean, default: false }
   },
+
+  rivalCaptainUid: { type: String }, // UID del jugador con más Karma del Equipo B
 
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
 

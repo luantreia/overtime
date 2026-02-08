@@ -18,18 +18,20 @@ Ya contamos con la **Triple Vara** operativa en el backend:
 
 ---
 
-### 2. Identidad y Confianza (En Proceso 🛠️)
+-   **Identidad y Confianza (Completado ✅)**
 -   **Modelo de Jugador (Completado ✅):** Ya existen campos `userId`, `perfilReclamado` y lógica de seguridad.
 -   **Vínculo Usuario-Jugador (Completado ✅):** 
     - [x] Sistema de solicitudes soporta `jugador-claim`.
     - [x] Lógica de aprobación descentralizada (Admin Global o Admin de Jugador).
     - [x] Mecanismos de seguridad: Transferencia de identidad y liberación de perfil (Un-claim).
+    - [x] **Restricción 1-a-1:** Implementada lógica técnica que impide que un `userId` posea más de un `Jugador` (Evita multi-cuentas).
 -   **Relación entre Aplicaciones:**
     - `Overtime-Public`: El "Frontend Social". Discovery, Claim UI, Perfil Público y **Radar de Atleta** (Gráfico).
     - `Overtime-Manager`: El "Panel de Control". Gestión de Staff (Admins), Fichajes, Edición de Bio y Documentación legal.
 -   **Seguridad de Identidad (Completado ✅):** 
     - [x] Endpoint para transferir perfil directamente (Self-transfer).
     - [x] Botón de emergencia para administradores (Identity Release).
+    - [x] **Verificación Blindada:** Solo usuarios con rol `admin` pueden marcar organizaciones como `verificada`.
 
 ---
 
@@ -61,7 +63,7 @@ Transformar la aplicación en una plataforma social y participativa.
 
 #### B. Perfil de Atleta 2.0
 - [x] **Radar de Atleta:** Gráfico de habilidades basado en estadísticas.
-- [x] **Estado No-Rankeado:** Identificación y UI especial para nuevos jugadores (ELO 0).
+- [x] **Estado No-Rankeado (Refinado ⭐):** ELO base 0 para jugadores nuevos (honestidad deportiva) y corrección de paleta de colores `brand` en la UI.
 - [ ] **Dashboard Maestro:** Nueva sección principal en el perfil con la "Carta de Jugador" consolidada.
 - [ ] **Historial Unificado:** Pestaña de historial que diferencie claramente partidos de Liga vs. Plaza.
 

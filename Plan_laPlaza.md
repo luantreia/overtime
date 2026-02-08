@@ -9,29 +9,35 @@
 
 ### 1. El Sistema de Lobbies (Punto de Encuentro)
 Permite pasar de la intención a la acción.
-- **Creación de Lobby:** Un "Host" define:
-    - Geo-ubicación (Mapa).
-    - Tipo de Pelota (Cloth/Foam).
-    - Cupos (Ej: 12/12).
-    - Nivel sugerido (Abierto, Amateur, Avanzado).
-- **Matchmaking Manual:** Los jugadores se unen al lobby y pueden chatear antes del encuentro.
-- **Estado de Preparación:** Todos los jugadores deben confirmar su asistencia digitalmente al llegar al lugar físico.
+- **Creación de Lobby:** Un "Host" define ubicación, tipo de bola y cupos (Estándar de **18 jugadores totales**, 9 por bando).
+- **Gestión de Cupos y Sorteo:** 
+    - Si hay más de 18 interesados, el sistema permite al Host seleccionar a los participantes por **Orden de Llegada** (First-come, first-served), **Sorteo Automático** o priorización por **Karma**.
+    - Los que no entran pasan a una **Lista de Espera** dinámica.
+- **Matchmaking Equitativo:** El Host puede disparar un "Auto-Balanceo" que reparte a los 18 jugadores en dos equipos (A y B) buscando que el promedio de ELO sea equitativo. Todos los participantes son considerados "Jugadores" de pleno derecho, alternando funciones de cancha y recolección (shaggers) de forma orgánica.
+- **Estado de Preparación:** Todos los jugadores deben confirmar su asistencia digitalmente (Check-in) al llegar al lugar físico.
 
-### 2. Validación Social: El "Doble Check"
-Para evitar fraudes en el 0.3x sin árbitros:
-- **Carga de Resultado:** Solo el Host o capitanes asignados pueden cargar el marcador final.
-- **Confirmación Obligatoria:** El capitán del equipo contrario debe "Aceptar" el resultado para que el ELO se procese.
-- **Disputas:** Si hay conflicto, el partido queda en un estado `Pendiente de Revisión` para que un Admin de Overtime intervenga (o simplemente se anule).
+### 2. Roles de Oficiales y Staff
+Para dar seriedad profesional incluso en la plaza.
+- **Slots para Árbitros:** Posibilidad de abrir cupos para:
+    - 1 Árbitro Principal (Lleva el marcador oficial y cierra el partido).
+    - 1 Segundo Árbitro.
+    - Hasta 4 Jueces de Línea.
+- **Elección del Capitán Rival:** Al iniciar el partido oficialmente, el sistema designa automáticamente como **Capitán Rival** al jugador del Equipo B con el **Karma más alto** (basado en su historial de conducta). Él adquiere la autoridad para el Doble Check.
+- **Reputación de Staff:** Los oficiales ganan Karma específico de arbitraje, lo que les permite ser "vistos" por organizaciones oficiales.
+- **Validación de Resultados:** Si hay un Árbitro Principal presente, él tiene la prioridad para cargar el resultado final (Doble Check Simplificado). Si no hay árbitro, se mantiene el **Consenso (2 de 3)** entre el Host, el Capitán Rival y el Árbitro.
 
-### 3. Sistema de Karma (Fair Play)
-La reputación como moneda de cambio para el 0.3x.
-- **Votación Post-Partido:** Al finalizar, cada jugador califica el Karma de sus compañeros y rivales (Pulgar arriba/abajo o estrellas).
-- **Incumplimiento:** Si alguien se une a un lobby y no asiste (No-Show), su Karma baja drásticamente.
-- **Impacto en Ranking:** Jugadores con Karma bajo (tóxicos o tramposos) pierden la capacidad de sumar ELO en partidos de plaza o incluso pueden ser bloqueados de unirse a nuevos lobbies.
+### 3. Dinámica de Juego y Sets
+- **Registro Set a Set:** Interfaz simplificada para que el Árbitro o el Host marquen el ganador de cada set en tiempo real.
+- **Cierre de Partido:** El sistema permite definir condiciones de victoria (Ej: "A ganar 4 sets" o "Tiempo corrido de 40 mins").
 
-### 4. Geolocalización y Mapas
-- **Mapa en Tiempo Real:** En la App Public, ver círculos de actividad (Lobbies abiertos hoy).
-- **Rutas de Dodgeball:** Guardar "Lugares Favoritos" (Parques, Polideportivos municipales).
+### 4. Sistema de Karma y Seguridad
+- **Cercanía GPS (Geofencing):** El Check-in solo se activa si el usuario está en un radio de 100m del punto de encuentro.
+- **Multa por No-Show (Penalización Triple):** Si un jugador confirmado no realiza el Check-in:
+    1.  **Karma:** Baja de reputación automática y drástica.
+    2.  **ELO (AFK):** Se procesa como abandono. Pierde ELO automáticamente (doble penalización del equipo perdedor) incluso si su equipo gana.
+    3.  **Radar:** La métrica de *Consistency* y *Stamina* se ven afectadas negativamente en el perfil público.
+- **Votación Post-Partido:** Evaluación mutua de Fair Play (👍/👎).
+- **Impacto en Ranking:** El 0.3x es el base. Con un árbitro oficial de plaza, el impacto podría subir a **0.5x** debido a la mayor confiabilidad de los datos.
 
 ---
 
@@ -51,14 +57,15 @@ La reputación como moneda de cambio para el 0.3x.
 ## 📅 Roadmap de Implementación
 
 ### Fase 1: MVP de Lobbies (La Lista)
-- [x] Backend: Modelo de Lobbies y Endpoints CRUD básicos (`Lobby.js`, `plaza.js`).
+- [x] Backend: Modelo de Lobbies robusto (18 slots + Oficiales) y Endpoints CRUD.
 - [ ] Frontend Public: Lista de lobbies activos y botón "Unirse".
-- [ ] Integración con Ranking: El flujo de finalización de lobby dispara el `applyRankedResult` con multiplicador `0.3`.
+- [x] Integración con Ranking: El flujo de finalización mediante consenso dispara el `applyRankedResult` (0.3x / 0.5x).
 
 ### Fase 2: Confianza y Karma
-- [x] Backend: Modelo de Karma (`KarmaLog.js`) y lógica de "Doble Check" inicial.
+- [x] Backend: Lógica de **Consenso 2 de 3** (Host, Capitán Rival y Árbitro).
+- [x] Backend: Sistema de Geofencing para Check-in GPS y detección de AFK.
 - [ ] Sistema de confirmación cruzada de resultados (Frontend).
-- [ ] Interfaz de calificación de jugadores post-partido.
+- [ ] Interfaz de calificación de jugadores post-partido (Karma).
 - [ ] Dashboard de Karma en el Perfil de Atleta.
 
 ### Fase 3: El Mapa y Discovery
