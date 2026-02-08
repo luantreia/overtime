@@ -115,7 +115,7 @@ function fueHechaPorEquipo(relacion, equipo) {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', verificarToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { jugador, equipo } = req.query;
     if (!jugador && !equipo) return res.status(400).json({ message: 'Debe indicar jugador o equipo' });
@@ -125,7 +125,7 @@ router.get('/', verificarToken, async (req, res) => {
     if (equipo) filtro.equipo = equipo;
 
     const relaciones = await JugadorEquipo.find(filtro)
-      .populate('jugador', 'nombre alias genero')
+      .populate('jugador', 'nombre alias genero foto') // Added foto
       .populate('equipo', 'nombre escudo')
       .lean();
 

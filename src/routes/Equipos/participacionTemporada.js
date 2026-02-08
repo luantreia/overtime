@@ -84,7 +84,7 @@ function validarCamposManual(req, res, next) {
  *       500:
  *         description: Error del servidor
  */
-router.get('/', verificarToken, validarCamposManual, async (req, res) => {
+router.get('/', validarCamposManual, async (req, res) => {
   try {
     const { temporada, equipo } = req.query;
     const filtro = {};
