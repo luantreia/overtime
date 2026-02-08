@@ -91,6 +91,10 @@ const LobbySchema = new Schema({
 
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
 
+  // Datos de recompensa de Karma-ELO (Calculados al confirmar)
+  appliedMultiplier: { type: Number },
+  avgKarma: { type: Number },
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {

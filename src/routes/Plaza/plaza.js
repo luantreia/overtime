@@ -804,6 +804,9 @@ router.post('/lobbies/:id/confirm', verificarToken, validarObjectId, async (req,
     });
 
     lobby.matchId = match._id;
+    lobby.appliedMultiplier = multiplier;
+    lobby.avgKarma = Math.round(avgKarma);
+    
     await lobby.save();
 
     res.json({ 
