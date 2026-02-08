@@ -95,9 +95,11 @@ Transformar la aplicación en una plataforma social y participativa.
 - Athlete Radar con métricas de ritmo dinámico.
 - Recalculador Global Maestro.
 
-### Fase 3: Participación "La Plaza" (EN DESARROLLO)
-- Diseño del Lobby de Plazas en App Public.
-- Geolocalización de partidos.
+### Fase 3: Participación "La Plaza" (ESCALANDO 🚀)
+- [x] Diseño del Lobby de Plazas en App Public.
+- [x] Geolocalización de partidos (Mapa Interactivo).
+- [x] Gestión Administrativa de Lobbies (Cleanup en Panel Admin).
+- [ ] Sistema de Karma 2.0 (Votación Post-partido).
 - Karma y Validación Social.
 
 ---

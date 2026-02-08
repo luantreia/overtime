@@ -28,9 +28,12 @@ const router = express.Router();
  */
 router.get('/lobbies', async (req, res) => {
   try {
-    const lobbies = await Lobby.find({ status: { $in: ['open', 'full', 'playing'] } })
+    const { all } = req.query;
+    const filter = all === 'true' ? {} : { status: { $in: ['open', 'full', 'playing'] } };
+    
+    const lobbies = await Lobby.find(filter)
       .populate('players.player', 'nombre alias foto')
-      .sort({ scheduledDate: 1 });
+      .sort({ scheduledDate: -1 });
     res.json(lobbies);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener lobbies', error: error.message });
@@ -592,7 +595,8 @@ router.delete('/lobbies/:id', verificarToken, cargarRolDesdeBD, validarObjectId,
       return res.status(403).json({ message: 'No tienes permiso para eliminar este lobby' });
     }
 
-    if (lobby.status === 'playing' || lobby.status === 'finished') {
+    // Permitir a los admins borrar incluso si está en juego (para limpieza)
+    if (req.user.rol !== 'admin' && (lobby.status === 'playing' || lobby.status === 'finished')) {
       return res.status(400).json({ message: 'No se puede eliminar un partido en curso o finalizado por esta vía. Contacta con soporte.' });
     }
 
