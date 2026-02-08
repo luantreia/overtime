@@ -148,14 +148,15 @@ export async function applyRankedResult({
   };
 }
 
-export async function revertRankedResult({ partidoId }) {
-  console.log(`[Ranked] Reverting results for match ${partidoId}...`);
-  const snapshots = await MatchPlayer.find({ partidoId });
-  console.log(`[Ranked] Found ${snapshots.length} player snapshots to revert.`);
+export async function revertRankedResult(partidoId) {
+  // Si se pasa como objeto { partidoId }, extraemos el ID
+  const id = typeof partidoId === 'object' && partidoId.partidoId ? partidoId.partidoId : partidoId;
   
-  // Parallelize player rating adjustments
+  console.log(`[Ranked] Revirtiendo resultados para el partido ${id}...`);
+  const snapshots = await MatchPlayer.find({ partidoId: id });
+  
+  // Revertir el rating de cada jugador en paralelo
   await Promise.all(snapshots.map(async (snap) => {
-    // Only revert if this snapshot was actually applied (has a delta)
     if (typeof snap.delta !== 'number') return;
 
     const pr = await PlayerRating.findOne({
@@ -167,11 +168,11 @@ export async function revertRankedResult({ partidoId }) {
     });
 
     if (pr) {
-      const oldRating = pr.rating;
-      pr.rating = (pr.rating || 1500) - snap.delta;
+      // Revertir el rating y redondear para evitar ruidos de coma flotante
+      pr.rating = Math.round((pr.rating - snap.delta) * 10) / 10;
       pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
       
-      // If we are reverting a win, decrement win count
+      // Revertir victoria si aplica
       if (snap.win === true || (snap.win === undefined && snap.delta > 0)) {
         pr.wins = Math.max(0, (pr.wins || 0) - 1);
       }
@@ -179,7 +180,9 @@ export async function revertRankedResult({ partidoId }) {
       await pr.save();
     }
   }));
-  
-  const delResult = await MatchPlayer.deleteMany({ partidoId });
-  console.log(`[Ranked] Deleted ${delResult.deletedCount} snapshots for match ${partidoId}`);
+
+  // Limpiar registros de snapshots y equipos
+  await MatchPlayer.deleteMany({ partidoId: id });
+  await MatchTeam.deleteMany({ partidoId: id });
+  console.log(`[Ranked] Cleanup completado para el partido ${id}.`);
 }

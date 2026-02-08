@@ -458,6 +458,34 @@ router.post('/lobbies/:id/leave', verificarToken, validarObjectId, async (req, r
 
 /**
  * @swagger
+ * /api/plaza/lobbies/{id}:
+ *   delete:
+ *     summary: (Host/Admin) Cancela/Elimina un lobby
+ *     tags: [Plaza]
+ */
+router.delete('/lobbies/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
+  try {
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    // Solo el host o un admin global pueden eliminar el lobby
+    if (lobby.host !== req.user.uid && req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permiso para eliminar este lobby' });
+    }
+
+    if (lobby.status === 'playing' || lobby.status === 'finished') {
+      return res.status(400).json({ message: 'No se puede eliminar un partido en curso o finalizado por esta vía. Contacta con soporte.' });
+    }
+
+    await lobby.deleteOne();
+    res.json({ message: 'Lobby cancelado y eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al eliminar lobby', error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/plaza/lobbies/{id}/result:
  *   post:
  *     summary: Carga el resultado del partido de plaza (Inicia el consenso)
