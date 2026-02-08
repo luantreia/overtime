@@ -359,18 +359,33 @@ router.post('/lobbies/:id/balance-teams', verificarToken, validarObjectId, async
       const targetLobbyPlayer = lobby.players.id(p._id);
       
       // Decisión: ¿A o B? 
-      // Si un equipo está lleno, va al otro. Si no, al que tenga menos ELO acumulado.
-      if (countA < maxPerTeam && (countB >= maxPerTeam || totalEloA <= totalEloB)) {
+      // Balanceamos primero por cantidad de jugadores y luego por ELO acumulado
+      let assignToA = false;
+
+      if (countA >= maxPerTeam) {
+        assignToA = false;
+      } else if (countB >= maxPerTeam) {
+        assignToA = true;
+      } else {
+        // Si hay diferencia de cantidad, priorizar al que tiene menos
+        if (countA < countB) {
+          assignToA = true;
+        } else if (countB < countA) {
+          assignToA = false;
+        } else {
+          // Si tienen la misma cantidad, ir al que tiene menos ELO
+          assignToA = totalEloA <= totalEloB;
+        }
+      }
+
+      if (assignToA) {
         targetLobbyPlayer.team = 'A';
         totalEloA += p.elo;
         countA++;
-      } else if (countB < maxPerTeam) {
+      } else {
         targetLobbyPlayer.team = 'B';
         totalEloB += p.elo;
         countB++;
-      } else {
-        // Por si acaso hay más de 18 (no debería pasar por las validaciones de join)
-        targetLobbyPlayer.team = 'none';
       }
     }
 
