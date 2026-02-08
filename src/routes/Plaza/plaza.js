@@ -490,11 +490,15 @@ router.post('/lobbies/:id/start', verificarToken, validarObjectId, async (req, r
       return res.status(400).json({ message: 'Se necesita al menos un jugador confirmado en cada equipo para iniciar.' });
     }
 
-    // 2. Calcular Karma para los confirmados del Equipo B para elegir Capitán
-    // Agregamos Karma por targetPlayer
-    const playerIdsB = confirmedB.map(p => p.player);
+    // 2. Elegir el Capitán Rival (el que no está en el equipo del Host)
+    const hostEntry = lobby.players.find(p => p.userUid === lobby.host);
+    const hostTeam = hostEntry ? hostEntry.team : 'A';
+    const rivalTeamPlayers = hostTeam === 'A' ? confirmedB : confirmedA;
+
+    // Calcular Karma para elegir el mejor representante
+    const playerIdsRival = rivalTeamPlayers.map(p => p.player);
     const karmaStats = await KarmaLog.aggregate([
-      { $match: { targetPlayer: { $in: playerIdsB } } },
+      { $match: { targetPlayer: { $in: playerIdsRival } } },
       { $group: { _id: '$targetPlayer', totalKarma: { $sum: '$points' } } }
     ]);
 
@@ -503,11 +507,11 @@ router.post('/lobbies/:id/start', verificarToken, validarObjectId, async (req, r
       return acc;
     }, {});
 
-    // Elegir el de mayor Karma (por defecto 0 si no tienen logs)
+    // Elegir el de mayor Karma
     let bestKarma = -Infinity;
-    let captainUid = confirmedB[0].userUid;
+    let captainUid = rivalTeamPlayers[0].userUid;
 
-    for (const p of confirmedB) {
+    for (const p of rivalTeamPlayers) {
       const pKarma = karmaMap[p.player.toString()] || 0;
       if (pKarma > bestKarma) {
         bestKarma = pKarma;

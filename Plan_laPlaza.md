@@ -1,7 +1,7 @@
 # 🏟️ Proyecto: "La Plaza" - El Motor del Dodgeball Callejero
 
 ## 📋 Visión General
-"La Plaza" es el componente social y participativo de Overtime que permite descentralizar el deporte. El objetivo es que cualquier grupo de personas pueda organizar partidos con validez oficial para el Ranking Global (Nivel 1) con un multiplicador de **0.3x**, sin necesidad de una organización formal detrás.
+"La Plaza" es el componente social y participativo de Overtime que permite descentralizar el deporte. El objetivo es que cualquier grupo de personas pueda organizar partidos con validez oficial para el Ranking Global (Nivel 1) con un multiplicador de **0.3x** (0.5x con arbitraje), sin necesidad de una organización formal detrás.
 
 ---
 
@@ -9,68 +9,55 @@
 
 ### 1. El Sistema de Lobbies (Punto de Encuentro)
 Permite pasar de la intención a la acción.
-- **Creación de Lobby:** Un "Host" define ubicación, tipo de bola y cupos (Estándar de **18 jugadores totales**, 9 por bando).
-- **Gestión de Cupos y Sorteo:** 
-    - Si hay más de 18 interesados, el sistema permite al Host seleccionar a los participantes por **Orden de Llegada** (First-come, first-served), **Sorteo Automático** o priorización por **Karma**.
-    - Los que no entran pasan a una **Lista de Espera** dinámica.
-- **Matchmaking Equitativo:** El Host puede disparar un "Auto-Balanceo" que reparte a los 18 jugadores en dos equipos (A y B) buscando que el promedio de ELO sea equitativo. Todos los participantes son considerados "Jugadores" de pleno derecho, alternando funciones de cancha y recolección (shaggers) de forma orgánica.
-- **Estado de Preparación:** Todos los jugadores deben confirmar su asistencia digitalmente (Check-in) al llegar al lugar físico.
+- [x] **Creación de Lobby:** Un "Host" define ubicación, tipo de bola y cupos. (Leaflet Map integrado para coordenadas precisas).
+- [x] **Gestión de Cupos y Sorteo:** 
+    - [x] Cupos estándar de 18 jugadores.
+    - [x] Auto-asignación balanceada por bando (Algoritmo de paridad numérica).
+- [x] **Matchmaking Equitativo:** 
+    - [x] Algoritmo Greedy que balancea prioridad numérica (ej: 1v1, 2v2) y luego ELO acumulado.
+- [x] **Estado de Preparación:** 
+    - [x] Check-in GPS (Geofencing 150m) con icono de escudo de verificación.
 
 ### 2. Roles de Oficiales y Staff
 Para dar seriedad profesional incluso en la plaza.
-- **Slots para Árbitros:** Posibilidad de abrir cupos para:
-    - 1 Árbitro Principal (Lleva el marcador oficial y cierra el partido).
-    - 1 Segundo Árbitro.
-    - Hasta 4 Jueces de Línea.
-- **Elección del Capitán Rival:** Al iniciar el partido oficialmente, el sistema designa automáticamente como **Capitán Rival** al jugador del Equipo B con el **Karma más alto** (basado en su historial de conducta). Él adquiere la autoridad para el Doble Check.
-- **Reputación de Staff:** Los oficiales ganan Karma específico de arbitraje, lo que les permite ser "vistos" por organizaciones oficiales.
-- **Validación de Resultados:** Si hay un Árbitro Principal presente, él tiene la prioridad para cargar el resultado final (Doble Check Simplificado). Si no hay árbitro, se mantiene el **Consenso (2 de 3)** entre el Host, el Capitán Rival y el Árbitro.
+- [x] **Slots para Árbitros:** Cupos para Principal, Secundario y 4 Líneas.
+- [x] **Elección del Capitán Rival:** Designación automática del jugador con mayor Karma del Equipo B. Badge visual de "CAPITÁN".
+- [x] **Reputación de Staff:** Visibilidad de ELO/Karma de árbitros antes de unirse y capacidad de expulsión por parte del Host.
+- [x] **Validación de Resultados:** Consenso 2 de 3 con capacidad de **CORRECCIÓN** del Host antes de la firma rival.
 
 ### 3. Dinámica de Juego y Sets
-- **Registro Set a Set:** Interfaz simplificada para que el Árbitro o el Host marquen el ganador de cada set en tiempo real.
-- **Cierre de Partido:** El sistema permite definir condiciones de victoria (Ej: "A ganar 4 sets" o "Tiempo corrido de 40 mins").
+- [x] **Registro Set a Set:** Interfaz de carga de sets que suma victorias para el resultado final automático.
+- [x] **Cierre de Partido:** Aplicación atómica de ELO Post-Consenso mediante `applyRankedResult`.
+- [x] **Rollback de Seguridad:** Herramienta de Administrador (`revertRankedResult`) para deshacer partidos mal reportados sin corromper el ranking.
 
 ### 4. Sistema de Karma y Seguridad
-- **Cercanía GPS (Geofencing):** El Check-in solo se activa si el usuario está en un radio de 100m del punto de encuentro.
-- **Multa por No-Show (Penalización Triple):** Si un jugador confirmado no realiza el Check-in:
-    1.  **Karma:** Baja de reputación automática y drástica.
-    2.  **ELO (AFK):** Se procesa como abandono. Pierde ELO automáticamente (doble penalización del equipo perdedor) incluso si su equipo gana.
-    3.  **Radar:** La métrica de *Consistency* y *Stamina* se ven afectadas negativamente en el perfil público.
-- **Votación Post-Partido:** Evaluación mutua de Fair Play (👍/👎).
-- **Impacto en Ranking:** El 0.3x es el base. Con un árbitro oficial de plaza, el impacto podría subir a **0.5x** debido a la mayor confiabilidad de los datos.
+- [x] **Cercanía GPS (Geofencing):** Radio de 150m mandatorio para habilitar inicio.
+- [x] **Multa por No-Show (Penalización Triple):** Lógica de AFK automática para quienes no validan GPS antes del inicio.
+- [ ] **Votación Post-Partido:** Evaluación mutua de Fair Play (👍/👎).
+- [x] **Impacto en Ranking:** 0.3x base. 0.5x si un oficial validado por Karma confirma el resultado.
 
 ---
 
-## 📐 Especificaciones Técnicas (Backend)
+## � Roadmap de Implementación
 
-### Nuevos Modelos de Datos
-- `Lobby`: `id`, `hostId`, `location`, `players[]`, `status` (open, full, playing, finished), `marcador`.
-- `KarmaLog`: Registro de interacciones de conducta.
-- `Location`: `nombre`, `coordenadas`, `fotos`, `comodidades` (luz, techado, baños).
+### Fase 1: MVP de Lobbies (COMPLETADO ⭐)
+- [x] Backend robusto y Endpoints de flujo de vida del partido.
+- [x] Frontend Public: Explorar, Crear, Lobby y Reporte.
+- [x] Integración con Ranking Global 0.3x/0.5x.
 
-### Reglas de Negocio del 0.3x
-- **Mínimo de Jugadores:** Se requieren al menos 6 jugadores reales (verificados) para que el lobby otorgue ELO.
-- **Cercanía GPS:** (Opcional) Validar que los jugadores estén en un radio de 500m del punto del lobby al momento de iniciar para evitar "partidos fantasma".
-
----
-
-## 📅 Roadmap de Implementación
-
-### Fase 1: MVP de Lobbies (La Lista)
-- [x] Backend: Modelo de Lobbies robusto (18 slots + Oficiales) y Endpoints CRUD.
-- [ ] Frontend Public: Lista de lobbies activos y botón "Unirse".
-- [x] Integración con Ranking: El flujo de finalización mediante consenso dispara el `applyRankedResult` (0.3x / 0.5x).
-
-### Fase 2: Confianza y Karma
-- [x] Backend: Lógica de **Consenso 2 de 3** (Host, Capitán Rival y Árbitro).
-- [x] Backend: Sistema de Geofencing para Check-in GPS y detección de AFK.
-- [ ] Sistema de confirmación cruzada de resultados (Frontend).
-- [ ] Interfaz de calificación de jugadores post-partido (Karma).
+### Fase 2: Confianza y Karma (95% COMPLETADO)
+- [x] Consenso 2 de 3 con badges de identificación (Host/Capitán).
+- [x] Geofencing para Check-in GPS.
+- [x] Interfaz de corrección de resultados y visualización previa.
 - [ ] Dashboard de Karma en el Perfil de Atleta.
 
-### Fase 3: El Mapa y Discovery
-- [ ] Integración con Google Maps / Leaflet.
-- [ ] Notificaciones Push: "Hay un partido de Foam cerca de tu ubicación en 1 hora".
+### Fase 3: El Mapa y Discovery (EN DESARROLLO)
+- [x] Integración con Leaflet en creación.
+- [ ] Vista de Mapa en "Explorar Lobbies".
+- [ ] Notificaciones Push proximidad.
+
+---
+> *"El Dodgeball nace en la plaza, se pule en la liga y se consagra en el Ranking Global."*
 
 ---
 > *"El Dodgeball nace en la plaza, se pule en la liga y se consagra en el Ranking Global."*

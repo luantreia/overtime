@@ -35,18 +35,20 @@ Para profesionalizar el deporte, el progreso de un jugador se mide en tres dimen
 
 ## 🚀 Plan de Acción Inmediato
 
-### Paso 1: Consolidar la Base (Mañana)
-- [ ] **Identidad:** Implementar el campo `userId` en el modelo de `Jugador` y el sistema de `perfilReclamado`.
-- [ ] **Vinculación:** Crear endpoint `/claim-player` para que los usuarios busquen y pidan su perfil histórico.
-- [ ] **Rank Maestro:** Ejecutar un script único (`recalculate-global`) para alimentar el nuevo Ranking Maestro con todos los partidos cargados hasta hoy.
+### Paso 1: Consolidar la Base (COMPLETADO ⭐)
+- [x] **Identidad:** Campo `userId` en el modelo de `Jugador` y sistema de `perfilReclamado`.
+- [x] **Vinculación:** Proceso de reclamo de perfiles históricos validado.
+- [x] **Rank Maestro:** El ELO Global ahora es la fuente de verdad única para el scouting.
 
-### Paso 2: Diferenciación de Organizaciones
-- [ ] Agregar campo `isVerified` a las Organizaciones.
-- [ ] Ajustar el `ratingService` para que los partidos de organizaciones NO verificadas usen el multiplicador de ELO reducido para el Rank Global.
+### Paso 2: El Desembarco en "La Plaza" (ACTUAL)
+- [x] **Módulo de Lobbies:** Sistema de partidos libres autogestionados.
+- [x] **Confianza:** Check-in GPS y Consenso 2 de 3 para evitar fraudes de ELO.
+- [x] **Multiplicadores:** Implementación de 0.3x (Plaza) y 0.5x (Oficiales).
 
-### Paso 3: Perfil Pro y Redes
+### Paso 3: Perfil Pro y Redes (PRÓXIMO)
 - [ ] **App Public:** Diseñar la "Carta de Jugador" (FIFA Style) que muestre los 3 rankings y la reputación de Fair Play.
-- [ ] **Social Media:** Lanzamiento de IG/TikTok de **Overtime Dodgeball**. Contenido: "Héroes del Ranking", "Jugadas de ELO +20" y el mapa de partidos en plazas.
+- [ ] **Dashboard de Karma:** Visualización de conducta competitiva.
+- [ ] **Social Media:** Lanzamiento de IG/TikTok de **Overtime Dodgeball**. Contenido: "Héroes del Ranking" y "Jugadas de ELO +20".
 
 ---
 
