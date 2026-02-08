@@ -107,6 +107,192 @@ router.post('/', verificarToken, async (req, res) => {
 
 /**
  * @swagger
+ * /api/jugadores/{id}/claim:
+ *   post:
+ *     summary: Solicita reclamar el perfil de un jugador
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del jugador a reclamar
+ *     responses:
+ *       201:
+ *         description: Solicitud de reclamo creada
+ *       400:
+ *         description: El perfil ya ha sido reclamado o el usuario ya es admin
+ *       404:
+ *         description: Jugador no encontrado
+ */
+router.post('/:id/claim', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const uid = req.user.uid;
+
+    const jugador = await Jugador.findById(id);
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+
+    if (jugador.perfilReclamado) {
+      return res.status(400).json({ message: 'Este perfil ya ha sido reclamado por otro usuario' });
+    }
+
+    if (jugador.userId && jugador.userId.toString() === uid) {
+      return res.status(400).json({ message: 'Ya eres el dueño de este perfil' });
+    }
+
+    const SolicitudEdicion = mongoose.model('SolicitudEdicion');
+
+    const existente = await SolicitudEdicion.findOne({
+      tipo: 'jugador-claim',
+      entidad: id,
+      creadoPor: uid,
+      estado: 'pendiente'
+    });
+
+    if (existente) {
+      return res.status(400).json({ message: 'Ya tienes una solicitud de reclamo pendiente para este jugador' });
+    }
+
+    const solicitud = new SolicitudEdicion({
+      tipo: 'jugador-claim',
+      entidad: id,
+      creadoPor: uid,
+      datosPropuestos: {
+        jugadorId: id,
+        userId: uid
+      }
+    });
+
+    await solicitud.save();
+
+    res.status(201).json({
+      message: 'Solicitud de reclamo enviada correctamente',
+      solicitudId: solicitud._id
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al procesar la solicitud de reclamo', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/release-identity:
+ *   post:
+ *     summary: (Admin) Libera la identidad de un jugador
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Identidad liberada exitosamente
+ */
+router.post('/:id/release-identity', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    if (req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permisos para realizar esta acción' });
+    }
+
+    const { id } = req.params;
+    const jugador = await Jugador.findById(id);
+    if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado' });
+
+    jugador.userId = null;
+    jugador.perfilReclamado = false;
+    await jugador.save();
+
+    res.json({ message: 'Identidad liberada. El perfil vuelve a ser fantasma.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al liberar identidad', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/transfer-identity:
+ *   post:
+ *     summary: (Dueño) Transfiere la identidad a otro usuario o la libera
+ *     description: Permite al dueño actual renunciar a su identidad o pasarla a otro ID de usuario.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nuevoUserId:
+ *                 type: string
+ *                 description: ID del nuevo dueño (opcional, si no se envía, el perfil queda libre)
+ *     responses:
+ *       200:
+ *         description: Transferencia exitosa
+ */
+router.post('/:id/transfer-identity', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nuevoUserId, quitarmeComoAdmin } = req.body;
+    const uid = req.user.uid;
+
+    const jugador = await Jugador.findById(id);
+    if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado' });
+
+    // Solo el dueño puede transferir su propia identidad
+    if (!jugador.userId || jugador.userId.toString() !== uid) {
+      return res.status(403).json({ message: 'Solo el dueño del perfil puede transferir su identidad' });
+    }
+
+    if (nuevoUserId) {
+      jugador.userId = nuevoUserId;
+      jugador.perfilReclamado = true;
+      
+      // Asegurar que el nuevo dueño sea admin
+      if (!jugador.administradores.some(aid => aid.toString() === nuevoUserId.toString())) {
+        jugador.administradores.push(nuevoUserId);
+      }
+    } else {
+      // Si no hay nuevoUserId, es un self-release (renuncia)
+      jugador.userId = null;
+      jugador.perfilReclamado = false;
+    }
+
+    // Eva decide si quiere dejar de ser administradora
+    if (quitarmeComoAdmin) {
+      // Solo permitimos quitarse si hay otros admins (como Fran) 
+      // para evitar dejar el perfil sin ningún responsable.
+      if (jugador.administradores.length > 1) {
+        jugador.administradores = jugador.administradores.filter(aid => aid.toString() !== uid);
+      } else if (!nuevoUserId) {
+        return res.status(400).json({ 
+          message: 'No puedes quitarte como único administrador sin transferir la identidad a alguien más.' 
+        });
+      }
+    }
+
+    await jugador.save();
+    res.json({ 
+      message: nuevoUserId ? 'Identidad transferida exitosamente' : 'Has renunciado a la identidad de este perfil',
+      removidoComoAdmin: quitarmeComoAdmin && !jugador.administradores.some(aid => aid.toString() === uid)
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error en la transferencia de identidad', error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/jugadores/admin:
  *   get:
  *     summary: Obtiene jugadores administrables por el usuario autenticado
@@ -1017,5 +1203,72 @@ router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), asyn
   }
 });
 
+/**
+ * @swagger
+ * /api/jugadores/{id}/radar:
+ *   get:
+ *     summary: Obtiene las estadísticas tipo radar del jugador
+ *     tags: [Jugadores]
+ */
+router.get('/:id/radar', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Get Master Ranking (Level 1)
+    const masterRating = await PlayerRating.findOne({ playerId: id, competenciaId: null }).lean();
+    
+    // 2. Get Recent Match History to calculate tendency
+    const recentMatches = await MatchPlayer.find({ playerId: id })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    const totalMatches = await MatchPlayer.countDocuments({ playerId: id });
+    const wins = await MatchPlayer.countDocuments({ playerId: id, win: true });
+    
+    // Competitive Rhythm (Last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const matchesLast30Days = await MatchPlayer.countDocuments({ 
+      playerId: id, 
+      createdAt: { $gte: thirtyDaysAgo } 
+    });
+    
+    // Power: Based on absolute ELO rating. 2400+ is 100.
+    const power = Math.min(100, Math.max(20, ((masterRating?.rating || 1500) - 1000) / 14));
+    
+    // Stamina (Option A): 50% Veterancy (250 matches) + 50% Rhythm (12 matches last 30 days)
+    const veterancy = Math.min(50, (totalMatches / 250) * 50);
+    const rhythm = Math.min(50, (matchesLast30Days / 12) * 50);
+    const stamina = Math.max(10, veterancy + rhythm);
+    
+    // Precision: Based on Winrate. 70% winrate is 100.
+    const winrate = totalMatches > 0 ? (wins / totalMatches) : 0.5;
+    const precision = Math.min(100, Math.max(20, (winrate / 0.7) * 100));
+    
+    // Consistency: Inverse of delta variance in last 10 matches.
+    const lastDeltas = recentMatches.slice(0, 10).map(m => Math.abs(m.delta || 0));
+    const avgDelta = lastDeltas.length > 0 ? lastDeltas.reduce((a, b) => a + b, 0) / lastDeltas.length : 15;
+    const consistency = Math.min(100, Math.max(20, 100 - (avgDelta * 2)));
+
+    // Versatility: Number of different Competitions played. 5+ is 100.
+    const uniqueComps = await MatchPlayer.distinct('competenciaId', { playerId: id });
+    const versatility = Math.min(100, Math.max(20, (uniqueComps.filter(c => c).length / 5) * 100));
+
+    res.json({
+      power: Math.round(power),
+      stamina: Math.round(stamina),
+      precision: Math.round(precision),
+      consistency: Math.round(consistency),
+      versatility: Math.round(versatility),
+      elo: masterRating?.rating || 1500,
+      totalMatches,
+      winrate: Math.round(winrate * 100)
+    });
+  } catch (error) {
+    console.error('Error in radar calc:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

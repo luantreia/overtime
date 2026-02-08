@@ -349,22 +349,45 @@ PartidoSchema.post('save', async function () {
 
       let finalSnapshot = null;
 
-      // 1. ALWAYS apply to Global MASTER (Absolutamente Global de la App)
-      // competition: null, season: null
-      const snap1 = await applyRankedResult({
-        partidoId: this._id,
-        competenciaId: null,
-        temporadaId: null,
-        modalidad,
-        categoria,
-        result: winner,
-        afkPlayerIds
-      });
-      finalSnapshot = snap1;
-      console.log(`[Ranked] Level 1 (Master) applied for match ${this._id}`);
+      // Global Expansion Plan Logic:
+      // Level 1 (Master) Multiplier:
+      // - Verified Org: 1.0x
+      // - Unverified Org: 0x (Skipped)
+      // - No Org (Plaza): 0.3x
+      let globalMultiplier = 0.3; 
+      let shouldApplyGlobal = true;
 
-      // 2. Apply to COMPETITION GLOBAL (if competition exists)
-      // competition: ID, season: null
+      if (competenciaId) {
+        const Competencia = mongoose.model('Competencia');
+        const compDoc = await Competencia.findById(competenciaId).populate('organizacion').lean();
+        
+        if (compDoc?.organizacion && compDoc.organizacion.verificada) {
+          globalMultiplier = 1.0;
+        } else {
+          shouldApplyGlobal = false;
+          console.log(`[Ranked] Level 1 (Master) skipped - Organization not verified or not found.`);
+        }
+      } else {
+        console.log(`[Ranked] Level 1 (Master) using Plaza multiplier (0.3x)`);
+      }
+
+      // 1. Apply to Global MASTER (Absolute App Global)
+      if (shouldApplyGlobal) {
+        const snap1 = await applyRankedResult({
+          partidoId: this._id,
+          competenciaId: null,
+          temporadaId: null,
+          modalidad,
+          categoria,
+          result: winner,
+          afkPlayerIds,
+          multiplier: globalMultiplier
+        });
+        finalSnapshot = snap1;
+        console.log(`[Ranked] Level 1 (Master) applied with multiplier ${globalMultiplier}`);
+      }
+
+      // 2. Apply to COMPETITION GLOBAL (Level 2)
       if (competenciaId) {
         const snap2 = await applyRankedResult({
           partidoId: this._id,
@@ -373,14 +396,14 @@ PartidoSchema.post('save', async function () {
           modalidad,
           categoria,
           result: winner,
-          afkPlayerIds
+          afkPlayerIds,
+          multiplier: 1.0 // Competition internal ranking always counts 100%
         });
         finalSnapshot = snap2;
-        console.log(`[Ranked] Level 2 (Competition ${competenciaId}) applied for match ${this._id}`);
+        console.log(`[Ranked] Level 2 (Competition ${competenciaId}) applied`);
       }
 
-      // 3. Apply to SEASON (if season exists)
-      // competition: ID, season: ID
+      // 3. Apply to SEASON (Level 3)
       if (temporadaId && competenciaId) {
         const snap3 = await applyRankedResult({
           partidoId: this._id,
@@ -389,10 +412,11 @@ PartidoSchema.post('save', async function () {
           modalidad,
           categoria,
           result: winner,
-          afkPlayerIds
+          afkPlayerIds,
+          multiplier: 1.0 // Season internal ranking always counts 100%
         });
         finalSnapshot = snap3;
-        console.log(`[Ranked] Level 3 (Season ${temporadaId}) applied for match ${this._id}`);
+        console.log(`[Ranked] Level 3 (Season ${temporadaId}) applied`);
       }
 
       this.rankedMeta = this.rankedMeta || {};

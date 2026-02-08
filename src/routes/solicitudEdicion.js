@@ -1026,6 +1026,23 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
                 await jugador.save({ session });
               }
             }
+          } else if (solicitud.tipo === 'jugador-claim') {
+            const jugador = await Jugador.findById(solicitud.entidad).session(session);
+            if (jugador) {
+              // Seguridad extra: Validar que no haya sido reclamado por otro en el interín
+              if (jugador.perfilReclamado && jugador.userId?.toString() !== solicitud.creadoPor?.toString()) {
+                throw new Error('Este perfil ya fue reclamado por otro usuario.');
+              }
+
+              jugador.userId = solicitud.creadoPor;
+              jugador.perfilReclamado = true;
+              
+              const yaEsAdmin = jugador.administradores.some(id => id.toString() === solicitud.creadoPor.toString());
+              if (!yaEsAdmin) {
+                jugador.administradores.push(solicitud.creadoPor);
+              }
+              await jugador.save({ session });
+            }
           } else if (solicitud.tipo === 'usuario-solicitar-admin-organizacion') {
             const org = await Organizacion.findById(solicitud.entidad).session(session);
             if (org) {

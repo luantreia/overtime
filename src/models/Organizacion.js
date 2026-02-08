@@ -21,6 +21,9 @@ const organizacionSchema = new mongoose.Schema({
     }
   ],
 
+  // Flag to allow data to count towards Global Master Ranking
+  verificada: { type: Boolean, default: false },
+
   activa: { type: Boolean, default: true },
 }, {
   timestamps: true

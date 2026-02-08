@@ -163,6 +163,31 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
         }
         break;
       }
+      case 'usuario-solicitar-admin-jugador':
+      case 'jugador-claim': {
+        const id = entidadId || datosPropuestos.jugadorId;
+        const jugador = await Jugador.findById(id).select('administradores creadoPor');
+        if (jugador) {
+          grupos.jugador = extraerIds(jugador);
+        }
+        break;
+      }
+      case 'usuario-solicitar-admin-equipo': {
+        const id = entidadId || datosPropuestos.equipoId;
+        const equipo = await Equipo.findById(id).select('administradores creadoPor');
+        if (equipo) {
+          grupos.equipo = extraerIds(equipo);
+        }
+        break;
+      }
+      case 'usuario-solicitar-admin-organizacion': {
+        const id = entidadId || datosPropuestos.organizacionId;
+        const org = await Organizacion.findById(id).select('administradores creadoPor');
+        if (org) {
+          grupos.organizacion = extraerIds(org);
+        }
+        break;
+      }
       // ... otros casos simples se pueden agregar aquí
     }
   }

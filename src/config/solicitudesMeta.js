@@ -118,5 +118,10 @@ export const tiposSolicitudMeta = {
     camposCriticos: ['organizacionId'],
     rolesAprobadores: ['adminOrganizacion'],
   },
+  'jugador-claim': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['jugadorId'],
+    rolesAprobadores: ['adminSistema', 'adminJugador'],
+  },
   // Agregá más tipos si necesitás
 };

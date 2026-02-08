@@ -35,7 +35,16 @@ export async function getOrCreatePlayerRating({ playerId, competenciaId: rawComp
   return pr;
 }
 
-export async function applyRankedResult({ partidoId, competenciaId: rawCompId, temporadaId: rawTempId, modalidad: rawMod, categoria: rawCat, result, afkPlayerIds = [] }) {
+export async function applyRankedResult({ 
+  partidoId, 
+  competenciaId: rawCompId, 
+  temporadaId: rawTempId, 
+  modalidad: rawMod, 
+  categoria: rawCat, 
+  result, 
+  afkPlayerIds = [],
+  multiplier = 1
+}) {
   const modalidad = normalizeEnum(rawMod);
   const categoria = normalizeEnum(rawCat);
 
@@ -90,6 +99,11 @@ export async function applyRankedResult({ partidoId, competenciaId: rawCompId, t
 
     if (isAFK) {
       delta = -afkPenalty;
+    }
+
+    // Apply global expansion multiplier (e.g. 0.3 for Plaza matches)
+    if (multiplier !== 1) {
+      delta = delta * multiplier;
     }
     
     // Round delta to 1 decimal place to keep data clean and avoid JS float issues

@@ -10,8 +10,37 @@ import { getOrCreatePlayerRating } from '../services/ratingService.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import MatchPlayer from '../models/Partido/MatchPlayer.js';
 import TimerManager from '../services/TimerManager.js';
+import { recalculateGlobalRanking } from '../services/maintenanceService.js';
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * /api/ranked/recalculate-global:
+ *   post:
+ *     summary: Recalcula el Ranking Global (Level 1) desde cero basado en el histórico.
+ *     tags: [Ranked]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/recalculate-global', verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    if (req.user?.rol !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permisos de Administrador Global' });
+    }
+    
+    const result = await recalculateGlobalRanking();
+    res.json({
+      message: 'Recalculación de Ranking Global completada exitosamente.',
+      data: result
+    });
+  } catch (err) {
+    console.error('Error in recalculate-global:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;
 
 function ensureArray(arr) { return Array.isArray(arr) ? arr : []; }
 
@@ -1077,7 +1106,7 @@ router.post('/match/:id/mark-ranked', async (req, res) => {
 });
 
 // Revert ranked match stats
-router.post('/match/:id/revert', async (req, res) => {
+router.post('/match/:id/revert', verificarToken, async (req, res) => {
   try {
     const partidoId = req.params.id;
     const { revertRankedResult } = await import('../services/ratingService.js');
@@ -1105,46 +1134,13 @@ router.post('/match/:id/revert', async (req, res) => {
   }
 });
 
-// Regenerate Global Rankings (Recalculate everything from scratch)
-router.post('/recalculate-global', async (req, res) => {
-  try {
-    // 1. Reset all PlayerRating and MatchPlayer
-    await PlayerRating.deleteMany({});
-    await MatchPlayer.deleteMany({});
-
-    // 2. Mark matches as not applied
-    await Partido.updateMany(
-      { isRanked: true },
-      {
-        $set: {
-          'rankedMeta.applied': false,
-          'rankedMeta.snapshot': null,
-          ratingDeltas: []
-        }
-      }
-    );
-
-    // 3. Find all ranked matches, sorted by date
-    const matches = await Partido.find({ isRanked: true, estado: 'finalizado' })
-      .sort({ fecha: 1, createdAt: 1 });
-
-    let count = 0;
-    for (const match of matches) {
-      // Important: Use save() to trigger the post('save') hook in Partido.js
-      await match.save();
-      count++;
-    }
-
-    res.json({ ok: true, message: `Rankings recalculated for ${count} matches.` });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 // Reset rankings for a specific competition/season/modality/category
-router.post('/reset-scope', async (req, res) => {
+router.post('/reset-scope', verificarToken, async (req, res) => {
   try {
     const { competenciaId, temporadaId, modalidad, categoria } = req.body;
+    
+    // Optional: check if user is admin of the organization or system admin
+    // For now, at least require authentication to prevent public access.
     
     if (!competenciaId || !modalidad || !categoria) {
       return res.status(400).json({ ok: false, error: 'Se requiere competenciaId, modalidad y categoria' });
@@ -1201,7 +1197,7 @@ router.post('/reset-scope', async (req, res) => {
 });
 
 // Recalculate rankings for a specific competition/season/modality/category from MatchPlayer snapshots
-router.post('/recalculate-scope', async (req, res) => {
+router.post('/recalculate-scope', verificarToken, async (req, res) => {
   try {
     const { competenciaId, temporadaId, modalidad, categoria } = req.body;
 
