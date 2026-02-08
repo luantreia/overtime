@@ -1288,27 +1288,38 @@ router.get('/:id/radar', async (req, res) => {
     const totalKarma = karmaStats.length > 0 ? karmaStats[0].totalKarma : 0;
 
     // 1.2. Get Plaza Stats (Partidos oficiales que no pertenecen a una competencia/liga)
-    const plazaQuery = { 
+    // IMPORTANT: We filter by Level 1 records (comp:null, temp:null) to count actual physical matches
+    const baseQuery = { 
       playerId: id,
-      competenciaId: null 
+      competenciaId: null,
+      temporadaId: null
     };
-    if (modalidad) plazaQuery.modalidad = modalidad;
-    if (categoria) plazaQuery.categoria = categoria;
+    if (modalidad) baseQuery.modalidad = modalidad;
+    if (categoria) baseQuery.categoria = categoria;
 
-    const plazaMatches = await MatchPlayer.countDocuments(plazaQuery);
+    // Total physical matches is always the count of Level 1 records
+    const totalMatches = await MatchPlayer.countDocuments(baseQuery);
+    const wins = await MatchPlayer.countDocuments({ ...baseQuery, win: true });
 
-    // 2. Get Recent Match History to calculate tendency
-    const historyQuery = { playerId: id };
-    if (modalidad) historyQuery.modalidad = modalidad;
-    if (categoria) historyQuery.categoria = categoria;
+    // To find real "Plaza" matches, we need to know which Level 1 records don't have a Level 2 counterpart
+    // but a simpler way is to check the Partido itself or just use the logic:
+    // League matches have a Level 2 record (comp != null, temp: null)
+    const leagueQuery = {
+      playerId: id,
+      competenciaId: { $ne: null },
+      temporadaId: null
+    };
+    if (modalidad) leagueQuery.modalidad = modalidad;
+    if (categoria) leagueQuery.categoria = categoria;
 
-    const recentMatches = await MatchPlayer.find(historyQuery)
+    const leagueMatchesCount = await MatchPlayer.countDocuments(leagueQuery);
+    const plazaMatches = totalMatches - leagueMatchesCount;
+
+    // 2. Get Recent Match History to calculate tendency (Always use Level 1 to avoid duplicates)
+    const recentMatches = await MatchPlayer.find(baseQuery)
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
-
-    const totalMatches = await MatchPlayer.countDocuments(historyQuery);
-    const wins = await MatchPlayer.countDocuments({ ...historyQuery, win: true });
     
     // IF NO MATCHES - Return unranked profile
     if (totalMatches === 0) {
@@ -1325,11 +1336,11 @@ router.get('/:id/radar', async (req, res) => {
       });
     }
 
-    // Competitive Rhythm (Last 30 days)
+    // Competitive Rhythm (Last 30 days) - Use Level 1 to avoid triple counting
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const matchesLast30Days = await MatchPlayer.countDocuments({ 
-      playerId: id, 
+      ...baseQuery,
       createdAt: { $gte: thirtyDaysAgo } 
     });
     
@@ -1384,42 +1395,52 @@ router.get('/:id/history', async (req, res) => {
     const { id } = req.params;
     const { modalidad, categoria } = req.query;
 
-    const query = { playerId: id };
+    // Use Level 1 records (comp: null, temp: null) to avoid triple counting and get physical matches
+    const query = { playerId: id, competenciaId: null, temporadaId: null };
     if (modalidad) query.modalidad = modalidad;
     if (categoria) query.categoria = categoria;
 
     const matches = await MatchPlayer.find(query)
       .populate({
         path: 'partidoId',
-        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado',
-        populate: {
-          path: 'lobbyId',
-          select: 'title location'
-        }
+        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia',
+        populate: [
+          {
+            path: 'lobbyId',
+            select: 'title location'
+          },
+          {
+            path: 'competencia',
+            select: 'nombre logo verificado'
+          }
+        ]
       })
-      .populate('competenciaId', 'nombre logo verificado')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
-    const formattedHistory = matches.map(m => ({
-      id: m._id,
-      date: m.partidoId?.fecha || m.createdAt,
-      type: m.competenciaId ? 'league' : 'plaza',
-      competition: m.competenciaId?.nombre || 'La Plaza',
-      organization: m.competenciaId ? m.competenciaId.nombre : (m.partidoId?.lobbyId?.location?.name || 'Varios'),
-      logo: m.competenciaId?.logo,
-      isVerified: m.competenciaId?.verificado || false,
-      modality: m.modalidad || m.partidoId?.modalidad,
-      category: m.categoria || m.partidoId?.categoria,
-      score: {
-        own: m.teamColor === 'rojo' ? m.partidoId?.marcadorLocal : m.partidoId?.marcadorVisitante,
-        opponent: m.teamColor === 'rojo' ? m.partidoId?.marcadorVisitante : m.partidoId?.marcadorLocal
-      },
-      win: m.win,
-      delta: m.delta,
-      multiplier: m.multiplier
-    }));
+    const formattedHistory = matches.map(m => {
+      const actualComp = m.partidoId?.competencia;
+      
+      return {
+        id: m._id,
+        date: m.partidoId?.fecha || m.createdAt,
+        type: actualComp ? 'league' : 'plaza',
+        competition: actualComp?.nombre || 'La Plaza',
+        organization: actualComp ? actualComp.nombre : (m.partidoId?.lobbyId?.location?.name || 'Varios'),
+        logo: actualComp?.logo,
+        isVerified: actualComp?.verificado || false,
+        modality: m.modalidad || m.partidoId?.modalidad,
+        category: m.categoria || m.partidoId?.categoria,
+        score: {
+          own: m.teamColor === 'rojo' ? m.partidoId?.marcadorLocal : m.partidoId?.marcadorVisitante,
+          opponent: m.teamColor === 'rojo' ? m.partidoId?.marcadorVisitante : m.partidoId?.marcadorLocal
+        },
+        win: m.win,
+        delta: m.delta,
+        multiplier: m.multiplier
+      };
+    });
 
     res.json(formattedHistory);
   } catch (error) {
