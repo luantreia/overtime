@@ -24,6 +24,7 @@ Para dar seriedad profesional incluso en la plaza.
 - [x] **Elección del Capitán Rival:** Designación automática del jugador con mayor Karma del Equipo B. Badge visual de "CAPITÁN".
 - [x] **Reputación de Staff:** Visibilidad de ELO/Karma de árbitros antes de unirse y capacidad de expulsión por parte del Host.
 - [x] **Validación de Resultados:** Consenso 2 de 3 con capacidad de **CORRECCIÓN** del Host antes de la firma rival.
+- [x] **Cancelación de Emergencia:** Sistema de doble validación (Host + Capitán Rival) para eliminar un lobby que ya ha comenzado (`playing`) sin guardar resultados.
 
 ### 3. Dinámica de Juego y Sets
 - [x] **Registro Set a Set:** Interfaz de carga de sets que suma victorias para el resultado final automático.

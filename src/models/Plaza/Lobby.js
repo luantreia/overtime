@@ -81,6 +81,11 @@ const LobbySchema = new Schema({
 
   rivalCaptainUid: { type: String }, // UID del jugador con más Karma del Equipo B
 
+  cancelRequest: {
+    hostRequested: { type: Boolean, default: false },
+    rivalConfirmed: { type: Boolean, default: false }
+  },
+
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
 
   createdAt: { type: Date, default: Date.now },

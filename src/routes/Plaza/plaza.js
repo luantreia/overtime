@@ -609,6 +609,52 @@ router.delete('/lobbies/:id', verificarToken, cargarRolDesdeBD, validarObjectId,
 
 /**
  * @swagger
+ * /api/plaza/lobbies/{id}/cancel-request:
+ *   post:
+ *     summary: Solicita o confirma la cancelación mutua de un partido en curso
+ *     tags: [Plaza]
+ */
+router.post('/lobbies/:id/cancel-request', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    if (lobby.status !== 'playing') {
+      return res.status(400).json({ message: 'Solo se puede solicitar cancelación mutua durante un partido en curso.' });
+    }
+
+    const isHost = lobby.host === req.user.uid;
+    const isRivalCaptain = lobby.rivalCaptainUid === req.user.uid;
+
+    if (!isHost && !isRivalCaptain) {
+      return res.status(403).json({ message: 'Solo el Host o el Capitán Rival pueden participar en la cancelación mutua.' });
+    }
+
+    if (isHost) lobby.cancelRequest.hostRequested = true;
+    if (isRivalCaptain) lobby.cancelRequest.rivalConfirmed = true;
+
+    // Si ambos han aceptado, eliminamos el lobby
+    if (lobby.cancelRequest.hostRequested && lobby.cancelRequest.rivalConfirmed) {
+      await lobby.deleteOne();
+      return res.json({ 
+        message: 'Partido cancelado por mutuo acuerdo. El lobby ha sido eliminado.', 
+        cancelled: true 
+      });
+    }
+
+    await lobby.save();
+    res.json({ 
+      message: isHost ? 'Solicitud de cancelación enviada. Esperando confirmación del Capitán Rival.' : 'Cancelación confirmada. Esperando al Host.',
+      cancelRequest: lobby.cancelRequest,
+      cancelled: false
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al procesar cancelación mutua', error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/plaza/lobbies/{id}/result:
  *   post:
  *     summary: Carga el resultado del partido de plaza (Inicia el consenso)
