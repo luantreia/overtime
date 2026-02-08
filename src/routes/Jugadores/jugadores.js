@@ -27,6 +27,16 @@ const { Types } = mongoose;
 const router = express.Router();
 
 
+router.get('/me/profile', verificarToken, async (req, res) => {
+  try {
+    const jugador = await Jugador.findOne({ userId: req.user.uid });
+    if (!jugador) return res.status(404).json({ message: 'No tienes un perfil vinculado' });
+    res.json(jugador);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener perfil', error: error.message });
+  }
+});
+
 /**
  * @swagger
  * /api/jugadores:
@@ -87,14 +97,24 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ message: 'El nombre es obligatorio' });
     }
 
+    // Si no es admin, verificar que no tenga ya un perfil vinculado
+    if (req.user.rol !== 'admin') {
+      const yaTiene = await Jugador.findOne({ userId: req.user.uid });
+      if (yaTiene) {
+        return res.status(400).json({ message: 'Ya tienes un perfil vinculado: ' + yaTiene.nombre });
+      }
+    }
+
     const jugador = new Jugador({
       nombre,
       alias,
       fechaNacimiento: fechaNacimiento || undefined,
       genero,
       foto,
-      creadoPor: req.user.uid,  // <- asigna creador aquí
-      administradores: [req.user.uid] // opcional: asignar creador como admin inicial
+      userId: req.body.userId || (req.user.rol !== 'admin' ? req.user.uid : null),
+      perfilReclamado: !!(req.body.userId || req.user.rol !== 'admin'),
+      creadoPor: req.user.uid,
+      administradores: [req.user.uid]
     });
 
     await jugador.save();

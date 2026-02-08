@@ -48,6 +48,9 @@ router.post('/lobbies', verificarToken, async (req, res) => {
   try {
     const { title, description, modalidad, categoria, location, scheduledDate, maxPlayers, requireOfficial, genderPolicy } = req.body;
     
+    // Buscar si el host tiene perfil de jugador para auto-unirse
+    const jugador = await Jugador.findOne({ userId: req.user.uid });
+
     const lobby = new Lobby({
       host: req.user.uid,
       title,
@@ -58,7 +61,14 @@ router.post('/lobbies', verificarToken, async (req, res) => {
       scheduledDate: new Date(scheduledDate),
       maxPlayers: maxPlayers || 12,
       requireOfficial,
-      genderPolicy
+      genderPolicy,
+      players: jugador ? [{
+        player: jugador._id,
+        userUid: req.user.uid,
+        team: 'none',
+        joinedAt: new Date(),
+        confirmed: false
+      }] : []
     });
 
     await lobby.save();
