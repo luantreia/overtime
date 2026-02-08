@@ -1271,9 +1271,14 @@ router.delete('/:id', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), asyn
 router.get('/:id/radar', async (req, res) => {
   try {
     const { id } = req.params;
+    const { modalidad, categoria } = req.query;
 
     // 1. Get Master Ranking (Level 1)
-    const masterRating = await PlayerRating.findOne({ playerId: id, competenciaId: null }).lean();
+    const ratingQuery = { playerId: id, competenciaId: null };
+    if (modalidad) ratingQuery.modalidad = modalidad;
+    if (categoria) ratingQuery.categoria = categoria;
+
+    const masterRating = await PlayerRating.findOne(ratingQuery).lean();
     
     // 1.1. Get Karma Stats
     const karmaStats = await KarmaLog.aggregate([
@@ -1283,19 +1288,27 @@ router.get('/:id/radar', async (req, res) => {
     const totalKarma = karmaStats.length > 0 ? karmaStats[0].totalKarma : 0;
 
     // 1.2. Get Plaza Stats (Partidos oficiales que no pertenecen a una competencia/liga)
-    const plazaMatches = await MatchPlayer.countDocuments({ 
+    const plazaQuery = { 
       playerId: id,
       competenciaId: null 
-    });
+    };
+    if (modalidad) plazaQuery.modalidad = modalidad;
+    if (categoria) plazaQuery.categoria = categoria;
+
+    const plazaMatches = await MatchPlayer.countDocuments(plazaQuery);
 
     // 2. Get Recent Match History to calculate tendency
-    const recentMatches = await MatchPlayer.find({ playerId: id })
+    const historyQuery = { playerId: id };
+    if (modalidad) historyQuery.modalidad = modalidad;
+    if (categoria) historyQuery.categoria = categoria;
+
+    const recentMatches = await MatchPlayer.find(historyQuery)
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
 
-    const totalMatches = await MatchPlayer.countDocuments({ playerId: id });
-    const wins = await MatchPlayer.countDocuments({ playerId: id, win: true });
+    const totalMatches = await MatchPlayer.countDocuments(historyQuery);
+    const wins = await MatchPlayer.countDocuments({ ...historyQuery, win: true });
     
     // IF NO MATCHES - Return unranked profile
     if (totalMatches === 0) {
@@ -1356,6 +1369,62 @@ router.get('/:id/radar', async (req, res) => {
   } catch (error) {
     console.error('Error in radar calc:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/history:
+ *   get:
+ *     summary: Obtiene el historial unificado de partidos (Liga y Plaza)
+ *     tags: [Jugadores]
+ */
+router.get('/:id/history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { modalidad, categoria } = req.query;
+
+    const query = { playerId: id };
+    if (modalidad) query.modalidad = modalidad;
+    if (categoria) query.categoria = categoria;
+
+    const matches = await MatchPlayer.find(query)
+      .populate({
+        path: 'partidoId',
+        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado',
+        populate: {
+          path: 'lobbyId',
+          select: 'title location'
+        }
+      })
+      .populate('competenciaId', 'nombre logo verificado')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const formattedHistory = matches.map(m => ({
+      id: m._id,
+      date: m.partidoId?.fecha || m.createdAt,
+      type: m.competenciaId ? 'league' : 'plaza',
+      competition: m.competenciaId?.nombre || 'La Plaza',
+      organization: m.competenciaId ? m.competenciaId.nombre : (m.partidoId?.lobbyId?.location?.name || 'Varios'),
+      logo: m.competenciaId?.logo,
+      isVerified: m.competenciaId?.verificado || false,
+      modality: m.modalidad || m.partidoId?.modalidad,
+      category: m.categoria || m.partidoId?.categoria,
+      score: {
+        own: m.teamColor === 'rojo' ? m.partidoId?.marcadorLocal : m.partidoId?.marcadorVisitante,
+        opponent: m.teamColor === 'rojo' ? m.partidoId?.marcadorVisitante : m.partidoId?.marcadorLocal
+      },
+      win: m.win,
+      delta: m.delta,
+      multiplier: m.multiplier
+    }));
+
+    res.json(formattedHistory);
+  } catch (error) {
+    console.error('Error in history endpoint:', error);
+    res.status(500).json({ message: 'Error al obtener historial', error: error.message });
   }
 });
 

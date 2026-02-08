@@ -45,9 +45,10 @@ Para profesionalizar el deporte, el progreso de un jugador se mide en tres dimen
 - [x] **Confianza:** Check-in GPS y Consenso 2 de 3 para evitar fraudes de ELO.
 - [x] **Multiplicadores:** Implementación de 0.3x (Plaza) y 0.5x (Oficiales).
 
-### Paso 3: Perfil Pro y Redes (PRÓXIMO)
-- [ ] **App Public:** Diseñar la "Carta de Jugador" (FIFA Style) que muestre los 3 rankings y la reputación de Fair Play.
-- [ ] **Dashboard de Karma:** Visualización de conducta competitiva.
+### Paso 3: Perfil Pro y Redes (ACTUAL 🚀)
+- [x] **Dashboard Maestro:** Nueva "Carta de Jugador" de alta fidelidad con Radar de habilidades reactivo por categoría/modalidad.
+- [x] **Historial Unificado:** Diferenciación visual entre Liga vs Plaza y evolución de ELO/Karma.
+- [ ] **Dashboard de Karma:** Visualización de conducta competitiva detallada.
 - [ ] **Social Media:** Lanzamiento de IG/TikTok de **Overtime Dodgeball**. Contenido: "Héroes del Ranking" y "Jugadas de ELO +20".
 
 ---
