@@ -662,7 +662,7 @@ router.post('/lobbies/:id/cancel-request', verificarToken, validarObjectId, asyn
  */
 router.post('/lobbies/:id/result', verificarToken, validarObjectId, async (req, res) => {
   try {
-    const { scoreA, scoreB } = req.body;
+    const { scoreA, scoreB, sets } = req.body;
     const lobby = await Lobby.findById(req.params.id);
     if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
 
@@ -682,6 +682,16 @@ router.post('/lobbies/:id/result', verificarToken, validarObjectId, async (req, 
       validatedByOfficial: isPrincipalOfficial, // Si lo sube el árbitro, ya cuenta como validado por él
       disputed: false
     };
+
+    // Almacenar el detalle de los sets si vienen en la petición
+    if (sets && Array.isArray(sets)) {
+      lobby.matchData.sets = sets.map(s => ({
+        winner: s.teamAScore > s.teamBScore ? 'A' : (s.teamBScore > s.teamAScore ? 'B' : 'empate'),
+        scoreA: s.teamAScore,
+        scoreB: s.teamBScore,
+        timestamp: s.time ? new Date(Date.now() - (s.time)) : new Date() // Ajuste aproximado
+      }));
+    }
     
     // Si lo sube el host, queda pendiente de confirmación del árbitro o del capitán rival
     await lobby.save();
