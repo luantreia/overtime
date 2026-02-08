@@ -28,6 +28,8 @@ const LobbySchema = new Schema({
 
   scheduledDate: { type: Date, required: true },
   maxPlayers: { type: Number, default: 18 }, // 6v6 + 3 shaggers por equipo
+  requireOfficial: { type: Boolean, default: false },
+  genderPolicy: { type: String, enum: ['open', 'male', 'female', 'mixed'], default: 'open' },
   
   status: {
     type: String,

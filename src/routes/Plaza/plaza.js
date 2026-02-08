@@ -46,7 +46,7 @@ router.get('/lobbies', async (req, res) => {
  */
 router.post('/lobbies', verificarToken, async (req, res) => {
   try {
-    const { title, description, modalidad, categoria, location, scheduledDate, maxPlayers } = req.body;
+    const { title, description, modalidad, categoria, location, scheduledDate, maxPlayers, requireOfficial, genderPolicy } = req.body;
     
     const lobby = new Lobby({
       host: req.user.uid,
@@ -56,7 +56,9 @@ router.post('/lobbies', verificarToken, async (req, res) => {
       categoria,
       location,
       scheduledDate: new Date(scheduledDate),
-      maxPlayers: maxPlayers || 12
+      maxPlayers: maxPlayers || 12,
+      requireOfficial,
+      genderPolicy
     });
 
     await lobby.save();
