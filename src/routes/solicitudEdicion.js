@@ -1187,7 +1187,7 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
     if (solicitud.estado !== 'pendiente') return res.status(403).json({ message: 'No se puede eliminar esta solicitud' });
     const uid = req.user.uid;
 
-    let permitido = solicitud.creadoPor === uid;
+    let permitido = solicitud.creadoPor.toString() === uid;
 
     // Permitir también a administradores del lado emisor cancelar
     if (!permitido && solicitud.tipo === 'jugador-equipo-crear') {

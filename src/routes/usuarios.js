@@ -3,6 +3,7 @@
 import express from 'express';
 import verificarToken from '../middleware/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
+import Jugador from '../models/Jugador/Jugador.js';
 
 /**
  * @swagger
@@ -96,6 +97,13 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
 router.get('/admin/lista', verificarToken, async (req, res) => {
   try {
     const usuarios = await Usuario.find({}, { passwordHash: 0 });
+    
+    // Obtener todos los jugadores que tienen un userId vinculado
+    const jugadoresReclamados = await Jugador.find({ userId: { $ne: null } }, { userId: 1, nombre: 1 });
+    const claimMap = {};
+    jugadoresReclamados.forEach(j => {
+      claimMap[j.userId] = { _id: j._id, nombre: j.nombre };
+    });
 
     res.json(usuarios.map(u => ({
       _id: u._id,
@@ -103,6 +111,7 @@ router.get('/admin/lista', verificarToken, async (req, res) => {
       email: u.email,
       rol: u.rol,
       provider: u.provider,
+      perfilVinculado: claimMap[u._id] || null,
       createdAt: u.createdAt,
       updatedAt: u.updatedAt
     })));

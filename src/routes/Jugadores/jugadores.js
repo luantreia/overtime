@@ -247,6 +247,34 @@ router.post('/:id/release-identity', verificarToken, validarObjectId, async (req
 
 /**
  * @swagger
+ * /api/jugadores/{id}/unclaim-admin:
+ *   post:
+ *     summary: (Admin) Fuerza la desvinculación de un perfil de un usuario
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/:id/unclaim-admin', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
+  try {
+    if (req.user.rol !== 'admin') {
+      return res.status(403).json({ message: 'Solo los administradores del sistema pueden forzar la desvinculación' });
+    }
+
+    const jugador = await Jugador.findById(req.params.id);
+    if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado' });
+
+    jugador.userId = null;
+    jugador.perfilReclamado = false;
+    await jugador.save();
+
+    res.json({ message: 'Perfil desvinculado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al desvincular perfil', error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/jugadores/{id}/transfer-identity:
  *   post:
  *     summary: (Dueño) Transfiere la identidad a otro usuario o la libera
@@ -478,6 +506,7 @@ router.get('/', async (req, res) => {
     const [total, jugadores] = await Promise.all([
       Jugador.countDocuments(query),
       Jugador.find(query)
+        .populate('userId', 'nombre email')
         .limit(limit)
         .skip(skip)
         .sort({ nombre: 1 })

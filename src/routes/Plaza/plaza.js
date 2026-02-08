@@ -51,6 +51,10 @@ router.post('/lobbies', verificarToken, async (req, res) => {
     // Buscar si el host tiene perfil de jugador para auto-unirse
     const jugador = await Jugador.findOne({ userId: req.user.uid });
 
+    if (!jugador) {
+      return res.status(403).json({ message: 'Debes tener un perfil de jugador vinculado para crear lobbies en La Plaza.' });
+    }
+
     const lobby = new Lobby({
       host: req.user.uid,
       title,
@@ -62,13 +66,13 @@ router.post('/lobbies', verificarToken, async (req, res) => {
       maxPlayers: maxPlayers || 12,
       requireOfficial,
       genderPolicy,
-      players: jugador ? [{
+      players: [{
         player: jugador._id,
         userUid: req.user.uid,
         team: 'none',
         joinedAt: new Date(),
         confirmed: false
-      }] : []
+      }]
     });
 
     await lobby.save();
