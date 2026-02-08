@@ -86,6 +86,9 @@ const LobbySchema = new Schema({
     rivalConfirmed: { type: Boolean, default: false }
   },
 
+  // Usuarios que ya votaron Karma post-partido
+  votedUsers: [{ type: String }], 
+
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
 
   createdAt: { type: Date, default: Date.now },

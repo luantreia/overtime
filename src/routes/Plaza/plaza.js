@@ -760,9 +760,25 @@ router.post('/lobbies/:id/confirm', verificarToken, validarObjectId, async (req,
       { partidoId: match._id, color: 'azul', players: teamBPlayers }
     ]);
 
-    // 3. Calcular y aplicar el ELO con multiplicador de Plaza
-    // Multiplicador: 0.5 si hay árbitro principal validando, 0.3 si es solo entre capitanes.
-    const multiplier = lobby.result.validatedByOfficial ? 0.5 : 0.3;
+    // 3. Calcular y aplicar el ELO con multiplicador de Plaza (Dinámico)
+    // Multiplicador base: 0.5 si hay árbitro principal validando, 0.3 si es solo entre capitanes.
+    let multiplier = lobby.result.validatedByOfficial ? 0.5 : 0.3;
+
+    // Bono por Karma (Confianza de la plaza)
+    // Usuarios con alto Karma aumentan la "seriedad" del partido
+    const participantIds = lobby.players.map(p => p.player);
+    const karmaData = await KarmaLog.aggregate([
+      { $match: { targetPlayer: { $in: participantIds } } },
+      { $group: { _id: null, total: { $sum: "$points" } } }
+    ]);
+    const avgKarma = karmaData.length > 0 ? (karmaData[0].total / participantIds.length) : 0;
+    
+    if (avgKarma > 100) multiplier += 0.2;
+    else if (avgKarma > 50) multiplier += 0.1;
+
+    // Cap máximo del multiplicador para Plazas: 0.7x
+    multiplier = Math.min(0.7, multiplier);
+
     const winner = lobby.result.scoreA > lobby.result.scoreB ? 'rojo' : 
                    (lobby.result.scoreA < lobby.result.scoreB ? 'azul' : 'empate');
 
@@ -780,9 +796,85 @@ router.post('/lobbies/:id/confirm', verificarToken, validarObjectId, async (req,
     lobby.matchId = match._id;
     await lobby.save();
 
-    res.json({ message: 'Consenso alcanzado. El partido de plaza ha sido finalizado y el ELO ha sido aplicado.', lobby, matchId: match._id });
+    res.json({ 
+      message: 'Consenso alcanzado. El partido ha sido finalizado.', 
+      lobby, 
+      matchId: match._id,
+      appliedMultiplier: multiplier,
+      avgKarma: Math.round(avgKarma)
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error al confirmar resultado', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/plaza/lobbies/{id}/rate:
+ *   post:
+ *     summary: Califica la conducta de los jugadores tras un partido
+ *     tags: [Plaza]
+ */
+router.post('/lobbies/:id/rate', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const { ratings } = req.body; // Array de { playerId, type, comment }
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    if (lobby.status !== 'finished') {
+      return res.status(400).json({ message: 'Solo se puede calificar tras finalizar el partido.' });
+    }
+
+    if (lobby.votedUsers.includes(req.user.uid)) {
+      return res.status(400).json({ message: 'Ya has emitido tus calificaciones para este partido.' });
+    }
+
+    // Verificar que el usuario participó en el lobby
+    const participated = lobby.players.some(p => p.userUid === req.user.uid) || 
+                         lobby.officials.some(o => o.userUid === req.user.uid) ||
+                         lobby.host === req.user.uid;
+
+    if (!participated) {
+      return res.status(403).json({ message: 'No participaste en este partido.' });
+    }
+
+    const logs = [];
+    for (const rate of ratings) {
+      // Ignorar si no hay playerId o es él mismo
+      if (!rate.playerId || rate.userUid === req.user.uid) continue;
+
+      let points = 0;
+      switch (rate.type) {
+        case 'positive': points = 5; break;
+        case 'negative': points = -10; break;
+        case 'fair-play': points = 8; break;
+        case 'mvp': points = 15; break;
+        case 'no-show': points = -20; break;
+        default: points = 0;
+      }
+
+      logs.push({
+        targetPlayer: rate.playerId,
+        fromUser: req.user.uid,
+        lobbyId: lobby._id,
+        type: rate.type,
+        points,
+        comment: rate.comment || ''
+      });
+    }
+
+    if (logs.length > 0) {
+      await KarmaLog.insertMany(logs, { ordered: false }).catch(err => {
+        console.warn('Algunas calificaciones ya existían:', err.message);
+      });
+    }
+
+    lobby.votedUsers.push(req.user.uid);
+    await lobby.save();
+
+    res.json({ message: 'Calificaciones registradas correctamente.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al registrar calificaciones', error: error.message });
   }
 });
 

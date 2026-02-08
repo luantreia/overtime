@@ -72,8 +72,8 @@ Transformar la aplicación en una plataforma social y participativa.
 
 ### 6. Identidad y Confianza (Siguiente Sprint)
 - [x] **Reclamo de Perfil:** Implementado sistema de `jugador-claim` con seguridad.
-- [ ] **Sistema de Karma (Fair Play):** Puntuación de reputación otorgada por otros jugadores tras partidos de plaza.
-- [ ] **Multiplicadores Dinámicos:** Ajustar el 0.3x según el Karma promedio del lobby (A mayor confianza, mayor impacto en el ranking).
+- [x] **Sistema de Karma (Fair Play):** Puntuación de reputación otorgada por otros jugadores tras partidos de plaza.
+- [x] **Multiplicadores Dinámicos:** Ajustar el 0.3x según el Karma promedio del lobby (A mayor confianza, mayor impacto en el ranking).
 
 ---
 
@@ -99,8 +99,8 @@ Transformar la aplicación en una plataforma social y participativa.
 - [x] Diseño del Lobby de Plazas en App Public.
 - [x] Geolocalización de partidos (Mapa Interactivo).
 - [x] Gestión Administrativa de Lobbies (Cleanup en Panel Admin).
-- [ ] Sistema de Karma 2.0 (Votación Post-partido).
-- Karma y Validación Social.
+- [x] Sistema de Karma 2.0 (Votación Post-partido).
+- [x] Karma y Validación Social (Multiplicadores Dinámicos).
 
 ---
 > *"De la plaza al mundo: El ranking es el lenguaje universal del Dodgeball."*
