@@ -599,12 +599,15 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
       const MatchTeam = mongoose.model('MatchTeam');
       const EquipoPartido = mongoose.model('EquipoPartido');
       const SetPartido = mongoose.model('SetPartido');
+      const Lobby = mongoose.model('Lobby');
 
       await Promise.all([
         MatchPlayer.deleteMany({ partidoId: req.params.id }),
         MatchTeam.deleteMany({ partidoId: req.params.id }),
         EquipoPartido.deleteMany({ partido: req.params.id }),
-        SetPartido.deleteMany({ partido: req.params.id })
+        SetPartido.deleteMany({ partido: req.params.id }),
+        // Si venía de un Lobby de La Plaza, marcarlo como cancelado/revertido
+        Lobby.updateOne({ matchId: req.params.id }, { $set: { status: 'cancelled' }, $unset: { matchId: 1 } })
       ]);
     } catch (cleanErr) {
       console.warn('Error en limpieza de tablas relacionadas:', cleanErr.message);

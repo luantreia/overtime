@@ -1282,10 +1282,10 @@ router.get('/:id/radar', async (req, res) => {
     ]);
     const totalKarma = karmaStats.length > 0 ? karmaStats[0].totalKarma : 0;
 
-    // 1.2. Get Plaza Stats
-    const plazaMatches = await Lobby.countDocuments({ 
-      'players.player': new mongoose.Types.ObjectId(id),
-      status: 'finished'
+    // 1.2. Get Plaza Stats (Partidos oficiales que no pertenecen a una competencia/liga)
+    const plazaMatches = await MatchPlayer.countDocuments({ 
+      playerId: id,
+      competenciaId: null 
     });
 
     // 2. Get Recent Match History to calculate tendency
