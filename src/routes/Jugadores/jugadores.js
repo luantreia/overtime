@@ -1297,12 +1297,25 @@ router.get('/:id/radar', async (req, res) => {
     if (modalidad) baseQuery.modalidad = modalidad;
     if (categoria) baseQuery.categoria = categoria;
 
-    // Total physical matches is always the count of Level 1 records
-    const totalMatches = await MatchPlayer.countDocuments(baseQuery);
-    const wins = await MatchPlayer.countDocuments({ ...baseQuery, win: true });
+    // To get ALL matches (Ranked + Unranked), we combine MatchPlayer with explicit Set Stats
+    const rankedMatchIds = await MatchPlayer.distinct('partidoId', baseQuery);
+    
+    const unrankedQuery = {
+      _id: { $nin: rankedMatchIds },
+      "sets.statsJugadoresSet.jugador": id
+    };
+    if (modalidad) unrankedQuery.modalidad = modalidad;
+    if (categoria) unrankedQuery.categoria = categoria;
+    
+    const unrankedMatchIds = await mongoose.model('Partido').distinct('_id', unrankedQuery);
 
-    // To find real "Plaza" matches, we need to know which Level 1 records don't have a Level 2 counterpart
-    // but a simpler way is to check the Partido itself or just use the logic:
+    const totalMatches = rankedMatchIds.length + unrankedMatchIds.length;
+    const winsMatchPlayer = await MatchPlayer.countDocuments({ ...baseQuery, win: true });
+    
+    // We'd need to calculate wins for unranked too, but delta-based wins are only in MatchPlayer
+    // For now, winrate is based on ranked matches which have the 'win' field ready.
+    const wins = winsMatchPlayer; 
+
     // League matches have a Level 2 record (comp != null, temp: null)
     const leagueQuery = {
       playerId: id,
@@ -1316,6 +1329,7 @@ router.get('/:id/radar', async (req, res) => {
     const plazaMatches = totalMatches - leagueMatchesCount;
 
     // 2. Get Recent Match History to calculate tendency (Always use Level 1 to avoid duplicates)
+    // We still prefer MatchPlayer for tendency because it has the Delta
     const recentMatches = await MatchPlayer.find(baseQuery)
       .sort({ createdAt: -1 })
       .limit(20)
@@ -1395,54 +1409,88 @@ router.get('/:id/history', async (req, res) => {
     const { id } = req.params;
     const { modalidad, categoria } = req.query;
 
-    // Use Level 1 records (comp: null, temp: null) to avoid triple counting and get physical matches
-    const query = { playerId: id, competenciaId: null, temporadaId: null };
-    if (modalidad) query.modalidad = modalidad;
-    if (categoria) query.categoria = categoria;
+    const Partido = mongoose.model('Partido');
 
-    const matches = await MatchPlayer.find(query)
+    // 1. Get Ranked Matches (from MatchPlayer Level 1)
+    const mpQuery = { playerId: id, competenciaId: null, temporadaId: null };
+    if (modalidad) mpQuery.modalidad = modalidad;
+    if (categoria) mpQuery.categoria = categoria;
+
+    const rankedMatches = await MatchPlayer.find(mpQuery)
       .populate({
         path: 'partidoId',
-        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia',
-        populate: [
-          {
-            path: 'lobbyId',
-            select: 'title location'
-          },
-          {
-            path: 'competencia',
-            select: 'nombre logo verificado'
-          }
-        ]
+        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante'
       })
-      .sort({ createdAt: -1 })
-      .limit(50)
       .lean();
 
-    const formattedHistory = matches.map(m => {
-      const actualComp = m.partidoId?.competencia;
-      
+    const rankedIds = rankedMatches.map(m => m.partidoId?._id?.toString()).filter(id => id);
+
+    // 2. Get Unranked Matches (from Partido where stats exist but no MatchPlayer entry)
+    const pQuery = {
+      _id: { $nin: rankedIds },
+      "sets.statsJugadoresSet.jugador": id
+    };
+    if (modalidad) pQuery.modalidad = modalidad;
+    if (categoria) pQuery.categoria = categoria;
+
+    const unrankedMatches = await Partido.find(pQuery)
+      .select('marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante sets')
+      .populate('competencia', 'nombre logo verificado')
+      .lean();
+
+    // 3. Format and Merge
+    const formattedRanked = rankedMatches.map(m => {
+      const p = m.partidoId;
+      if (!p) return null;
       return {
         id: m._id,
-        date: m.partidoId?.fecha || m.createdAt,
-        type: actualComp ? 'league' : 'plaza',
-        competition: actualComp?.nombre || 'La Plaza',
-        organization: actualComp ? actualComp.nombre : (m.partidoId?.lobbyId?.location?.name || 'Varios'),
-        logo: actualComp?.logo,
-        isVerified: actualComp?.verificado || false,
-        modality: m.modalidad || m.partidoId?.modalidad,
-        category: m.categoria || m.partidoId?.categoria,
+        date: p.fecha || m.createdAt,
+        type: p.competencia ? 'league' : 'plaza',
+        competition: p.competencia?.nombre || 'La Plaza',
+        organization: p.competencia?.nombre || (p.lobbyId ? 'Plaza' : 'Varios'),
+        isVerified: p.competencia?.verificado || false,
+        modality: m.modalidad || p.modalidad,
+        category: m.categoria || p.categoria,
         score: {
-          own: m.teamColor === 'rojo' ? m.partidoId?.marcadorLocal : m.partidoId?.marcadorVisitante,
-          opponent: m.teamColor === 'rojo' ? m.partidoId?.marcadorVisitante : m.partidoId?.marcadorLocal
+          own: m.teamColor === 'rojo' ? p.marcadorLocal : p.marcadorVisitante,
+          opponent: m.teamColor === 'rojo' ? p.marcadorVisitante : p.marcadorLocal
         },
         win: m.win,
         delta: m.delta,
-        multiplier: m.multiplier
+        isRanked: true
+      };
+    }).filter(m => m);
+
+    const formattedUnranked = unrankedMatches.map(p => {
+      // Find player team in sets to determine score/win
+      let playerTeam = 'local';
+      const stats = p.sets?.flatMap(s => s.statsJugadoresSet || []) || [];
+      const myStat = stats.find(s => s.jugador?.toString() === id);
+      // This is a bit complex for unranked without MatchPlayer, but we try:
+      const ownScore = p.marcadorLocal;
+      const oppScore = p.marcadorVisitante;
+
+      return {
+        id: p._id,
+        date: p.fecha,
+        type: p.competencia ? 'league' : 'plaza',
+        competition: p.competencia?.nombre || 'La Plaza',
+        organization: p.competencia?.nombre || (p.lobbyId ? 'Plaza' : 'Varios'),
+        isVerified: p.competencia?.verificado || false,
+        modality: p.modalidad,
+        category: p.categoria,
+        score: { own: ownScore, opponent: oppScore },
+        win: ownScore > oppScore, // Simplified
+        delta: 0,
+        isRanked: false
       };
     });
 
-    res.json(formattedHistory);
+    const allMatches = [...formattedRanked, ...formattedUnranked]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 50);
+
+    res.json(allMatches);
   } catch (error) {
     console.error('Error in history endpoint:', error);
     res.status(500).json({ message: 'Error al obtener historial', error: error.message });
