@@ -55,7 +55,7 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { nombre, descripcion } = req.body;
+      const { nombre, descripcion, verificada, logo, sitioWeb } = req.body;
 
       const creadoPor = req.user.uid;
       if (!creadoPor) return res.status(401).json({ error: 'No autenticado.' });
@@ -65,8 +65,12 @@ router.post(
       const nueva = new Organizacion({
         nombre,
         descripcion,
+        logo,
+        sitioWeb,
         creadoPor,
         administradores: [creadoPor],
+        // Solo un administrador del sistema puede crear una organización ya verificada
+        verificada: req.user.rol === 'admin' ? (verificada || false) : false
       });
       const guardada = await nueva.save();
       res.status(201).json(guardada);
@@ -129,14 +133,14 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let organizaciones;
 
     if (rol === 'admin') {
-      organizaciones = await Organizacion.find({}, 'nombre _id descripcion activa sitioWeb createdAt updatedAt').lean();
+      organizaciones = await Organizacion.find({}, 'nombre _id descripcion activa verificada sitioWeb createdAt updatedAt').lean();
     } else {
       organizaciones = await Organizacion.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id descripcion activa sitioWeb createdAt updatedAt').lean();
+      }, 'nombre _id descripcion activa verificada sitioWeb createdAt updatedAt').lean();
     }
 
     res.status(200).json(organizaciones);
@@ -224,7 +228,17 @@ router.put(
   esAdminDeEntidad(Organizacion, 'organizacion'),
   async (req, res) => {
     try {
-      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, activa }) => ({ nombre, descripcion, logo, sitioWeb, activa }))(req.body);
+      const isSystemAdmin = req.user.rol === 'admin';
+      
+      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, activa, verificada }) => {
+        const base = { nombre, descripcion, logo, sitioWeb, activa };
+        // Solo permitimos modificar 'verificada' si es administrador del sistema
+        if (isSystemAdmin && verificada !== undefined) {
+          base.verificada = verificada;
+        }
+        return base;
+      })(req.body);
+
       Object.assign(req.organizacion, camposPermitidos);
       const orgActualizada = await req.organizacion.save();
       res.json(orgActualizada);
