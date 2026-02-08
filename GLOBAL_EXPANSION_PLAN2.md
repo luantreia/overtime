@@ -39,35 +39,41 @@ Ya contamos con la **Triple Vara** operativa en el backend:
 
 ---
 
-### 4. Próximo Paso Inmediato: El Radar de Atleta
--   **Visualización (Frontend 🛠️):** Implementar en `Overtime-Public` el gráfico de radar que visualiza las stats del jugador basadas en su ELO y desempeño (Power, Stamina, Consistency, etc).
+### 4. Radar de Atleta (Completado ✅)
+-   **Visualización (Frontend ✅):** Implementado en `Overtime-Public`. Un gráfico dinámico que sintetiza el perfil del jugador.
+-   **Métricas Inteligentes:**
+    - `Power`: ELO absoluto.
+    - `Stamina (Ritmo)`: 50% historia + 50% actividad últimos 30 días.
+    - `Consistency`: Estabilidad del Delta.
+    - `Precision`: Winrate real.
+    - `Versatility`: Diversidad de competencias.
 
 ---
 
 ### 5. Visión Futura: El Hub "La Plaza" (App Public)
 Transformar la aplicación en una plataforma social y participativa.
 
-#### A. Central de Partidos "La Plaza"
+#### A. Central de Partidos "La Plaza" (Siguiente Gran Milestone 🚀)
 - [ ] **Sistema de Lobbies:** Permitir que usuarios creen partidos abiertos en ubicaciones físicas.
 - [ ] **Geolocalización:** Mapa de partidos de plaza activos y competencias verificadas cercanas.
 - [ ] **Mecánica de Slot:** Botón "Unirse al Partido" con límite de cupos (Ej: 12/12 jugadores).
 - [ ] **Validación de Resultados:** Sistema de carga por capitán + confirmación del equipo rival (Doble Check) para otorgar el 0.3x de ELO.
 
 #### B. Perfil de Atleta 2.0
+- [x] **Radar de Atleta:** Gráfico de habilidades basado en estadísticas.
 - [ ] **Dashboard Maestro:** Nueva sección principal en el perfil con la "Carta de Jugador" consolidada.
-- [ ] **Radar de Atleta:** Gráfico de habilidades basado en estadísticas (Habilidad, Consistencia, Karma, Nivel de Rivales).
 - [ ] **Historial Unificado:** Pestaña de historial que diferencie claramente partidos de Liga vs. Plaza.
 
 ---
 
-### 3. Identidad y Confianza (Siguiente Sprint)
-- [ ] **Reclamo de Perfil:** Permitir que usuarios registrados vinculen su cuenta con un "Jugador Fantasma" histórico.
+### 6. Identidad y Confianza (Siguiente Sprint)
+- [x] **Reclamo de Perfil:** Implementado sistema de `jugador-claim` con seguridad.
 - [ ] **Sistema de Karma (Fair Play):** Puntuación de reputación otorgada por otros jugadores tras partidos de plaza.
 - [ ] **Multiplicadores Dinámicos:** Ajustar el 0.3x según el Karma promedio del lobby (A mayor confianza, mayor impacto en el ranking).
 
 ---
 
-### 4. Estrategia de Monetización (SaaS)
+### 7. Estrategia de Monetización (SaaS)
 - [ ] **Panel de Verificación:** Dashboard para administradores para gestionar solicitudes de "Organización Verificada".
 - [ ] **Pago Integrado:** Gateway de pago para suscripciones de organizaciones y registro de torneos.
 
@@ -78,14 +84,17 @@ Transformar la aplicación en una plataforma social y participativa.
 ### Fase 1: Cimientos (COMPLETADO)
 - Implementación de lógica de 3 niveles y multiplicadores en `ratingService`.
 - Creación de campos de verificación en Organizaciones.
+- HARDENING: Seguridad de rutas críticas (API).
 
-### Fase 2: Participación (EN PROCESO)
+### Fase 2: Identidad y Visualización (COMPLETADO ⭐)
+- Sistema de Identidad Segura (Claim/Release/Transfer).
+- Athlete Radar con métricas de ritmo dinámico.
+- Recalculador Global Maestro.
+
+### Fase 3: Participación "La Plaza" (EN DESARROLLO)
 - Diseño del Lobby de Plazas en App Public.
-- Implementación del Hub de Rankings Globales.
-
-### Fase 3: Comunidad (FUTURO)
-- Notificaciones push de partidos cercanos.
-- Chat de lobby y sistema de clanes/equipos estables.
+- Geolocalización de partidos.
+- Karma y Validación Social.
 
 ---
 > *"De la plaza al mundo: El ranking es el lenguaje universal del Dodgeball."*

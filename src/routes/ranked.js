@@ -11,6 +11,8 @@ import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import MatchPlayer from '../models/Partido/MatchPlayer.js';
 import TimerManager from '../services/TimerManager.js';
 import { recalculateGlobalRanking } from '../services/maintenanceService.js';
+import verificarToken from '../middleware/authMiddleware.js';
+import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 
 const router = express.Router();
 
@@ -39,8 +41,6 @@ router.post('/recalculate-global', verificarToken, cargarRolDesdeBD, async (req,
     res.status(500).json({ error: err.message });
   }
 });
-
-export default router;
 
 function ensureArray(arr) { return Array.isArray(arr) ? arr : []; }
 
