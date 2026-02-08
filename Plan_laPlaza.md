@@ -51,12 +51,13 @@ La reputación como moneda de cambio para el 0.3x.
 ## 📅 Roadmap de Implementación
 
 ### Fase 1: MVP de Lobbies (La Lista)
-- [ ] Backend: Modelo de Lobbies y Endpoints CRUD.
+- [x] Backend: Modelo de Lobbies y Endpoints CRUD básicos (`Lobby.js`, `plaza.js`).
 - [ ] Frontend Public: Lista de lobbies activos y botón "Unirse".
 - [ ] Integración con Ranking: El flujo de finalización de lobby dispara el `applyRankedResult` con multiplicador `0.3`.
 
 ### Fase 2: Confianza y Karma
-- [ ] Sistema de confirmación cruzada de resultados.
+- [x] Backend: Modelo de Karma (`KarmaLog.js`) y lógica de "Doble Check" inicial.
+- [ ] Sistema de confirmación cruzada de resultados (Frontend).
 - [ ] Interfaz de calificación de jugadores post-partido.
 - [ ] Dashboard de Karma en el Perfil de Atleta.
 

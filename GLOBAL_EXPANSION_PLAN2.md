@@ -53,14 +53,15 @@ Ya contamos con la **Triple Vara** operativa en el backend:
 ### 5. Visión Futura: El Hub "La Plaza" (App Public)
 Transformar la aplicación en una plataforma social y participativa.
 
-#### A. Central de Partidos "La Plaza" (Siguiente Gran Milestone 🚀)
-- [ ] **Sistema de Lobbies:** Permitir que usuarios creen partidos abiertos en ubicaciones físicas.
+#### A. Central de Partidos "La Plaza" (EN INICIO TÉCNICO 🏗️)
+- [x] **Infraestructura Backend:** Modelos de `Lobby` y `KarmaLog` creados.
+- [x] **API del Doble Check:** Endpoints de carga y confirmación mutua implementados.
 - [ ] **Geolocalización:** Mapa de partidos de plaza activos y competencias verificadas cercanas.
-- [ ] **Mecánica de Slot:** Botón "Unirse al Partido" con límite de cupos (Ej: 12/12 jugadores).
-- [ ] **Validación de Resultados:** Sistema de carga por capitán + confirmación del equipo rival (Doble Check) para otorgar el 0.3x de ELO.
+- [ ] **Mecánica de Slot:** Botón "Unirse al Partido" con límite de cupos (Frontend).
 
 #### B. Perfil de Atleta 2.0
 - [x] **Radar de Atleta:** Gráfico de habilidades basado en estadísticas.
+- [x] **Estado No-Rankeado:** Identificación y UI especial para nuevos jugadores (ELO 0).
 - [ ] **Dashboard Maestro:** Nueva sección principal en el perfil con la "Carta de Jugador" consolidada.
 - [ ] **Historial Unificado:** Pestaña de historial que diferencie claramente partidos de Liga vs. Plaza.
 

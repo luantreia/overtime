@@ -1226,6 +1226,21 @@ router.get('/:id/radar', async (req, res) => {
     const totalMatches = await MatchPlayer.countDocuments({ playerId: id });
     const wins = await MatchPlayer.countDocuments({ playerId: id, win: true });
     
+    // IF NO MATCHES - Return unranked profile
+    if (totalMatches === 0) {
+      return res.json({
+        power: 0,
+        stamina: 0,
+        precision: 0,
+        consistency: 0,
+        versatility: 0,
+        elo: 0,
+        totalMatches: 0,
+        winrate: 0,
+        isUnranked: true
+      });
+    }
+
     // Competitive Rhythm (Last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
