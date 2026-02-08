@@ -1034,6 +1034,16 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
                 throw new Error('Este perfil ya fue reclamado por otro usuario.');
               }
 
+              // Seguridad extra: Validar que el usuario no tenga ya otro perfil vinculado
+              const yaTienePerfil = await Jugador.findOne({ 
+                userId: solicitud.creadoPor, 
+                _id: { $ne: jugador._id } 
+              }).session(session);
+
+              if (yaTienePerfil) {
+                throw new Error(`El usuario ya tiene vinculado el perfil de ${yaTienePerfil.nombre}. No se puede vincular un segundo perfil.`);
+              }
+
               jugador.userId = solicitud.creadoPor;
               jugador.perfilReclamado = true;
               

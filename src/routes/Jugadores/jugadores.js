@@ -146,17 +146,24 @@ router.post('/:id/claim', verificarToken, validarObjectId, async (req, res) => {
       return res.status(400).json({ message: 'Ya eres el dueño de este perfil' });
     }
 
+    // NUEVO: Validar que el usuario no tenga ya otro perfil reclamado
+    const yaTienePerfil = await Jugador.findOne({ userId: uid });
+    if (yaTienePerfil) {
+      return res.status(400).json({ 
+        message: 'No puedes reclamar más de un perfil. Ya tienes vinculado el perfil de ' + yaTienePerfil.nombre 
+      });
+    }
+
     const SolicitudEdicion = mongoose.model('SolicitudEdicion');
 
     const existente = await SolicitudEdicion.findOne({
       tipo: 'jugador-claim',
-      entidad: id,
       creadoPor: uid,
       estado: 'pendiente'
     });
 
     if (existente) {
-      return res.status(400).json({ message: 'Ya tienes una solicitud de reclamo pendiente para este jugador' });
+      return res.status(400).json({ message: 'Ya tienes una solicitud de reclamo pendiente. Solo puedes tener un perfil activo.' });
     }
 
     const solicitud = new SolicitudEdicion({
