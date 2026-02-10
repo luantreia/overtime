@@ -1447,7 +1447,7 @@ router.get('/:id/history', async (req, res) => {
       // Debug: show competencia object to understand missing nombre
       console.log(`HISTORY_DEBUG ranked partido ${p._id}: competencia=`, p.competencia);
       return {
-        id: m._id,
+        id: p._id, // Usamos el ID del partido, no el del MatchPlayer
         date: p.fecha || m.createdAt,
         // Matches coming from MatchPlayer are treated as ranked (league)
         type: 'league',
