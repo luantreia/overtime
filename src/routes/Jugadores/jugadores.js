@@ -1419,7 +1419,9 @@ router.get('/:id/history', async (req, res) => {
     const rankedMatches = await MatchPlayer.find(mpQuery)
       .populate({
         path: 'partidoId',
-        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante'
+        select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante',
+        // Deep-populate competencia inside partidoId so we get the competencia document (with nombre)
+        populate: { path: 'competencia', select: 'nombre logo verificado' }
       })
       .lean();
 
