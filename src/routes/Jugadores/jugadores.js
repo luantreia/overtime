@@ -1442,12 +1442,16 @@ router.get('/:id/history', async (req, res) => {
     const formattedRanked = rankedMatches.map(m => {
       const p = m.partidoId;
       if (!p) return null;
+      // Debug: show competencia object to understand missing nombre
+      console.log(`HISTORY_DEBUG ranked partido ${p._id}: competencia=`, p.competencia);
       return {
         id: m._id,
         date: p.fecha || m.createdAt,
-        type: p.competencia ? 'league' : 'plaza',
-        competition: p.competencia?.nombre || 'La Plaza',
-        organization: p.competencia?.nombre || (p.lobbyId ? 'Plaza' : 'Varios'),
+        // Matches coming from MatchPlayer are treated as ranked (league)
+        type: 'league',
+        // If competencia exists use its nombre, otherwise use the system-wide ranked name
+        competition: p.competencia?.nombre || 'League of dodgeball',
+        organization: p.competencia?.nombre || 'League of dodgeball',
         isVerified: p.competencia?.verificado || false,
         modality: m.modalidad || p.modalidad,
         category: m.categoria || p.categoria,
@@ -1470,11 +1474,15 @@ router.get('/:id/history', async (req, res) => {
       const ownScore = p.marcadorLocal;
       const oppScore = p.marcadorVisitante;
 
+      // Debug: show competencia object for unranked entries too
+      console.log(`HISTORY_DEBUG unranked partido ${p._id}: competencia=`, p.competencia);
+
       return {
         id: p._id,
         date: p.fecha,
         type: p.competencia ? 'league' : 'plaza',
-        competition: p.competencia?.nombre || 'La Plaza',
+        // For explicit unranked matches, show 'Amistoso' when there's no competencia
+        competition: p.competencia?.nombre || 'Amistoso',
         organization: p.competencia?.nombre || (p.lobbyId ? 'Plaza' : 'Varios'),
         isVerified: p.competencia?.verificado || false,
         modality: p.modalidad,
