@@ -74,6 +74,7 @@ const LobbySchema = new Schema({
     scoreA: { type: Number, default: 0 },
     scoreB: { type: Number, default: 0 },
     submittedBy: { type: String }, // UID de quien cargó el resultado
+    confirmedByHost: { type: Boolean, default: false },
     confirmedByOpponent: { type: Boolean, default: false },
     validatedByOfficial: { type: Boolean, default: false }, // Si el principal confirma
     disputed: { type: Boolean, default: false }
@@ -88,6 +89,13 @@ const LobbySchema = new Schema({
 
   // Usuarios que ya votaron Karma post-partido
   votedUsers: [{ type: String }], 
+
+  // Reportes de inactividad de autoridades (Host, Capitán Rival, Oficial)
+  authorityInactivityReports: [{
+    fromUser: String,
+    targetRole: { type: String, enum: ['host', 'rivalCaptain', 'official'] },
+    timestamp: { type: Date, default: Date.now }
+  }],
 
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
 

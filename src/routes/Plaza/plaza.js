@@ -29,6 +29,14 @@ const router = express.Router();
 router.get('/lobbies', async (req, res) => {
   try {
     const { all } = req.query;
+    
+    // Cleanup automático (Limbo): Eliminar lobbies de más de 24hs que no se terminaron/cancelaron
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await Lobby.deleteMany({
+      createdAt: { $lt: yesterday },
+      status: { $nin: ['finished', 'cancelled'] }
+    });
+
     const filter = all === 'true' ? {} : { status: { $in: ['open', 'full', 'playing'] } };
     
     const lobbies = await Lobby.find(filter)
@@ -201,6 +209,35 @@ router.delete('/lobbies/:id/officials/:uid', verificarToken, validarObjectId, as
     res.json({ message: 'Oficial expulsado correctamente', lobby });
   } catch (error) {
     res.status(500).json({ message: 'Error al expulsar oficial', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/plaza/lobbies/{id}/players/{uid}:
+ *   delete:
+ *     summary: (Host) Expulsa a un jugador del lobby
+ *     tags: [Plaza]
+ */
+router.delete('/lobbies/:id/players/:uid', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    if (lobby.host !== req.user.uid) {
+      return res.status(403).json({ message: 'Solo el Host puede expulsar jugadores' });
+    }
+
+    if (lobby.status !== 'open' && lobby.status !== 'full') {
+      return res.status(400).json({ message: 'No se puede expulsar jugadores una vez iniciado el partido' });
+    }
+
+    lobby.players = lobby.players.filter(p => p.userUid !== req.params.uid);
+    await lobby.save();
+
+    res.json({ message: 'Jugador expulsado correctamente', lobby });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al expulsar jugador', error: error.message });
   }
 });
 
@@ -678,6 +715,7 @@ router.post('/lobbies/:id/result', verificarToken, validarObjectId, async (req, 
       scoreA,
       scoreB,
       submittedBy: req.user.uid,
+      confirmedByHost: isHost,
       confirmedByOpponent: false,
       validatedByOfficial: isPrincipalOfficial, // Si lo sube el árbitro, ya cuenta como validado por él
       disputed: false
@@ -734,8 +772,17 @@ router.post('/lobbies/:id/confirm', verificarToken, validarObjectId, async (req,
 
     // Actualizar estados de validación
     if (isPrincipalOfficial) lobby.result.validatedByOfficial = true;
-    if (isRivalCaptain || (isHost && lobby.result.submittedBy !== req.user.uid)) {
-      lobby.result.confirmedByOpponent = true;
+    if (isRivalCaptain) lobby.result.confirmedByOpponent = true;
+    if (isHost) lobby.result.confirmedByHost = true;
+
+    // Condición de finalización según lógica de consenso reforzada:
+    // Se requiere que TANTO el Host como el Rival Captain confirmen el resultado,
+    // incluso si un Oficial intervino (para asegurar máxima transparencia).
+    const bothCaptainsConfirmed = lobby.result.confirmedByHost && lobby.result.confirmedByOpponent;
+
+    if (!bothCaptainsConfirmed) {
+      await lobby.save();
+      return res.json({ message: 'Confirmación registrada. Falta la otra contraparte.', lobby });
     }
 
     lobby.status = 'finished';
@@ -888,6 +935,113 @@ router.post('/lobbies/:id/rate', verificarToken, validarObjectId, async (req, re
     res.json({ message: 'Calificaciones registradas correctamente.' });
   } catch (error) {
     res.status(500).json({ message: 'Error al registrar calificaciones', error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/plaza/lobbies/{id}/report-authority:
+ *   post:
+ *     summary: Reportar que una autoridad (Host, Capitán Rival u Oficial) está inactiva/ausente
+ *     tags: [Plaza]
+ */
+router.post('/lobbies/:id/report-authority', verificarToken, validarObjectId, async (req, res) => {
+  try {
+    const { targetRole } = req.body; // 'host', 'rivalCaptain', 'official'
+    const lobby = await Lobby.findById(req.params.id);
+    if (!lobby) return res.status(404).json({ message: 'Lobby no encontrado' });
+
+    if (lobby.status !== 'playing' && !lobby.result.submittedBy) {
+       // Si no ha empezado o no hay resultado esperando, tal vez no sea crítico, 
+       // pero permitimos reportar si ya están en juego.
+       if (lobby.status !== 'playing' && lobby.status !== 'full') {
+         return res.status(400).json({ message: 'Solo se puede reportar inactividad durante un partido o lobby lleno.' });
+       }
+    }
+
+    // Verificar que el reportero sea parte del lobby
+    const isPlayer = lobby.players.some(p => p.userUid === req.user.uid);
+    const isOfficial = lobby.officials.some(o => o.userUid === req.user.uid);
+    if (!isPlayer && !isOfficial) {
+      return res.status(403).json({ message: 'No eres parte de este lobby.' });
+    }
+
+    // Evitar duplicados de reportes del mismo usuario para el mismo rol
+    const alreadyReported = lobby.authorityInactivityReports.some(
+      r => r.fromUser === req.user.uid && r.targetRole === targetRole
+    );
+    if (alreadyReported) {
+      return res.status(400).json({ message: 'Ya has reportado a esta autoridad.' });
+    }
+
+    lobby.authorityInactivityReports.push({
+      fromUser: req.user.uid,
+      targetRole,
+      timestamp: new Date()
+    });
+
+    // Calcular consenso (> 50% de los participantes activos)
+    const reportsForRole = lobby.authorityInactivityReports.filter(r => r.targetRole === targetRole).length;
+    const totalParticipants = lobby.players.length + lobby.officials.length;
+    const threshold = totalParticipants / 2;
+
+    let reassigned = false;
+    let message = 'Reporte registrado.';
+
+    if (reportsForRole >= threshold) {
+      reassigned = true;
+      // LOGICA DE REASIGNACIÓN
+      if (targetRole === 'official') {
+        const principalIdx = lobby.officials.findIndex(o => o.type === 'principal');
+        if (principalIdx !== -1) {
+          const secondaryIdx = lobby.officials.findIndex(o => o.type === 'secundario');
+          if (secondaryIdx !== -1) {
+            // Promover al secundario y degradar al principal original
+            lobby.officials[secondaryIdx].type = 'principal';
+            lobby.officials[principalIdx].type = 'secundario';
+            message = 'El Oficial Principal ha sido relevado por inactividad. El Oficial Secundario ha sido promovido.';
+          } else {
+            // No hay más oficiales, el principal pasa a ser secundario (pierde control)
+            // pero se mantiene en la lista para que pueda ser calificado al final.
+            lobby.officials[principalIdx].type = 'secundario';
+            lobby.requireOfficial = false;
+            message = 'El Oficial ha sido relevado por inactividad. El partido continuará bajo consenso de capitanes.';
+          }
+        }
+      } else if (targetRole === 'host' || targetRole === 'rivalCaptain') {
+        // Para Host o Rival Captain, buscamos al de mayor Karma entre los candidatos
+        const candidateUids = targetRole === 'host' 
+          ? lobby.players.filter(p => p.userUid !== lobby.host).map(p => p.userUid)
+          : lobby.players.filter(p => p.team !== (lobby.players.find(h => h.userUid === lobby.host)?.team || 'A') && p.userUid !== lobby.rivalCaptainUid).map(p => p.userUid);
+
+        if (candidateUids.length > 0) {
+          const candidateStats = await KarmaLog.aggregate([
+            { $match: { targetPlayer: { $in: candidateUids } } },
+            { $group: { _id: "$targetPlayer", total: { $sum: "$points" } } },
+            { $sort: { total: -1 } },
+            { $limit: 1 }
+          ]);
+
+          const newWinnerUid = candidateStats.length > 0 ? candidateStats[0]._id : candidateUids[0];
+          
+          if (targetRole === 'host') {
+            lobby.host = newWinnerUid;
+            message = 'El Host ha sido reasignado al jugador con mayor reputación debido a inactividad.';
+          } else {
+            lobby.rivalCaptainUid = newWinnerUid;
+            message = 'El Capitán Rival ha sido reasignado al jugador con mayor reputación debido a inactividad.';
+          }
+        }
+      }
+      
+      // Limpiar reportes de ese rol una vez reasignado para permitir futuros reportes si el nuevo también falla
+      lobby.authorityInactivityReports = lobby.authorityInactivityReports.filter(r => r.targetRole !== targetRole);
+    }
+
+    await lobby.save();
+    res.json({ message, reassigned, lobby });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al reportar inactividad', error: error.message });
   }
 });
 
