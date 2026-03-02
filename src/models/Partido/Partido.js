@@ -317,8 +317,6 @@ PartidoSchema.post('save', async function () {
       let competenciaId = this.competencia?._id || this.competencia || this.rankedMeta?.competenciaId;
       let temporadaId = this.temporada?._id || this.temporada || this.rankedMeta?.temporadaId;
 
-      console.log(`[Ranked] Processing match ${this._id}. Current resolved IDs - Comp: ${competenciaId}, Temp: ${temporadaId}`);
-
       // If we have a phase, we can derive season and possibly competition
       if ((!temporadaId || !competenciaId) && this.fase) {
         const Fase = mongoose.model('Fase');
@@ -330,7 +328,6 @@ PartidoSchema.post('save', async function () {
         if (faseDoc?.temporada) {
           if (!temporadaId) temporadaId = faseDoc.temporada._id;
           if (!competenciaId) competenciaId = faseDoc.temporada.competencia?._id || faseDoc.temporada.competencia;
-          console.log(`[Ranked] Resolved from Phase ${phaseId} -> Temp: ${temporadaId}, Comp: ${competenciaId}`);
         }
       }
 
@@ -340,7 +337,6 @@ PartidoSchema.post('save', async function () {
         const tempDoc = await Temporada.findById(temporadaId);
         if (tempDoc?.competencia) {
            competenciaId = tempDoc.competencia;
-           console.log(`[Ranked] Resolved Comp from Season ${temporadaId} -> ${competenciaId}`);
         }
       }
 
@@ -365,10 +361,7 @@ PartidoSchema.post('save', async function () {
           globalMultiplier = 1.0;
         } else {
           shouldApplyGlobal = false;
-          console.log(`[Ranked] Level 1 (Master) skipped - Organization not verified or not found.`);
         }
-      } else {
-        console.log(`[Ranked] Level 1 (Master) using Plaza multiplier (0.3x)`);
       }
 
       // 1. Apply to Global MASTER (Absolute App Global)
@@ -384,7 +377,6 @@ PartidoSchema.post('save', async function () {
           multiplier: globalMultiplier
         });
         finalSnapshot = snap1;
-        console.log(`[Ranked] Level 1 (Master) applied with multiplier ${globalMultiplier}`);
       }
 
       // 2. Apply to COMPETITION GLOBAL (Level 2)
@@ -400,7 +392,6 @@ PartidoSchema.post('save', async function () {
           multiplier: 1.0 // Competition internal ranking always counts 100%
         });
         finalSnapshot = snap2;
-        console.log(`[Ranked] Level 2 (Competition ${competenciaId}) applied`);
       }
 
       // 3. Apply to SEASON (Level 3)
@@ -416,7 +407,6 @@ PartidoSchema.post('save', async function () {
           multiplier: 1.0 // Season internal ranking always counts 100%
         });
         finalSnapshot = snap3;
-        console.log(`[Ranked] Level 3 (Season ${temporadaId}) applied`);
       }
 
       this.rankedMeta = this.rankedMeta || {};
@@ -438,7 +428,6 @@ PartidoSchema.post('save', async function () {
           } 
         }
       );
-      console.log(`[Ranked] Match ${this._id} finalized at all levels. Deltas saved.`);
     }
   } catch (err) {
     console.error('[Partido.postSave ranked] error', err);

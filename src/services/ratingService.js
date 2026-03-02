@@ -152,7 +152,6 @@ export async function revertRankedResult(partidoId) {
   // Si se pasa como objeto { partidoId }, extraemos el ID
   const id = typeof partidoId === 'object' && partidoId.partidoId ? partidoId.partidoId : partidoId;
   
-  console.log(`[Ranked] Revirtiendo resultados para el partido ${id}...`);
   const snapshots = await MatchPlayer.find({ partidoId: id });
   
   // Revertir el rating de cada jugador en paralelo
@@ -184,5 +183,4 @@ export async function revertRankedResult(partidoId) {
   // Limpiar registros de snapshots y equipos
   await MatchPlayer.deleteMany({ partidoId: id });
   await MatchTeam.deleteMany({ partidoId: id });
-  console.log(`[Ranked] Cleanup completado para el partido ${id}.`);
 }
