@@ -56,6 +56,21 @@ function normalizeEnum(val) {
   return val;
 }
 
+function resolveSnapshotOutcome(snapshot) {
+  if (snapshot?.outcome === 'win' || snapshot?.outcome === 'loss' || snapshot?.outcome === 'draw') {
+    return snapshot.outcome;
+  }
+  if (snapshot?.isAFK === true) return 'loss';
+  if (snapshot?.win === true) return 'win';
+  if (snapshot?.win === false) return 'loss';
+  if (typeof snapshot?.delta === 'number') {
+    if (snapshot.delta > 0) return 'win';
+    if (snapshot.delta < 0) return 'loss';
+    return 'draw';
+  }
+  return 'loss';
+}
+
 async function syncJugadorPartidoFromTeams(partido, creadoPor = 'ranked-mvp') {
   if (!partido) return;
   const partidoId = (partido._id || partido).toString();
@@ -573,7 +588,9 @@ router.get('/players/:playerId/detail', async (req, res) => {
 
       for (const h of history) {
         const pId = h.partidoId?._id || h.partidoId;
-        const isWin = (h.win === true || (h.win === undefined && h.delta > 0));
+        const outcome = resolveSnapshotOutcome(h);
+        const isWin = outcome === 'win';
+        const isDraw = outcome === 'draw';
         
         // Find participants in the same match
         const participants = allParticipants.filter(p => p.partidoId.toString() === pId.toString());
@@ -590,12 +607,14 @@ router.get('/players/:playerId/detail', async (req, res) => {
                 name: p.playerId?.nombre || 'Desconocido', 
                 matches: 0, 
                 wins: 0,
+                draws: 0,
                 matchIds: []
               };
             }
             teammateStats[tId].matches++;
             teammateStats[tId].matchIds.push(pId.toString());
             if (isWin) teammateStats[tId].wins++;
+            if (isDraw) teammateStats[tId].draws++;
           } else {
             // Rival
             if (!rivalStats[tId]) {
@@ -604,12 +623,14 @@ router.get('/players/:playerId/detail', async (req, res) => {
                 name: p.playerId?.nombre || 'Desconocido', 
                 matches: 0, 
                 wins: 0,
+                draws: 0,
                 matchIds: []
               };
             }
             rivalStats[tId].matches++;
             rivalStats[tId].matchIds.push(pId.toString());
             if (isWin) rivalStats[tId].wins++;
+            if (isDraw) rivalStats[tId].draws++;
           }
         }
       }
@@ -618,6 +639,7 @@ router.get('/players/:playerId/detail', async (req, res) => {
     const synergy = Object.values(teammateStats)
       .map(s => ({
         ...s,
+        losses: Math.max(0, s.matches - s.wins - (s.draws || 0)),
         winrate: (s.wins / s.matches) * 100
       }))
       .sort((a, b) => b.matches - a.matches || b.winrate - a.winrate);
@@ -625,6 +647,7 @@ router.get('/players/:playerId/detail', async (req, res) => {
     const rivalry = Object.values(rivalStats)
       .map(s => ({
         ...s,
+        losses: Math.max(0, s.matches - s.wins - (s.draws || 0)),
         winrate: (s.wins / s.matches) * 100
       }))
       .sort((a, b) => b.matches - a.matches || a.winrate - b.winrate);
@@ -760,20 +783,35 @@ router.post('/players/:playerId/recalculate', async (req, res) => {
     let currentRating = 1500;
     let matchesCount = 0;
     let winsCount = 0;
+    let lossesCount = 0;
+    let drawsCount = 0;
     let lastDelta = 0;
 
     for (const match of history) {
       if (typeof match.delta === 'number') {
         currentRating += match.delta;
         matchesCount++;
-        if (match.win || match.delta > 0) winsCount++; // fallback to delta > 0 for old records
+        const outcome = resolveSnapshotOutcome(match);
+        if (outcome === 'win') winsCount++;
+        if (outcome === 'loss') lossesCount++;
+        if (outcome === 'draw') drawsCount++;
         lastDelta = match.delta;
       }
     }
 
     const pr = await PlayerRating.findOneAndUpdate(
       query,
-      { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
+      {
+        $set: {
+          rating: currentRating,
+          matchesPlayed: matchesCount,
+          wins: winsCount,
+          losses: lossesCount,
+          draws: drawsCount,
+          lastDelta,
+          updatedAt: new Date()
+        }
+      },
       { upsert: true, new: true }
     );
 
@@ -824,7 +862,7 @@ router.delete('/players/:playerId/rating', async (req, res) => {
   }
 });
 
-// Dev-only: Sync all player wins from their MatchPlayer history
+// Dev-only: Sync all player W/L/D from their MatchPlayer history
 router.post('/dev/sync-all-wins', async (req, res) => {
   try {
     const ratings = await PlayerRating.find({});
@@ -841,11 +879,18 @@ router.post('/dev/sync-all-wins', async (req, res) => {
 
       const history = await MatchPlayer.find(query).lean();
       let wins = 0;
+      let losses = 0;
+      let draws = 0;
       for (const h of history) {
-        if (h.win === true || (h.win === undefined && h.delta > 0)) wins++;
+        const outcome = resolveSnapshotOutcome(h);
+        if (outcome === 'win') wins++;
+        if (outcome === 'loss') losses++;
+        if (outcome === 'draw') draws++;
       }
 
       pr.wins = wins;
+      pr.losses = losses;
+      pr.draws = draws;
       await pr.save();
       updatedCount++;
     }
@@ -872,20 +917,35 @@ router.delete('/match-player/:id', async (req, res) => {
     let currentRating = 1500;
     let matchesCount = 0;
     let winsCount = 0;
+    let lossesCount = 0;
+    let drawsCount = 0;
     let lastDelta = 0;
 
     for (const match of history) {
       if (typeof match.delta === 'number') {
         currentRating += match.delta;
         matchesCount++;
-        if (match.win || (match.win === undefined && match.delta > 0)) winsCount++;
+        const outcome = resolveSnapshotOutcome(match);
+        if (outcome === 'win') winsCount++;
+        if (outcome === 'loss') lossesCount++;
+        if (outcome === 'draw') drawsCount++;
         lastDelta = match.delta;
       }
     }
 
     const pr = await PlayerRating.findOneAndUpdate(
       { playerId, competenciaId, temporadaId, modalidad, categoria },
-      { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
+      {
+        $set: {
+          rating: currentRating,
+          matchesPlayed: matchesCount,
+          wins: winsCount,
+          losses: lossesCount,
+          draws: drawsCount,
+          lastDelta,
+          updatedAt: new Date()
+        }
+      },
       { upsert: true, new: true }
     );
 
@@ -1227,20 +1287,35 @@ router.post('/recalculate-scope', verificarToken, async (req, res) => {
       let currentRating = 1500;
       let matchesCount = 0;
       let winsCount = 0;
+      let lossesCount = 0;
+      let drawsCount = 0;
       let lastDelta = 0;
 
       for (const match of history) {
         if (typeof match.delta === 'number') {
           currentRating += match.delta;
           matchesCount++;
-          if (match.win || (match.win === undefined && match.delta > 0)) winsCount++;
+          const outcome = resolveSnapshotOutcome(match);
+          if (outcome === 'win') winsCount++;
+          if (outcome === 'loss') lossesCount++;
+          if (outcome === 'draw') drawsCount++;
           lastDelta = match.delta;
         }
       }
 
       await PlayerRating.findOneAndUpdate(
         { ...query, playerId },
-        { $set: { rating: currentRating, matchesPlayed: matchesCount, wins: winsCount, lastDelta, updatedAt: new Date() } },
+        {
+          $set: {
+            rating: currentRating,
+            matchesPlayed: matchesCount,
+            wins: winsCount,
+            losses: lossesCount,
+            draws: drawsCount,
+            lastDelta,
+            updatedAt: new Date()
+          }
+        },
         { upsert: true, new: true }
       );
       updatedCount++;

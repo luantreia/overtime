@@ -96,6 +96,7 @@ export async function applyRankedResult({
     const isAFK = afkPlayerIds.includes(playerId.toString());
     const K = kFactor(preMatches, preRating);
     let delta = K * (S_team - E_team);
+    const outcome = isAFK ? 'loss' : (S_team === 1 ? 'win' : (S_team === 0 ? 'loss' : 'draw'));
 
     if (isAFK) {
       delta = -afkPenalty;
@@ -114,7 +115,9 @@ export async function applyRankedResult({
     const pr = await getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria });
     pr.rating = Math.round(post * 10) / 10;
     pr.matchesPlayed = (pr.matchesPlayed || 0) + 1;
-    if (S_team === 1 && !isAFK) pr.wins = (pr.wins || 0) + 1;
+    if (outcome === 'win') pr.wins = (pr.wins || 0) + 1;
+    if (outcome === 'loss') pr.losses = (pr.losses || 0) + 1;
+    if (outcome === 'draw') pr.draws = (pr.draws || 0) + 1;
     pr.lastDelta = delta;
     pr.updatedAt = new Date();
     await pr.save();
@@ -125,6 +128,7 @@ export async function applyRankedResult({
         $set: {
           partidoId, playerId, teamColor, preRating, postRating: pr.rating, delta,
           win: isAFK ? false : S_team === 1,
+          outcome,
           isAFK,
           competenciaId, temporadaId, modalidad, categoria
         }
@@ -170,10 +174,17 @@ export async function revertRankedResult(partidoId) {
       // Revertir el rating y redondear para evitar ruidos de coma flotante
       pr.rating = Math.round((pr.rating - snap.delta) * 10) / 10;
       pr.matchesPlayed = Math.max(0, (pr.matchesPlayed || 0) - 1);
-      
-      // Revertir victoria si aplica
-      if (snap.win === true || (snap.win === undefined && snap.delta > 0)) {
+
+      const derivedOutcome = snap.outcome || (snap.isAFK ? 'loss' : (snap.win === true ? 'win' : (snap.win === false ? 'loss' : (snap.delta > 0 ? 'win' : (snap.delta < 0 ? 'loss' : 'draw')))));
+
+      if (derivedOutcome === 'win') {
         pr.wins = Math.max(0, (pr.wins || 0) - 1);
+      }
+      if (derivedOutcome === 'loss') {
+        pr.losses = Math.max(0, (pr.losses || 0) - 1);
+      }
+      if (derivedOutcome === 'draw') {
+        pr.draws = Math.max(0, (pr.draws || 0) - 1);
       }
       
       await pr.save();
