@@ -86,6 +86,21 @@ export const tiposSolicitudMeta = {
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
+  estadisticasJugadorPartido: {
+    requiereDobleConfirmacion: false,
+    camposCriticos: [],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
+  estadisticasEquipoPartido: {
+    requiereDobleConfirmacion: false,
+    camposCriticos: [],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
+  estadisticasEquipoSet: {
+    requiereDobleConfirmacion: false,
+    camposCriticos: [],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
 
   // Usuario / Entidades
   'usuario-crear-jugador': {

@@ -17,6 +17,7 @@ import EquipoPartido from '../models/Equipo/EquipoPartido.js';
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
 import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
+import SetPartido from '../models/Partido/SetPartido.js';
 
 function extraerIds(doc, campos = []) {
   const ids = new Set();
@@ -149,7 +150,22 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
       case 'resultadoPartido':
       case 'estadisticasEquipoPartido':
       case 'estadisticasJugadorPartido': {
-        const partido = await Partido.findById(entidadId)
+        let partidoId = entidadId;
+
+        if (tipo === 'estadisticasEquipoPartido') {
+          const statEq = await EstadisticasEquipoPartido.findById(entidadId).select('partido').lean();
+          if (statEq?.partido) partidoId = statEq.partido;
+        }
+
+        if (tipo === 'estadisticasJugadorPartido') {
+          const statJug = await EstadisticasJugadorPartido.findById(entidadId).select('jugadorPartido').lean();
+          if (statJug?.jugadorPartido) {
+            const jp = await JugadorPartido.findById(statJug.jugadorPartido).select('partido').lean();
+            if (jp?.partido) partidoId = jp.partido;
+          }
+        }
+
+        const partido = await Partido.findById(partidoId)
           .populate('competencia', 'administradores creadoPor')
           .populate('administradores', '_id');
         
@@ -157,6 +173,27 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
           grupos.competencia = extraerIds(partido, ['competencia']);
         } else if (partido) {
           // Amistoso
+          const creador = partido.creadoPor?.toString();
+          const admins = (partido.administradores || []).map(a => a._id?.toString() || a.toString());
+          grupos.partido = [creador, ...admins].filter(Boolean);
+        }
+        break;
+      }
+      case 'estadisticasJugadorSet': {
+        let partidoId = entidadId;
+        const statSet = await EstadisticasJugadorSet.findById(entidadId).select('set').lean();
+        if (statSet?.set) {
+          const set = await SetPartido.findById(statSet.set).select('partido').lean();
+          if (set?.partido) partidoId = set.partido;
+        }
+
+        const partido = await Partido.findById(partidoId)
+          .populate('competencia', 'administradores creadoPor')
+          .populate('administradores', '_id');
+
+        if (partido?.competencia) {
+          grupos.competencia = extraerIds(partido, ['competencia']);
+        } else if (partido) {
           const creador = partido.creadoPor?.toString();
           const admins = (partido.administradores || []).map(a => a._id?.toString() || a.toString());
           grupos.partido = [creador, ...admins].filter(Boolean);

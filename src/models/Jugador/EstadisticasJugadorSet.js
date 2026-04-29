@@ -14,6 +14,19 @@ const estadisticasJugadorSetSchema = new Schema({
   catches: { type: Number, default: 0 },
   survive: { type: Boolean, default: false },
 
+  estadoPublicacion: {
+    type: String,
+    enum: ['privada', 'pendiente_aprobacion', 'organizacion', 'publica', 'rechazada'],
+    default: 'privada',
+    index: true,
+  },
+  solicitudPublicacion: { type: Schema.Types.ObjectId, ref: 'SolicitudEdicion' },
+  visibilidadObjetivo: {
+    type: String,
+    enum: ['organizacion', 'publica'],
+    default: 'organizacion',
+  },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 

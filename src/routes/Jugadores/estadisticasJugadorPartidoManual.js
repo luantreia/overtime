@@ -10,6 +10,11 @@ import {
   getEquipoIdFromJugadorPartido,
   getEquipoIdFromEstadisticaJugadorPartidoManual,
 } from '../../services/teamPermissionService.js';
+import {
+  encolarSolicitudStatsLiga,
+  normalizarVisibilidadObjetivo,
+  resolverFiltroEstadoPublicacion,
+} from '../../services/statsApprovalService.js';
 
 const router = express.Router();
 
@@ -124,10 +129,15 @@ router.get(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { partido, jugadorPartido, jugador, equipo } = req.query;
+      const { partido, jugadorPartido, jugador, equipo, estadoPublicacion } = req.query;
 
       // Construir filtro dinámico
       const filtro = {};
+      const visibilidad = resolverFiltroEstadoPublicacion(estadoPublicacion, req.user?.rol);
+      if (!visibilidad.ok) {
+        return res.status(visibilidad.status).json({ error: visibilidad.message });
+      }
+      filtro.estadoPublicacion = { $in: visibilidad.estados };
 
       // Si se solicita por partido, buscar a través de jugadorPartido
       if (partido) {
@@ -255,6 +265,27 @@ router.post(
       });
 
       const guardado = await nuevo.save();
+
+      const jp = await JugadorPartido.findById(jugadorPartido).select('partido equipo').lean();
+      if (jp?.partido) {
+        const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorPartido',
+          entidadId: guardado._id,
+          partidoId: jp.partido,
+          equipoId: jp.equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          guardado.estadoPublicacion = 'pendiente_aprobacion';
+          guardado.visibilidadObjetivo = visibilidadObjetivo;
+          guardado.solicitudPublicacion = solicitud.solicitudId;
+          await guardado.save();
+        }
+      }
+
       res.status(201).json(guardado);
     } catch (err) {
       // Manejar específicamente errores de duplicado de MongoDB
@@ -344,6 +375,26 @@ router.put('/upsert', verificarToken, cargarRolDesdeBD, requireTeamPermission({
         setDefaultsOnInsert: true // Establecer valores por defecto al insertar
       }
     );
+
+    const jp = await JugadorPartido.findById(jugadorPartido).select('partido equipo').lean();
+    if (jp?.partido) {
+      const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo ?? estadistica.visibilidadObjetivo);
+      const solicitud = await encolarSolicitudStatsLiga({
+        tipo: 'estadisticasJugadorPartido',
+        entidadId: estadistica._id,
+        partidoId: jp.partido,
+        equipoId: jp.equipo,
+        creadoPor: req.user.uid,
+        visibilidadObjetivo,
+      });
+
+      if (solicitud.queued) {
+        estadistica.estadoPublicacion = 'pendiente_aprobacion';
+        estadistica.visibilidadObjetivo = visibilidadObjetivo;
+        estadistica.solicitudPublicacion = solicitud.solicitudId;
+        await estadistica.save();
+      }
+    }
 
     // Determinar si fue creado o actualizado
     const fueCreado = estadistica.createdAt.getTime() === estadistica.updatedAt.getTime();
@@ -436,6 +487,27 @@ router.put(
       item.version = (item.version || 1) + 1; // Incrementar versión
 
       const actualizado = await item.save();
+
+      const jp = await JugadorPartido.findById(item.jugadorPartido).select('partido equipo').lean();
+      if (jp?.partido) {
+        const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo ?? item.visibilidadObjetivo);
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorPartido',
+          entidadId: actualizado._id,
+          partidoId: jp.partido,
+          equipoId: jp.equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          actualizado.estadoPublicacion = 'pendiente_aprobacion';
+          actualizado.visibilidadObjetivo = visibilidadObjetivo;
+          actualizado.solicitudPublicacion = solicitud.solicitudId;
+          await actualizado.save();
+        }
+      }
+
       res.json({
         ...actualizado.toObject(),
         operacion: 'actualizado',

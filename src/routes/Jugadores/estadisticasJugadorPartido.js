@@ -11,6 +11,11 @@ import {
   getEquipoIdFromJugadorPartido,
   getEquipoIdFromEstadisticaJugadorPartido,
 } from '../../services/teamPermissionService.js';
+import {
+  encolarSolicitudStatsLiga,
+  normalizarVisibilidadObjetivo,
+  resolverFiltroEstadoPublicacion,
+} from '../../services/statsApprovalService.js';
 
 const router = express.Router();
 
@@ -164,10 +169,16 @@ router.get(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { partido, jugadorPartido, jugador, equipo } = req.query;
+      const { partido, jugadorPartido, jugador, equipo, estadoPublicacion } = req.query;
       
       // Construir filtro dinámico
       const filtro = {};
+
+      const visibilidad = resolverFiltroEstadoPublicacion(estadoPublicacion, req.user?.rol);
+      if (!visibilidad.ok) {
+        return res.status(visibilidad.status).json({ error: visibilidad.message });
+      }
+      filtro.estadoPublicacion = { $in: visibilidad.estados };
       
       // Si se solicita por partido, buscar a través de jugadorPartido
       if (partido) {
@@ -303,6 +314,27 @@ router.post(
       });
 
       const guardado = await nuevo.save();
+
+      const jp = await JugadorPartido.findById(jugadorPartido).select('partido equipo').lean();
+      if (jp?.partido) {
+        const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorPartido',
+          entidadId: guardado._id,
+          partidoId: jp.partido,
+          equipoId: jp.equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          guardado.estadoPublicacion = 'pendiente_aprobacion';
+          guardado.visibilidadObjetivo = visibilidadObjetivo;
+          guardado.solicitudPublicacion = solicitud.solicitudId;
+          await guardado.save();
+        }
+      }
+
       res.status(201).json(guardado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al crear estadísticas' });
@@ -403,6 +435,27 @@ router.put(
       item.ultimaActualizacion = new Date();
 
       const actualizado = await item.save();
+
+      const jp = await JugadorPartido.findById(item.jugadorPartido).select('partido equipo').lean();
+      if (jp?.partido) {
+        const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo ?? item.visibilidadObjetivo);
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorPartido',
+          entidadId: actualizado._id,
+          partidoId: jp.partido,
+          equipoId: jp.equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          actualizado.estadoPublicacion = 'pendiente_aprobacion';
+          actualizado.visibilidadObjetivo = visibilidadObjetivo;
+          actualizado.solicitudPublicacion = solicitud.solicitudId;
+          await actualizado.save();
+        }
+      }
+
       res.json(actualizado);
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al actualizar' });

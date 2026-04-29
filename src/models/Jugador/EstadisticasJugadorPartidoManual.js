@@ -19,6 +19,19 @@ const estadisticasJugadorPartidoManualSchema = new Schema({
   // Control de versiones (por si se editan múltiples veces)
   version: { type: Number, default: 1 },
 
+  estadoPublicacion: {
+    type: String,
+    enum: ['privada', 'pendiente_aprobacion', 'organizacion', 'publica', 'rechazada'],
+    default: 'privada',
+    index: true,
+  },
+  solicitudPublicacion: { type: Schema.Types.ObjectId, ref: 'SolicitudEdicion' },
+  visibilidadObjetivo: {
+    type: String,
+    enum: ['organizacion', 'publica'],
+    default: 'organizacion',
+  },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 

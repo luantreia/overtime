@@ -5,11 +5,17 @@ import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import { actualizarEstadisticasJugadorPartido, actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
+import SetPartido from '../../models/Partido/SetPartido.js';
 import { requireTeamPermission } from '../../middleware/requireTeamPermission.js';
 import {
   hasTeamPermission,
   getEquipoIdFromEstadisticaJugadorSet,
 } from '../../services/teamPermissionService.js';
+import {
+  encolarSolicitudStatsLiga,
+  normalizarVisibilidadObjetivo,
+  resolverFiltroEstadoPublicacion,
+} from '../../services/statsApprovalService.js';
 
 const router = express.Router();
 
@@ -124,10 +130,15 @@ router.get(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { set, jugadorPartido, jugador, equipo } = req.query;
+      const { set, jugadorPartido, jugador, equipo, estadoPublicacion } = req.query;
       
       // Construir filtro dinámico
       const filtro = {};
+      const visibilidad = resolverFiltroEstadoPublicacion(estadoPublicacion, req.user?.rol);
+      if (!visibilidad.ok) {
+        return res.status(visibilidad.status).json({ error: visibilidad.message });
+      }
+      filtro.estadoPublicacion = { $in: visibilidad.estados };
       if (set) filtro.set = set;
       if (jugadorPartido) filtro.jugadorPartido = jugadorPartido;
       if (jugador) filtro.jugador = jugador;
@@ -251,6 +262,26 @@ router.post(
       });
 
       const guardado = await nuevo.save();
+
+      const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
+      const setDoc = await SetPartido.findById(set).select('partido').lean();
+      if (setDoc?.partido) {
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorSet',
+          entidadId: guardado._id,
+          partidoId: setDoc.partido,
+          equipoId: equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          guardado.estadoPublicacion = 'pendiente_aprobacion';
+          guardado.visibilidadObjetivo = visibilidadObjetivo;
+          guardado.solicitudPublicacion = solicitud.solicitudId;
+          await guardado.save();
+        }
+      }
       
       // Actualizar estadísticas agregadas automáticamente
       try {
@@ -346,6 +377,26 @@ router.put(
       }
 
       const actualizado = await item.save();
+
+      const setDoc = await SetPartido.findById(item.set).select('partido').lean();
+      if (setDoc?.partido) {
+        const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo ?? item.visibilidadObjetivo);
+        const solicitud = await encolarSolicitudStatsLiga({
+          tipo: 'estadisticasJugadorSet',
+          entidadId: actualizado._id,
+          partidoId: setDoc.partido,
+          equipoId: item.equipo,
+          creadoPor: req.user.uid,
+          visibilidadObjetivo,
+        });
+
+        if (solicitud.queued) {
+          actualizado.estadoPublicacion = 'pendiente_aprobacion';
+          actualizado.visibilidadObjetivo = visibilidadObjetivo;
+          actualizado.solicitudPublicacion = solicitud.solicitudId;
+          await actualizado.save();
+        }
+      }
       
       // Actualizar estadísticas agregadas automáticamente
       try {

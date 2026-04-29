@@ -176,6 +176,7 @@ router.get('/', async (req, res) => {
       Partido.find(filtro)
         .populate([
           'competencia',
+          'temporada',
           'fase',
           'equipoLocal',
           'equipoVisitante',
@@ -238,6 +239,7 @@ router.get('/:id', validarObjectId, async (req, res) => {
     const partido = await Partido.findById(req.params.id)
       .populate([
         'competencia',
+        'temporada',
         'fase',
         'equipoLocal',
         'equipoVisitante',

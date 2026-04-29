@@ -16,6 +16,11 @@ import JugadorTemporada from '../models/Jugador/JugadorTemporada.js';
 import Temporada from '../models/Competencia/Temporada.js';
 import Competencia from '../models/Competencia/Competencia.js';
 import Organizacion from '../models/Organizacion.js';
+import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
+import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
+import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
+import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
+import { normalizarVisibilidadObjetivo } from '../services/statsApprovalService.js';
 
 /**
  * @swagger
@@ -517,7 +522,8 @@ router.get('/:id/aprobadores', verificarToken, validarObjectId, async (req, res)
     if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
 
     // Obtener los administradores que pueden aprobar esta solicitud
-    const aprobadores = await obtenerAdminsParaSolicitud(solicitud);
+    const aprobadoresResult = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad, solicitud.datosPropuestos);
+    const aprobadores = aprobadoresResult.grupos || {};
 
     // Verificar si el usuario actual puede aprobar
     const uid = req.user.uid;
@@ -839,10 +845,32 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
     console.log('Usuario autorizado, procesando solicitud con estado:', estado);
 
+    const esSolicitudPublicacionStats = [
+      'estadisticasJugadorSet',
+      'estadisticasJugadorPartido',
+      'estadisticasEquipoPartido',
+    ].includes(solicitud.tipo);
+
     if (estado === 'rechazado') {
       solicitud.estado = 'rechazado';
       solicitud.motivoRechazo = motivoRechazo;
       solicitud.fechaRechazo = new Date();
+
+      if (esSolicitudPublicacionStats && solicitud.entidad) {
+        const rechazoPayload = {
+          estadoPublicacion: 'rechazada',
+          solicitudPublicacion: solicitud._id,
+        };
+
+        if (solicitud.tipo === 'estadisticasJugadorSet') {
+          await EstadisticasJugadorSet.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+        } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
+          await EstadisticasJugadorPartido.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+          await EstadisticasJugadorPartidoManual.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+        } else if (solicitud.tipo === 'estadisticasEquipoPartido') {
+          await EstadisticasEquipoPartido.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+        }
+      }
       // Podríamos guardar quién rechazó si agregamos el campo al esquema, por ahora solo fecha y motivo.
     } else if (estado === 'aceptado') {
       // TODO: Implementar validación de doble confirmación
@@ -888,7 +916,49 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           // Guardar estado intermedio de solicitud (aceptadoPor/estado) dentro de la transacción
           await solicitud.save({ session });
 
-          if (solicitud.tipo === 'jugador-equipo-crear') {
+          if (solicitud.tipo === 'estadisticasJugadorSet') {
+            const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
+            await EstadisticasJugadorSet.findByIdAndUpdate(
+              solicitud.entidad,
+              {
+                estadoPublicacion: visibilidad,
+                visibilidadObjetivo: visibilidad,
+                solicitudPublicacion: solicitud._id,
+              },
+              { session },
+            );
+          } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
+            const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
+            await EstadisticasJugadorPartido.findByIdAndUpdate(
+              solicitud.entidad,
+              {
+                estadoPublicacion: visibilidad,
+                visibilidadObjetivo: visibilidad,
+                solicitudPublicacion: solicitud._id,
+              },
+              { session },
+            );
+            await EstadisticasJugadorPartidoManual.findByIdAndUpdate(
+              solicitud.entidad,
+              {
+                estadoPublicacion: visibilidad,
+                visibilidadObjetivo: visibilidad,
+                solicitudPublicacion: solicitud._id,
+              },
+              { session },
+            );
+          } else if (solicitud.tipo === 'estadisticasEquipoPartido') {
+            const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
+            await EstadisticasEquipoPartido.findByIdAndUpdate(
+              solicitud.entidad,
+              {
+                estadoPublicacion: visibilidad,
+                visibilidadObjetivo: visibilidad,
+                solicitudPublicacion: solicitud._id,
+              },
+              { session },
+            );
+          } else if (solicitud.tipo === 'jugador-equipo-crear') {
             const { jugadorId, equipoId, rol, numeroCamiseta, fechaInicio, fechaFin } = solicitud.datosPropuestos;
             const [equipo, jugador] = await Promise.all([
               equipoId ? Equipo.findById(equipoId).select('administradores creadoPor').session(session) : null,

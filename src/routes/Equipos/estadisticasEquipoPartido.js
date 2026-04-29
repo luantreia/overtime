@@ -4,6 +4,11 @@ import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
 import { requireTeamPermission } from '../../middleware/requireTeamPermission.js';
+import {
+  encolarSolicitudStatsLiga,
+  normalizarVisibilidadObjetivo,
+  resolverFiltroEstadoPublicacion,
+} from '../../services/statsApprovalService.js';
 
 const router = express.Router();
 
@@ -169,6 +174,23 @@ router.post(
       });
     }
 
+    const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
+    const solicitud = await encolarSolicitudStatsLiga({
+      tipo: 'estadisticasEquipoPartido',
+      entidadId: estadisticasEquipo._id,
+      partidoId,
+      equipoId,
+      creadoPor: req.user.uid,
+      visibilidadObjetivo,
+    });
+
+    if (solicitud.queued) {
+      estadisticasEquipo.estadoPublicacion = 'pendiente_aprobacion';
+      estadisticasEquipo.visibilidadObjetivo = visibilidadObjetivo;
+      estadisticasEquipo.solicitudPublicacion = solicitud.solicitudId;
+      await estadisticasEquipo.save();
+    }
+
     res.json({
       mensaje: 'Estadísticas de equipo actualizadas correctamente',
       estadisticas: estadisticasEquipo
@@ -224,9 +246,14 @@ router.post(
 // Obtener estadísticas de equipo en un partido
 router.get('/', async (req, res) => {
   try {
-    const { partido, equipo } = req.query;
+    const { partido, equipo, estadoPublicacion } = req.query;
 
     const filtro = {};
+    const visibilidad = resolverFiltroEstadoPublicacion(estadoPublicacion, null, { publico: true });
+    if (!visibilidad.ok) {
+      return res.status(visibilidad.status).json({ error: visibilidad.message });
+    }
+    filtro.estadoPublicacion = { $in: visibilidad.estados };
     if (partido) filtro.partido = partido;
     if (equipo) filtro.equipo = equipo;
 
