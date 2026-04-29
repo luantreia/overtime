@@ -76,6 +76,11 @@ export const tiposSolicitudMeta = {
     camposCriticos: [],
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
+  editarPartidoCompetencia: {
+    requiereDobleConfirmacion: false,
+    camposCriticos: [],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+  },
   resultadoSet: {
     requiereDobleConfirmacion: false,
     camposCriticos: [],

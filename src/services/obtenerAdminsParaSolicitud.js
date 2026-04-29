@@ -148,6 +148,7 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
     // Lógica legacy o simple para otros tipos
     switch (tipo) {
       case 'resultadoPartido':
+      case 'editarPartidoCompetencia':
       case 'estadisticasEquipoPartido':
       case 'estadisticasJugadorPartido': {
         let partidoId = entidadId;

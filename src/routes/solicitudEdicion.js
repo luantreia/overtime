@@ -369,10 +369,10 @@ router.get('/opciones', verificarToken, async (req, res) => {
         'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
       ],
       fase: [
-        'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+        'resultadoPartido', 'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
       ],
       partido: [
-        'resultadoPartido', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+        'resultadoPartido', 'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
       ],
     };
 
