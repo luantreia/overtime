@@ -12,7 +12,7 @@ const estadisticasJugadorSetSchema = new Schema({
   hits: { type: Number, default: 0 },
   outs: { type: Number, default: 0 },
   catches: { type: Number, default: 0 },
-  survives: { type: Boolean, default: false },
+  survive: { type: Boolean, default: false },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
