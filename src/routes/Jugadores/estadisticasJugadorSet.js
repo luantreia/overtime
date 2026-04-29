@@ -5,6 +5,11 @@ import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import { actualizarEstadisticasJugadorPartido, actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
+import { requireTeamPermission } from '../../middleware/requireTeamPermission.js';
+import {
+  hasTeamPermission,
+  getEquipoIdFromEstadisticaJugadorSet,
+} from '../../services/teamPermissionService.js';
 
 const router = express.Router();
 
@@ -221,6 +226,11 @@ router.post(
   '/',
   verificarToken,
   cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.capture',
+    resolveEquipoId: async (req) => req.body?.equipo,
+    missingMessage: 'Se requiere equipo para validar permisos de captura',
+  }),
   async (req, res) => {
     try {
       const { set, jugadorPartido, jugador, equipo, throws, hits, outs, catches } = req.body;
@@ -316,6 +326,18 @@ router.put(
       const item = await EstadisticasJugadorSet.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'No encontrado' });
 
+      const equipoId = await getEquipoIdFromEstadisticaJugadorSet(req.params.id);
+      const allowed = await hasTeamPermission({
+        equipoId,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'stats.edit',
+      });
+
+      if (!allowed) {
+        return res.status(403).json({ error: 'No tienes permisos para editar estadísticas de este equipo' });
+      }
+
       const campos = ['throws', 'hits', 'outs', 'catches'];
       for (const c of campos) {
         if (Object.prototype.hasOwnProperty.call(req.body, c)) {
@@ -383,6 +405,18 @@ router.delete(
     try {
       const item = await EstadisticasJugadorSet.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'No encontrado' });
+
+      const equipoIdPermisos = await getEquipoIdFromEstadisticaJugadorSet(req.params.id);
+      const allowed = await hasTeamPermission({
+        equipoId: equipoIdPermisos,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'stats.edit',
+      });
+
+      if (!allowed) {
+        return res.status(403).json({ error: 'No tienes permisos para eliminar estadísticas de este equipo' });
+      }
 
       // Guardar referencias antes de eliminar
       const jugadorPartidoId = item.jugadorPartido;

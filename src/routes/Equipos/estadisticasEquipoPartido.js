@@ -3,6 +3,7 @@ import verificarToken from '../../middleware/authMiddleware.js';
 import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { actualizarEstadisticasEquipoPartido } from '../../utils/estadisticasAggregator.js';
+import { requireTeamPermission } from '../../middleware/requireTeamPermission.js';
 
 const router = express.Router();
 
@@ -135,7 +136,16 @@ const router = express.Router();
  */
 // POST /api/estadisticas/equipo-partido/actualizar
 // Actualiza las estadísticas agregadas de un equipo en un partido
-router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.post(
+  '/actualizar',
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.edit',
+    resolveEquipoId: async (req) => req.body?.equipoId,
+    missingMessage: 'Se requiere equipoId para validar permisos',
+  }),
+  async (req, res) => {
   try {
     const { partidoId, equipoId, creadoPor } = req.body;
 
@@ -171,7 +181,8 @@ router.post('/actualizar', verificarToken, cargarRolDesdeBD, async (req, res) =>
       detalle: error.message
     });
   }
-});
+  }
+);
 
 /**
  * @swagger

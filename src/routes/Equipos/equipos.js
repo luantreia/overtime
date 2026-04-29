@@ -9,6 +9,9 @@ import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { verificarEntidad } from '../../middleware/verificarEntidad.js';
 import Usuario from '../../models/Usuario.js';
 import { getPaginationParams } from '../../utils/pagination.js';
+import MiembroEquipo from '../../models/Equipo/MiembroEquipo.js';
+import { mergePermissions } from '../../constants/teamPermissions.js';
+import { hasTeamPermission } from '../../services/teamPermissionService.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -528,6 +531,157 @@ router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD
     res.status(500).json({ message: 'Error al quitar administrador' });
   }
 });
+
+// Miembros del equipo (roles + permisos específicos)
+router.get(
+  '/:id/miembros',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Equipo, 'equipo'),
+  async (req, res) => {
+    try {
+      const miembros = await MiembroEquipo.find({ equipo: req.params.id })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return res.status(200).json({ miembros });
+    } catch (error) {
+      console.error('Error al listar miembros del equipo:', error);
+      return res.status(500).json({ message: 'Error al listar miembros del equipo' });
+    }
+  }
+);
+
+router.post(
+  '/:id/miembros',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Equipo, 'equipo'),
+  async (req, res) => {
+    try {
+      const { usuarioId, rol = 'otro', permisos = [], estado = 'activo', notas = '' } = req.body;
+
+      if (!usuarioId || typeof usuarioId !== 'string') {
+        return res.status(400).json({ message: 'usuarioId es obligatorio' });
+      }
+
+      const yaExiste = await MiembroEquipo.findOne({ equipo: req.params.id, usuarioId });
+      if (yaExiste) {
+        return res.status(409).json({ message: 'El usuario ya es miembro de este equipo' });
+      }
+
+      const miembro = await MiembroEquipo.create({
+        equipo: req.params.id,
+        usuarioId,
+        rol,
+        permisos: mergePermissions(rol, permisos),
+        estado,
+        notas,
+        creadoPor: req.user.uid,
+        actualizadoPor: req.user.uid,
+      });
+
+      return res.status(201).json(miembro);
+    } catch (error) {
+      console.error('Error al crear miembro del equipo:', error);
+      return res.status(400).json({ message: error.message || 'Error al crear miembro del equipo' });
+    }
+  }
+);
+
+router.put(
+  '/:id/miembros/:usuarioId',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Equipo, 'equipo'),
+  async (req, res) => {
+    try {
+      const { rol, permisos, estado, notas } = req.body;
+      const { id: equipoId, usuarioId } = req.params;
+
+      const miembro = await MiembroEquipo.findOne({ equipo: equipoId, usuarioId });
+      if (!miembro) {
+        return res.status(404).json({ message: 'Miembro no encontrado en este equipo' });
+      }
+
+      if (rol !== undefined) miembro.rol = rol;
+      if (Array.isArray(permisos)) miembro.permisos = mergePermissions(miembro.rol, permisos);
+      if (estado !== undefined) miembro.estado = estado;
+      if (notas !== undefined) miembro.notas = notas;
+      miembro.actualizadoPor = req.user.uid;
+
+      await miembro.save();
+      return res.status(200).json(miembro);
+    } catch (error) {
+      console.error('Error al actualizar miembro del equipo:', error);
+      return res.status(400).json({ message: error.message || 'Error al actualizar miembro del equipo' });
+    }
+  }
+);
+
+router.delete(
+  '/:id/miembros/:usuarioId',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  esAdminDeEntidad(Equipo, 'equipo'),
+  async (req, res) => {
+    try {
+      const { id: equipoId, usuarioId } = req.params;
+      const eliminado = await MiembroEquipo.findOneAndDelete({ equipo: equipoId, usuarioId });
+
+      if (!eliminado) {
+        return res.status(404).json({ message: 'Miembro no encontrado en este equipo' });
+      }
+
+      return res.status(200).json({ message: 'Miembro removido del equipo' });
+    } catch (error) {
+      console.error('Error al remover miembro del equipo:', error);
+      return res.status(500).json({ message: 'Error al remover miembro del equipo' });
+    }
+  }
+);
+
+router.get(
+  '/:id/mis-permisos',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  async (req, res) => {
+    try {
+      const equipoId = req.params.id;
+      const usuarioId = req.user.uid;
+      const rolGlobal = req.user.rol;
+
+      const [canCaptureStats, canEditStats] = await Promise.all([
+        hasTeamPermission({
+          equipoId,
+          usuarioId,
+          rolGlobal,
+          permission: 'stats.capture',
+        }),
+        hasTeamPermission({
+          equipoId,
+          usuarioId,
+          rolGlobal,
+          permission: 'stats.edit',
+        }),
+      ]);
+
+      return res.status(200).json({
+        equipoId,
+        canCaptureStats,
+        canEditStats,
+      });
+    } catch (error) {
+      console.error('Error al obtener mis permisos de equipo:', error);
+      return res.status(500).json({ message: 'Error al obtener permisos del equipo' });
+    }
+  }
+);
 
 
 

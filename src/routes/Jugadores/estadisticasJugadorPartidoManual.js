@@ -4,6 +4,12 @@ import verificarToken from '../../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import EstadisticasJugadorPartidoManual from '../../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
+import { requireTeamPermission } from '../../middleware/requireTeamPermission.js';
+import {
+  hasTeamPermission,
+  getEquipoIdFromJugadorPartido,
+  getEquipoIdFromEstadisticaJugadorPartidoManual,
+} from '../../services/teamPermissionService.js';
 
 const router = express.Router();
 
@@ -214,6 +220,11 @@ router.post(
   '/',
   verificarToken,
   cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.capture',
+    resolveEquipoId: async (req) => getEquipoIdFromJugadorPartido(req.body?.jugadorPartido),
+    missingMessage: 'Se requiere jugadorPartido válido para validar permisos',
+  }),
   async (req, res) => {
     try {
       const { jugadorPartido, throws, hits, outs, catches, notas } = req.body;
@@ -302,7 +313,11 @@ router.post(
  *       401:
  *         description: No autorizado
  */
-router.put('/upsert', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.put('/upsert', verificarToken, cargarRolDesdeBD, requireTeamPermission({
+  permission: 'stats.edit',
+  resolveEquipoId: async (req) => getEquipoIdFromJugadorPartido(req.body?.jugadorPartido),
+  missingMessage: 'Se requiere jugadorPartido válido para validar permisos',
+}), async (req, res) => {
   try {
     const { jugadorPartido, throws, hits, outs, catches, notas } = req.body;
     if (!jugadorPartido) {
@@ -398,6 +413,18 @@ router.put(
       const item = await EstadisticasJugadorPartidoManual.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'Estadísticas manuales no encontradas' });
 
+      const equipoId = await getEquipoIdFromEstadisticaJugadorPartidoManual(req.params.id);
+      const allowed = await hasTeamPermission({
+        equipoId,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'stats.edit',
+      });
+
+      if (!allowed) {
+        return res.status(403).json({ error: 'No tienes permisos para editar estadísticas manuales de este equipo' });
+      }
+
       const campos = ['throws', 'hits', 'outs', 'catches', 'notas'];
       for (const c of campos) {
         if (Object.prototype.hasOwnProperty.call(req.body, c)) {
@@ -455,6 +482,18 @@ router.delete(
     try {
       const item = await EstadisticasJugadorPartidoManual.findById(req.params.id);
       if (!item) return res.status(404).json({ error: 'Estadísticas manuales no encontradas' });
+
+      const equipoId = await getEquipoIdFromEstadisticaJugadorPartidoManual(req.params.id);
+      const allowed = await hasTeamPermission({
+        equipoId,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'stats.edit',
+      });
+
+      if (!allowed) {
+        return res.status(403).json({ error: 'No tienes permisos para eliminar estadísticas manuales de este equipo' });
+      }
 
       await item.deleteOne();
       res.json({ mensaje: 'Estadísticas manuales eliminadas' });
