@@ -3626,3 +3626,4 @@
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:26:26.283Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:52:10.542Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:52:18.569Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:57:21.756Z"}
