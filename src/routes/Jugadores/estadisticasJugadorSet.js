@@ -69,6 +69,9 @@ const router = express.Router();
  *         catches:
  *           type: number
  *           default: 0
+ *         survive:
+ *           type: boolean
+ *           default: false
  *         creadoPor:
  *           type: string
  *           description: ID del usuario que creó el registro
@@ -219,6 +222,8 @@ router.get(
  *                 type: number
  *               catches:
  *                 type: number
+ *               survive:
+ *                 type: boolean
  *     responses:
  *       201:
  *         description: Estadísticas creadas
@@ -244,7 +249,7 @@ router.post(
   }),
   async (req, res) => {
     try {
-      const { set, jugadorPartido, jugador, equipo, throws, hits, outs, catches } = req.body;
+      const { set, jugadorPartido, jugador, equipo, throws, hits, outs, catches, survive } = req.body;
       if (!set || !jugadorPartido || !jugador || !equipo) {
         return res.status(400).json({ error: 'set, jugadorPartido, jugador y equipo son obligatorios' });
       }
@@ -258,6 +263,7 @@ router.post(
         hits,
         outs,
         catches,
+        survive,
         creadoPor: req.user.uid,
       });
 
@@ -337,6 +343,8 @@ router.post(
  *                 type: number
  *               catches:
  *                 type: number
+ *               survive:
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Estadísticas actualizadas
@@ -369,7 +377,7 @@ router.put(
         return res.status(403).json({ error: 'No tienes permisos para editar estadísticas de este equipo' });
       }
 
-      const campos = ['throws', 'hits', 'outs', 'catches'];
+      const campos = ['throws', 'hits', 'outs', 'catches', 'survive'];
       for (const c of campos) {
         if (Object.prototype.hasOwnProperty.call(req.body, c)) {
           item[c] = req.body[c];

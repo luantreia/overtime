@@ -20,11 +20,12 @@ export function normalizarVisibilidadObjetivo(valor) {
 
 export function resolverFiltroEstadoPublicacion(rawEstadoPublicacion, rolGlobal, { publico = false } = {}) {
   const esStaff = !publico && ROLES_STAFF.has(rolGlobal);
+  const estadosInternosDefault = ['privada', 'pendiente_aprobacion', 'organizacion', 'publica'];
 
   if (!rawEstadoPublicacion) {
     return {
       ok: true,
-      estados: esStaff ? ['organizacion', 'publica'] : ['publica'],
+      estados: publico ? ['publica'] : (esStaff ? [...ESTADOS_PUBLICACION_VALIDOS] : estadosInternosDefault),
     };
   }
 
@@ -34,7 +35,7 @@ export function resolverFiltroEstadoPublicacion(rawEstadoPublicacion, rolGlobal,
     .filter(Boolean);
 
   if (!estados.length) {
-    return { ok: true, estados: esStaff ? ['organizacion', 'publica'] : ['publica'] };
+    return { ok: true, estados: publico ? ['publica'] : (esStaff ? [...ESTADOS_PUBLICACION_VALIDOS] : estadosInternosDefault) };
   }
 
   const invalidos = estados.filter((estado) => !ESTADOS_PUBLICACION_VALIDOS.has(estado));
@@ -46,11 +47,19 @@ export function resolverFiltroEstadoPublicacion(rawEstadoPublicacion, rolGlobal,
     };
   }
 
-  if (!esStaff && estados.some((estado) => estado !== 'publica')) {
+  if (publico && estados.some((estado) => estado !== 'publica')) {
     return {
       ok: false,
       status: 403,
-      message: 'Solo staff interno puede consultar estados de publicación privados o pendientes',
+      message: 'El endpoint publico solo permite estadoPublicacion=publica',
+    };
+  }
+
+  if (!publico && !esStaff && estados.includes('rechazada')) {
+    return {
+      ok: false,
+      status: 403,
+      message: 'El estado rechazada solo esta disponible para staff interno',
     };
   }
 
