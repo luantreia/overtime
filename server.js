@@ -111,6 +111,7 @@ import estadisticasJugadorPartidoManualRoutes from './src/routes/Jugadores/estad
 import estadisticasEquipoPartidoRoutes from './src/routes/Equipos/estadisticasEquipoPartido.js';
 
 import organizacionesRoutes from './src/routes/organizaciones.js';
+import miembrosOrganizacionRoutes from './src/routes/Organizaciones/miembrosOrganizacion.js';
 import competenciasRoutes from './src/routes/Competencias/competencias.js';
 import fasesRoutes from "./src/routes/Competencias/fases.js";
 import temporadasRoutes from './src/routes/Competencias/temporadas.js';
@@ -279,6 +280,7 @@ app.use('/api/estadisticas/jugador-set', estadisticasJugadorSetRoutes);
 app.use('/api/estadisticas/equipo-partido', estadisticasEquipoPartidoRoutes);
 
 app.use('/api/organizaciones', organizacionesRoutes);
+app.use('/api/organizaciones/miembros', miembrosOrganizacionRoutes);
 app.use('/api/competencias', competenciasRoutes);
 app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);

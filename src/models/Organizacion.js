@@ -25,8 +25,17 @@ const organizacionSchema = new mongoose.Schema({
   verificada: { type: Boolean, default: false },
 
   activa: { type: Boolean, default: true },
+
+  // Nuevos campos para gestión de miembros
+  miembrosPublicos: { type: Boolean, default: true }, // Si los miembros son visibles públicamente
+  requiereInvitacion: { type: Boolean, default: false }, // Si se requiere invitación para unirse
 }, {
   timestamps: true
 });
+
+// Índices para mejor rendimiento
+organizacionSchema.index({ creadoPor: 1 });
+organizacionSchema.index({ administradores: 1 });
+organizacionSchema.index({ activa: 1, verificada: 1 });
 
 export default mongoose.model('Organizacion', organizacionSchema);

@@ -6,6 +6,7 @@ import { validarObjectId } from '../middleware/validacionObjectId.js';
 import Organizacion from '../models/Organizacion.js';
 import Usuario from '../models/Usuario.js';
 import { verificarEntidad } from '../middleware/verificarEntidad.js';
+import { hasOrgPermission } from '../services/orgPermissionService.js';
 
 const router = express.Router();
 
@@ -479,5 +480,96 @@ router.delete(
   }
 );
 
+
+// Endpoint para obtener permisos del usuario en una organización
+/**
+ * @swagger
+ * /api/organizaciones/{id}/mis-permisos:
+ *   get:
+ *     summary: Obtiene permisos del usuario en una organización
+ *     tags: [Organizaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Permisos del usuario
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 organizacionId:
+ *                   type: string
+ *                 canManageTeams:
+ *                   type: boolean
+ *                 canManageEvents:
+ *                   type: boolean
+ *                 canManageMembers:
+ *                   type: boolean
+ *                 canViewPrivate:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.get(
+  '/:id/mis-permisos',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  async (req, res) => {
+    try {
+      const organizacionId = req.params.id;
+      const usuarioId = req.user.uid;
+      const rolGlobal = req.user.rol;
+
+      const [canManageTeams, canManageEvents, canManageMembers, canViewPrivate] = await Promise.all([
+        hasOrgPermission({
+          organizacionId,
+          usuarioId,
+          rolGlobal,
+          permission: 'teams.manage',
+        }),
+        hasOrgPermission({
+          organizacionId,
+          usuarioId,
+          rolGlobal,
+          permission: 'events.manage',
+        }),
+        hasOrgPermission({
+          organizacionId,
+          usuarioId,
+          rolGlobal,
+          permission: 'members.manage',
+        }),
+        hasOrgPermission({
+          organizacionId,
+          usuarioId,
+          rolGlobal,
+          permission: 'org.view_private',
+        }),
+      ]);
+
+      return res.status(200).json({
+        organizacionId,
+        canManageTeams,
+        canManageEvents,
+        canManageMembers,
+        canViewPrivate,
+      });
+    } catch (error) {
+      console.error('Error al obtener permisos de organización:', error);
+      return res.status(500).json({ message: 'Error al obtener permisos de la organización' });
+    }
+  }
+);
 
 export default router;
