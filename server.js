@@ -302,6 +302,36 @@ app.get('/api/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
+// ── BROADCAST ROOM REGISTRY ──────────────────────────────────────────────
+// In-memory map: roomId → { matchId: string|null, label: string }
+// Allows the Organizaciones app to push a matchId to a named broadcast room
+// so Overtime-Partido overlay/broadcast windows auto-switch without URL changes.
+const roomRegistry = new Map();
+
+app.get('/api/rooms', (req, res) => {
+  const rooms = [];
+  for (const [roomId, data] of roomRegistry.entries()) {
+    rooms.push({ roomId, ...data });
+  }
+  res.json(rooms);
+});
+
+app.get('/api/rooms/:roomId', (req, res) => {
+  const data = roomRegistry.get(req.params.roomId);
+  res.json({ roomId: req.params.roomId, matchId: data?.matchId || null, label: data?.label || req.params.roomId });
+});
+
+app.post('/api/rooms/:roomId/assign', express.json(), (req, res) => {
+  const { roomId } = req.params;
+  const { matchId, label } = req.body || {};
+  const existing = roomRegistry.get(roomId) || {};
+  const entry = { matchId: matchId || null, label: label || existing.label || roomId };
+  roomRegistry.set(roomId, entry);
+  // Notify all clients subscribed to this room
+  if (io) io.to(`room:${roomId}`).emit('room:match_changed', { roomId, matchId: entry.matchId });
+  res.json({ ok: true, roomId, matchId: entry.matchId });
+});
+
 // Definir puerto del servidor
 const PORT = process.env.PORT || 5000;
 
@@ -343,6 +373,16 @@ io.on('connection', (socket) => {
   });
 
   // Example events
+  // Room-based overlay routing
+  socket.on('room:join', ({ roomId } = {}) => {
+    if (!roomId) return;
+    socket.join(`room:${roomId}`);
+    if (!roomRegistry.has(roomId)) roomRegistry.set(roomId, { matchId: null, label: roomId });
+    const current = roomRegistry.get(roomId);
+    socket.emit('room:state', { roomId, matchId: current.matchId, label: current.label });
+    logger.info(`Socket ${socket.id} joined room ${roomId} (matchId: ${current.matchId})`);
+  });
+
   socket.on('join_match', (matchId) => {
     socket.join(matchId);
     logger.info(`Socket ${socket.id} joined match ${matchId}`);
