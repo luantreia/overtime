@@ -99,8 +99,11 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ message: 'El nombre es obligatorio' });
     }
 
-    // Si no es admin, verificar que no tenga ya un perfil vinculado
-    if (req.user.rol !== 'admin') {
+    // ghostPlayer: true → el llamante (admin de competencia) crea un perfil para otra persona.
+    // En ese caso se omite el chequeo de duplicado y el jugador queda sin userId (reclamable).
+    const isGhostCreation = !!req.body.ghostPlayer && req.user.rol !== 'admin';
+
+    if (req.user.rol !== 'admin' && !isGhostCreation) {
       const yaTiene = await Jugador.findOne({ userId: req.user.uid });
       if (yaTiene) {
         return res.status(400).json({ message: 'Ya tienes un perfil vinculado: ' + yaTiene.nombre });
@@ -113,8 +116,8 @@ router.post('/', verificarToken, async (req, res) => {
       fechaNacimiento: fechaNacimiento || undefined,
       genero,
       foto,
-      userId: req.body.userId || (req.user.rol !== 'admin' ? req.user.uid : null),
-      perfilReclamado: !!(req.body.userId || req.user.rol !== 'admin'),
+      userId: req.body.userId || (!isGhostCreation && req.user.rol !== 'admin' ? req.user.uid : null),
+      perfilReclamado: !!(req.body.userId || (!isGhostCreation && req.user.rol !== 'admin')),
       creadoPor: req.user.uid,
       administradores: [req.user.uid]
     });
