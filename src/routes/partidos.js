@@ -115,9 +115,13 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { fase, competencia, competenciaId, tipo, equipo, temporadaId } = req.query;
+    const { fase, competencia, competenciaId, tipo, equipo, temporadaId, estado } = req.query;
     const filtro = {};
     const andConditions = [];
+
+    if (estado) {
+      filtro.estado = estado;
+    }
     
     const compId = competencia || competenciaId;
     const { page, limit, skip } = getPaginationParams(req);

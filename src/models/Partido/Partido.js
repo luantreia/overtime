@@ -350,13 +350,13 @@ PartidoSchema.post('save', async function () {
       // - Verified Org: 1.0x
       // - Unverified Org: 0x (Skipped)
       // - No Org (Plaza): 0.3x
-      let globalMultiplier = 0.3; 
+      let globalMultiplier = 0.3;
       let shouldApplyGlobal = true;
 
       if (competenciaId) {
         const Competencia = mongoose.model('Competencia');
         const compDoc = await Competencia.findById(competenciaId).populate('organizacion').lean();
-        
+
         if (compDoc?.organizacion && compDoc.organizacion.verificada) {
           globalMultiplier = 1.0;
         } else {
@@ -364,9 +364,12 @@ PartidoSchema.post('save', async function () {
         }
       }
 
+      // All 3 scopes write to independent (competenciaId, temporadaId) combos — safe to run in parallel
+      const scopeTasks = [];
+
       // 1. Apply to Global MASTER (Absolute App Global)
       if (shouldApplyGlobal) {
-        const snap1 = await applyRankedResult({
+        scopeTasks.push(applyRankedResult({
           partidoId: this._id,
           competenciaId: null,
           temporadaId: null,
@@ -375,13 +378,12 @@ PartidoSchema.post('save', async function () {
           result: winner,
           afkPlayerIds,
           multiplier: globalMultiplier
-        });
-        finalSnapshot = snap1;
+        }));
       }
 
       // 2. Apply to COMPETITION GLOBAL (Level 2)
       if (competenciaId) {
-        const snap2 = await applyRankedResult({
+        scopeTasks.push(applyRankedResult({
           partidoId: this._id,
           competenciaId,
           temporadaId: null,
@@ -389,14 +391,13 @@ PartidoSchema.post('save', async function () {
           categoria,
           result: winner,
           afkPlayerIds,
-          multiplier: 1.0 // Competition internal ranking always counts 100%
-        });
-        finalSnapshot = snap2;
+          multiplier: 1.0
+        }));
       }
 
       // 3. Apply to SEASON (Level 3)
       if (temporadaId && competenciaId) {
-        const snap3 = await applyRankedResult({
+        scopeTasks.push(applyRankedResult({
           partidoId: this._id,
           competenciaId,
           temporadaId,
@@ -404,10 +405,12 @@ PartidoSchema.post('save', async function () {
           categoria,
           result: winner,
           afkPlayerIds,
-          multiplier: 1.0 // Season internal ranking always counts 100%
-        });
-        finalSnapshot = snap3;
+          multiplier: 1.0
+        }));
       }
+
+      const scopeResults = await Promise.all(scopeTasks);
+      finalSnapshot = scopeResults[scopeResults.length - 1] || null;
 
       this.rankedMeta = this.rankedMeta || {};
       this.rankedMeta.snapshot = finalSnapshot;

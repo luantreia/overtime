@@ -67,15 +67,17 @@ export async function applyRankedResult({
   });
 
   const loadPreRatings = async (playerIds) => {
-    const ratings = await Promise.all((playerIds || []).map(async pid => {
+    return Promise.all((playerIds || []).map(async pid => {
       const pr = await getOrCreatePlayerRating({ playerId: pid, competenciaId, temporadaId, modalidad, categoria });
-      return { playerId: pid, rating: pr.rating, matchesPlayed: pr.matchesPlayed };
+      return { playerId: pid, rating: pr.rating, matchesPlayed: pr.matchesPlayed, doc: pr };
     }));
-    return ratings;
   };
 
-  const rojoPre = await loadPreRatings(rojo.players);
-  const azulPre = await loadPreRatings(azul.players);
+  // Load both teams in parallel — no dependency between them
+  const [rojoPre, azulPre] = await Promise.all([
+    loadPreRatings(rojo.players),
+    loadPreRatings(azul.players),
+  ]);
 
   const avg = arr => (arr.length ? arr.reduce((s, x) => s + (x.rating || 1500), 0) / arr.length : 1500);
   const R_rojo_avg = avg(rojoPre);
@@ -92,7 +94,7 @@ export async function applyRankedResult({
   const loserExpectedDelta = Math.abs(baseK * (0 - (result === 'rojo' ? (1-E_rojo) : E_rojo)));
   const afkPenalty = Math.max(15, loserExpectedDelta) * 2;
 
-  const updatePlayer = async ({ playerId, preRating, preMatches, teamColor, S_team, E_team }) => {
+  const updatePlayer = async ({ playerId, preRating, preMatches, teamColor, S_team, E_team, doc }) => {
     const isAFK = afkPlayerIds.includes(playerId.toString());
     const K = kFactor(preMatches, preRating);
     let delta = K * (S_team - E_team);
@@ -102,17 +104,16 @@ export async function applyRankedResult({
       delta = -afkPenalty;
     }
 
-    // Apply global expansion multiplier (e.g. 0.3 for Plaza matches)
     if (multiplier !== 1) {
       delta = delta * multiplier;
     }
-    
-    // Round delta to 1 decimal place to keep data clean and avoid JS float issues
+
     delta = Math.round(delta * 10) / 10;
 
     const post = preRating + delta;
 
-    const pr = await getOrCreatePlayerRating({ playerId, competenciaId, temporadaId, modalidad, categoria });
+    // Reuse the pre-loaded document — avoids a redundant findOne per player
+    const pr = doc;
     pr.rating = Math.round(post * 10) / 10;
     pr.matchesPlayed = (pr.matchesPlayed || 0) + 1;
     if (outcome === 'win') pr.wins = (pr.wins || 0) + 1;
@@ -139,12 +140,15 @@ export async function applyRankedResult({
     return { playerId, pre: preRating, post, delta, teamColor, isAFK };
   };
 
-  const rojoSnap = await Promise.all(rojoPre.map(r =>
-    updatePlayer({ playerId: r.playerId, preRating: r.rating, preMatches: r.matchesPlayed, teamColor: 'rojo', S_team: S_rojo, E_team: E_rojo })
-  ));
-  const azulSnap = await Promise.all(azulPre.map(r =>
-    updatePlayer({ playerId: r.playerId, preRating: r.rating, preMatches: r.matchesPlayed, teamColor: 'azul', S_team: S_azul, E_team: E_azul })
-  ));
+  // Both teams write to independent player documents — safe to run in parallel
+  const [rojoSnap, azulSnap] = await Promise.all([
+    Promise.all(rojoPre.map(r =>
+      updatePlayer({ playerId: r.playerId, preRating: r.rating, preMatches: r.matchesPlayed, teamColor: 'rojo', S_team: S_rojo, E_team: E_rojo, doc: r.doc })
+    )),
+    Promise.all(azulPre.map(r =>
+      updatePlayer({ playerId: r.playerId, preRating: r.rating, preMatches: r.matchesPlayed, teamColor: 'azul', S_team: S_azul, E_team: E_azul, doc: r.doc })
+    )),
+  ]);
 
   return {
     teamAverages: { rojo: R_rojo_avg, azul: R_azul_avg },
