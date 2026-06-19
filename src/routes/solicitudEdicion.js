@@ -622,6 +622,40 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ message: 'entidad (contratoId) requerida para solicitudes de edición' });
     }
 
+    // Evitar solicitudes duplicadas pendientes del mismo usuario para la misma entidad y tipo
+    const tiposConAntiDuplicado = [
+      'usuario-solicitar-admin-equipo',
+      'usuario-solicitar-admin-organizacion',
+      'usuario-solicitar-admin-jugador',
+      'jugador-claim',
+    ];
+    if (tiposConAntiDuplicado.includes(tipo) && entidad) {
+      const existente = await SolicitudEdicion.findOne({
+        tipo,
+        entidad,
+        creadoPor,
+        estado: 'pendiente',
+      });
+      if (existente) {
+        return res.status(409).json({ message: 'Ya tenés una solicitud pendiente de este tipo para esta entidad.' });
+      }
+    }
+
+    // Para equipos: rechazar si ya tiene suficientes admins
+    const MAX_ADMINS_EQUIPO = 3;
+    if (tipo === 'usuario-solicitar-admin-equipo' && entidad) {
+      const equipo = await Equipo.findById(entidad).select('administradores creadoPor').lean();
+      if (equipo) {
+        const totalAdmins = new Set([
+          ...(equipo.administradores || []).map(id => id.toString()),
+          equipo.creadoPor?.toString(),
+        ].filter(Boolean)).size;
+        if (totalAdmins >= MAX_ADMINS_EQUIPO) {
+          return res.status(400).json({ message: 'Este equipo ya tiene suficientes administradores.' });
+        }
+      }
+    }
+
     const solicitud = new SolicitudEdicion({
       tipo,
       entidad: entidad || null,

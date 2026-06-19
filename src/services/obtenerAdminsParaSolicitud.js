@@ -4,6 +4,7 @@ import Equipo from '../models/Equipo/Equipo.js';
 import Competencia from '../models/Competencia/Competencia.js';
 import Jugador from '../models/Jugador/Jugador.js';
 import Organizacion from '../models/Organizacion.js';
+import Usuario from '../models/Usuario.js';
 import Temporada from '../models/Competencia/Temporada.js';
 
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
@@ -40,6 +41,11 @@ function extraerIds(doc, campos = []) {
     }
   }
   return Array.from(ids);
+}
+
+async function getAdminSistemaIds() {
+  const admins = await Usuario.find({ rol: 'admin' }).select('_id').lean();
+  return admins.map(u => u._id.toString());
 }
 
 /**
@@ -208,6 +214,9 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
         if (jugador) {
           grupos.jugador = extraerIds(jugador);
         }
+        if (!grupos.jugador?.length) {
+          grupos.global = await getAdminSistemaIds();
+        }
         break;
       }
       case 'usuario-solicitar-admin-equipo': {
@@ -216,6 +225,9 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
         if (equipo) {
           grupos.equipo = extraerIds(equipo);
         }
+        if (!grupos.equipo?.length) {
+          grupos.global = await getAdminSistemaIds();
+        }
         break;
       }
       case 'usuario-solicitar-admin-organizacion': {
@@ -223,6 +235,9 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
         const org = await Organizacion.findById(id).select('administradores creadoPor');
         if (org) {
           grupos.organizacion = extraerIds(org);
+        }
+        if (!grupos.organizacion?.length) {
+          grupos.global = await getAdminSistemaIds();
         }
         break;
       }
