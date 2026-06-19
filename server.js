@@ -231,7 +231,7 @@ app.use(cors({
       callback(new Error('No permitido por CORS'));
     }
   },
-  methods: 'GET,POST,PUT,DELETE',  // Métodos permitidos
+  methods: 'GET,POST,PUT,PATCH,DELETE',
   allowedHeaders: 'Content-Type,Authorization',  // Encabezados permitidos
 }));
 
