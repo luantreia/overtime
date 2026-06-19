@@ -1,6 +1,7 @@
 // server/routes/usuarios.js
 
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import verificarToken from '../middleware/authMiddleware.js';
 import Usuario from '../models/Usuario.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -283,6 +284,35 @@ router.put('/actualizar', verificarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al actualizar perfil:', error);
     res.status(500).json({ error: 'No se pudo actualizar el perfil' });
+  }
+});
+
+// Cambiar contraseña del usuario autenticado
+router.patch('/password', verificarToken, async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { passwordActual, passwordNueva } = req.body;
+
+    if (!passwordActual || !passwordNueva) {
+      return res.status(400).json({ error: 'Se requieren passwordActual y passwordNueva' });
+    }
+    if (passwordNueva.length < 8 || !/[A-Z]/.test(passwordNueva) || !/[a-z]/.test(passwordNueva) || !/\d/.test(passwordNueva)) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número' });
+    }
+
+    const usuario = await Usuario.findById(id).select('+passwordHash');
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const valida = await bcrypt.compare(passwordActual, usuario.passwordHash);
+    if (!valida) return res.status(400).json({ error: 'La contraseña actual es incorrecta' });
+
+    usuario.passwordHash = await bcrypt.hash(passwordNueva, 10);
+    await usuario.save();
+
+    res.json({ mensaje: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
+    res.status(500).json({ error: 'No se pudo cambiar la contraseña' });
   }
 });
 
