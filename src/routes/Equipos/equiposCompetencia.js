@@ -94,6 +94,7 @@ router.get('/', async (req, res) => {
     if (req.query.competencia) filter.competencia = req.query.competencia;
     if (req.query.equipo) filter.equipo = req.query.equipo;
     if (req.query.fase) filter.fase = req.query.fase;
+    if (req.query.estado) filter.estado = req.query.estado;
 
     const equipos = await EquipoCompetencia.find(filter)
       .populate('equipo', 'nombre')
