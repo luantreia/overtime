@@ -16,6 +16,17 @@ const TemporadaSchema = new mongoose.Schema({
   fechaInicio: Date,
   fechaFin: Date,
 
+  estado: {
+    type: String,
+    enum: ['en_creacion', 'en_curso', 'finalizada'],
+    default: 'en_creacion',
+  },
+  ganador: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Equipo',
+    default: null,
+  },
+
   creadoPor: {
     type: String,
     ref: 'Usuario',

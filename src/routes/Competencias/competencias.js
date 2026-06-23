@@ -162,7 +162,7 @@ router.get(
         competencia.creadoPor?.toString() === uid ||
         (competencia.administradores || []).some((a) => a._id?.toString() === uid || a.toString?.() === uid);
 
-      const temporadas = await Temporada.find({ competencia: id }).sort({ createdAt: 1 }).lean();
+      const temporadas = await Temporada.find({ competencia: id }).sort({ createdAt: 1 }).populate('ganador', 'nombre escudo').lean();
       const temporadaIds = temporadas.map((t) => t._id);
 
       const [fases, ptsTemporada] = await Promise.all([
