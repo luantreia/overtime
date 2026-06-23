@@ -232,6 +232,7 @@ router.get('/', verificarToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
+      .populate('creadoPor', 'nombre email')
       .lean();
 
     // Post-filtrado para scope=related: mantener creadas por el usuario o donde sea aprobador dinámico
