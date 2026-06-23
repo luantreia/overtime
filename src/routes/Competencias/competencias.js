@@ -167,11 +167,15 @@ router.get(
 
       const [fases, ptsTemporada] = await Promise.all([
         Fase.find({ temporada: { $in: temporadaIds } }).sort({ orden: 1, createdAt: 1 }).lean(),
-        ParticipacionTemporada.find({ temporada: { $in: temporadaIds } }).lean(),
+        ParticipacionTemporada.find({ temporada: { $in: temporadaIds } })
+          .populate('equipo', 'nombre')
+          .lean(),
       ]);
 
       const faseIds = fases.map((f) => f._id);
-      const pfFase = await ParticipacionFase.find({ fase: { $in: faseIds } }).lean();
+      const pfFase = await ParticipacionFase.find({ fase: { $in: faseIds } })
+        .populate({ path: 'participacionTemporada', populate: { path: 'equipo', select: 'nombre' } })
+        .lean();
 
       // Grouping
       const fasesByTemporada = {};
