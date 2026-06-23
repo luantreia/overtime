@@ -1,4 +1,5 @@
 import Jugador from '../models/Jugador/Jugador.js';
+import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Usuario from '../models/Usuario.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AuditoriaService } from './auditoriaService.js';
@@ -286,8 +287,13 @@ export class JugadorService {
       throw new AppError('No tienes permisos para eliminar este jugador', 403);
     }
 
-    // TODO: Verificar que no tenga relaciones activas antes de eliminar
-    // Por ahora, eliminamos directamente
+    const relacionesActivas = await JugadorEquipo.countDocuments({ jugador: jugadorId, estado: 'aceptado' });
+    if (relacionesActivas > 0) {
+      throw new AppError(
+        `El jugador tiene ${relacionesActivas} contrato(s) activo(s) en equipos. Dalo de baja primero.`,
+        409
+      );
+    }
 
     await jugador.deleteOne();
 
