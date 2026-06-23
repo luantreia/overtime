@@ -1,5 +1,9 @@
 import express from 'express';
 import Competencia from '../../models/Competencia/Competencia.js';
+import Temporada from '../../models/Competencia/Temporada.js';
+import Fase from '../../models/Competencia/Fase.js';
+import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
+import ParticipacionFase from '../../models/Equipo/ParticipacionFase.js';
 import verificarToken from '../../middleware/authMiddleware.js';
 import Organizacion from '../../models/Organizacion.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
@@ -133,6 +137,84 @@ router.get( '/:id',
       return res.json({ ...competencia, esAdmin });
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+// GET /competencias/:id/detalle — árbol completo en 1 request (reemplaza loadAll N+1)
+router.get(
+  '/:id/detalle',
+  validarObjectId,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const competencia = await Competencia.findById(id)
+        .populate('organizacion', 'nombre')
+        .populate('administradores', 'email nombre')
+        .lean();
+      if (!competencia) return res.status(404).json({ error: 'Competencia no encontrada' });
+
+      const uid = req.user?.uid;
+      const rolGlobal = req.user?.rol;
+      const esAdmin =
+        rolGlobal === 'admin' ||
+        competencia.creadoPor?.toString() === uid ||
+        (competencia.administradores || []).some((a) => a._id?.toString() === uid || a.toString?.() === uid);
+
+      const temporadas = await Temporada.find({ competencia: id }).sort({ createdAt: 1 }).lean();
+      const temporadaIds = temporadas.map((t) => t._id);
+
+      const [fases, ptsTemporada] = await Promise.all([
+        Fase.find({ temporada: { $in: temporadaIds } }).sort({ orden: 1, createdAt: 1 }).lean(),
+        ParticipacionTemporada.find({ temporada: { $in: temporadaIds } }).lean(),
+      ]);
+
+      const faseIds = fases.map((f) => f._id);
+      const pfFase = await ParticipacionFase.find({ fase: { $in: faseIds } }).lean();
+
+      // Grouping
+      const fasesByTemporada = {};
+      for (const f of fases) {
+        const tId = f.temporada.toString();
+        if (!fasesByTemporada[tId]) fasesByTemporada[tId] = [];
+        fasesByTemporada[tId].push(f);
+      }
+
+      const ptsByTemporada = {};
+      for (const pt of ptsTemporada) {
+        const tId = pt.temporada.toString();
+        if (!ptsByTemporada[tId]) ptsByTemporada[tId] = [];
+        ptsByTemporada[tId].push(pt);
+      }
+
+      const pfByFase = {};
+      for (const pf of pfFase) {
+        const fId = pf.fase.toString();
+        if (!pfByFase[fId]) pfByFase[fId] = [];
+        pfByFase[fId].push(pf);
+      }
+
+      const temporadasConDatos = temporadas.map((t) => {
+        const tId = t._id.toString();
+        const fasesDeTemporada = (fasesByTemporada[tId] || []).map((f) => ({
+          ...f,
+          participaciones: pfByFase[f._id.toString()] || [],
+        }));
+        return {
+          ...t,
+          participaciones: ptsByTemporada[tId] || [],
+          fases: fasesDeTemporada,
+        };
+      });
+
+      res.json({
+        ...competencia,
+        esAdmin,
+        temporadas: temporadasConDatos,
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al obtener detalle de competencia' });
     }
   }
 );
