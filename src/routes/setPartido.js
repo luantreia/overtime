@@ -3,10 +3,23 @@
 import express from 'express';
 import SetPartido from '../models/Partido/SetPartido.js';
 import Partido from '../models/Partido/Partido.js';
+import Competencia from '../models/Competencia/Competencia.js';
 import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import TimerManager from '../services/TimerManager.js';
+
+async function puedeModificarSet(partidoId, uid, rol) {
+  if (rol === 'admin') return true;
+  const partido = await Partido.findById(partidoId, 'competencia creadoPor').lean();
+  if (!partido) return false;
+  if (partido.creadoPor?.toString() === uid) return true;
+  if (!partido.competencia) return false;
+  const comp = await Competencia.findById(partido.competencia, 'administradores creadoPor').lean();
+  if (!comp) return false;
+  if (comp.creadoPor?.toString() === uid) return true;
+  return (comp.administradores || []).includes(uid);
+}
 
 const router = express.Router();
 
@@ -212,7 +225,9 @@ router.put(
       const set = await SetPartido.findById(req.params.id);
       if (!set) return res.status(404).json({ error: 'Set no encontrado' });
 
-      // TODO: Podés agregar validación de permisos acá si querés
+      if (!await puedeModificarSet(set.partido, req.user.uid, req.user.rol)) {
+        return res.status(403).json({ error: 'No tenés permisos para modificar sets de este partido' });
+      }
 
       Object.assign(set, req.body);
       const actualizado = await set.save();
@@ -266,7 +281,9 @@ router.delete(
       const set = await SetPartido.findById(req.params.id);
       if (!set) return res.status(404).json({ error: 'Set no encontrado' });
 
-      // TODO: Podés validar si el usuario es creador o admin del partido
+      if (!await puedeModificarSet(set.partido, req.user.uid, req.user.rol)) {
+        return res.status(403).json({ error: 'No tenés permisos para eliminar sets de este partido' });
+      }
 
       await set.deleteOne();
       await TimerManager.reloadMatch(set.partido);
