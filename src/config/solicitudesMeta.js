@@ -16,7 +16,7 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: [],
   },
   'jugador-equipo-eliminar': {
-    requiereDobleConfirmacion: false,
+    requiereDobleConfirmacion: true,
     camposCriticos: ['contratoId'],
     rolesAprobadores: ['adminEquipo', 'adminJugador'],
     camposPermitidosSinConsenso: [],
@@ -44,7 +44,7 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: [],
   },
   'participacion-temporada-eliminar': {
-    requiereDobleConfirmacion: false,
+    requiereDobleConfirmacion: true,
     camposCriticos: ['participacionTemporadaId'],
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],
@@ -64,7 +64,7 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: [],
   },
   'jugador-temporada-eliminar': {
-    requiereDobleConfirmacion: false,
+    requiereDobleConfirmacion: true,
     camposCriticos: ['jugadorTemporadaId'],
     rolesAprobadores: ['adminEquipo', 'adminCompetencia'],
     camposPermitidosSinConsenso: [],

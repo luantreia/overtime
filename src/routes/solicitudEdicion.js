@@ -907,10 +907,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       }
       // Podríamos guardar quién rechazó si agregamos el campo al esquema, por ahora solo fecha y motivo.
     } else if (estado === 'aceptado') {
-      // TODO: Implementar validación de doble confirmación
-      // const camposModificados = Object.keys(datosPropuestos || {});
-      // const { requiereDobleConfirmacion, camposCriticosModificados } = validarDobleConfirmacion(solicitud.tipo, camposModificados);
-      const requiereDobleConfirmacion = false; // Temporalmente false
+      const requiereDobleConfirmacion = tiposSolicitudMeta[solicitud.tipo]?.requiereDobleConfirmacion ?? false;
 
       // Determinar número mínimo de aprobaciones necesarias.
       // Preferir 2 cuando se requiere doble confirmación, pero no más que el número de admins determinados.
