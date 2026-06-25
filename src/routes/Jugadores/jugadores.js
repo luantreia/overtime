@@ -39,6 +39,45 @@ router.get('/me/profile', verificarToken, async (req, res) => {
   }
 });
 
+router.get('/me/stats', verificarToken, async (req, res) => {
+  try {
+    const jugador = await Jugador.findOne({ userId: req.user.uid });
+    if (!jugador) return res.status(404).json({ message: 'No tienes un perfil vinculado' });
+
+    const [ratings, karmaResult] = await Promise.all([
+      PlayerRating.find({ playerId: jugador._id, competenciaId: null }).lean(),
+      KarmaLog.aggregate([
+        { $match: { targetPlayer: jugador._id } },
+        { $group: { _id: null, total: { $sum: '$points' } } }
+      ])
+    ]);
+
+    const eloGlobal = ratings.length > 0
+      ? Math.round(ratings.reduce((s, r) => s + r.rating, 0) / ratings.length)
+      : 1500;
+
+    const breakdown = ratings.map(r => ({
+      modalidad: r.modalidad,
+      categoria: r.categoria,
+      rating: r.rating,
+      matchesPlayed: r.matchesPlayed,
+      wins: r.wins,
+      losses: r.losses,
+    }));
+
+    res.json({
+      jugadorId: jugador._id,
+      nombre: jugador.nombre,
+      alias: jugador.alias,
+      eloGlobal,
+      karma: karmaResult[0]?.total ?? 0,
+      breakdown,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener stats', error: error.message });
+  }
+});
+
 /**
  * @swagger
  * /api/jugadores:
