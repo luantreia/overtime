@@ -1,6 +1,6 @@
 import express from 'express';
 import Feedback from '../models/Feedback.js';
-import { verificarToken } from '../middleware/auth.js';
+import verificarToken from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
