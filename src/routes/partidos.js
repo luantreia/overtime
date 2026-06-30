@@ -115,7 +115,7 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { fase, competencia, competenciaId, tipo, equipo, temporadaId, estado } = req.query;
+    const { fase, competencia, competenciaId, tipo, equipo, temporadaId, estado, jugador } = req.query;
     const filtro = {};
     const andConditions = [];
 
@@ -166,6 +166,17 @@ router.get('/', async (req, res) => {
             { equipoVisitante: equipo }
           ]
         });
+      } else {
+        return res.json({ items: [], total: 0, page, limit, pages: 0 });
+      }
+    }
+
+    if (jugador) {
+      if (mongoose.Types.ObjectId.isValid(jugador)) {
+        const JugadorPartido = (await import('../models/Jugador/JugadorPartido.js')).default;
+        const jps = await JugadorPartido.find({ jugador }).select('partido').lean();
+        const partidoIds = jps.map(jp => jp.partido);
+        andConditions.push({ _id: { $in: partidoIds } });
       } else {
         return res.json({ items: [], total: 0, page, limit, pages: 0 });
       }
