@@ -96,8 +96,14 @@ router.get('/', async (req, res) => {
     if (req.query.fase) filter.fase = req.query.fase;
     if (req.query.estado) filter.estado = req.query.estado;
 
+    if (req.query.organizacion) {
+      const Competencia = (await import('../../models/Competencia/Competencia.js')).default;
+      const comps = await Competencia.find({ organizacion: req.query.organizacion }).select('_id').lean();
+      filter.competencia = { $in: comps.map(c => c._id) };
+    }
+
     const equipos = await EquipoCompetencia.find(filter)
-      .populate('equipo', 'nombre')
+      .populate('equipo', 'nombre escudo')
       .populate('competencia', 'nombre')
       .lean();
 
