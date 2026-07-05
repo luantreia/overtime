@@ -93,7 +93,7 @@ router.get('/', validarCamposManual, async (req, res) => {
 
     const participaciones = await ParticipacionTemporada.find(filtro)
       .populate('equipo', 'nombre escudo tipo pais')
-      .populate('temporada', 'nombre fechaInicio fechaFin competencia')
+      .populate('temporada', 'nombre fechaInicio fechaFin competencia ganador')
       .populate('creadoPor', 'nombre email')
       .sort('-createdAt');
 
