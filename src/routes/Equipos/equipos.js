@@ -286,6 +286,18 @@ router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeE
   if ('sitioWeb' in datosActualizar && !datosActualizar.sitioWeb) {
     datosActualizar.sitioWeb = '';
   }
+  if ('redesSociales' in datosActualizar) {
+    const redes = datosActualizar.redesSociales && typeof datosActualizar.redesSociales === 'object'
+      ? datosActualizar.redesSociales
+      : {};
+    datosActualizar.redesSociales = {
+      instagram: redes.instagram || '',
+      facebook: redes.facebook || '',
+      twitter: redes.twitter || '',
+      tiktok: redes.tiktok || '',
+      youtube: redes.youtube || '',
+    };
+  }
   if ('esSeleccionNacional' in datosActualizar) {
     datosActualizar.esSeleccionNacional = !!datosActualizar.esSeleccionNacional;
   }

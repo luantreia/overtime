@@ -8,6 +8,14 @@ const organizacionSchema = new mongoose.Schema({
   logo: { type: String }, // URL o path al archivo
   sitioWeb: { type: String },
 
+  redesSociales: {
+    instagram: { type: String, default: '' },
+    facebook: { type: String, default: '' },
+    twitter: { type: String, default: '' },
+    tiktok: { type: String, default: '' },
+    youtube: { type: String, default: '' },
+  },
+
   creadoPor: {
     type: String,
     ref: 'Usuario',

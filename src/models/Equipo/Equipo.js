@@ -22,6 +22,14 @@ const equipoSchema = new Schema({
   descripcion: { type: String, default: '' },
   sitioWeb: { type: String, default: '' },
 
+  redesSociales: {
+    instagram: { type: String, default: '' },
+    facebook: { type: String, default: '' },
+    twitter: { type: String, default: '' },
+    tiktok: { type: String, default: '' },
+    youtube: { type: String, default: '' },
+  },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 }, { timestamps: true });

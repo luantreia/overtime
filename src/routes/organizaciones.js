@@ -231,8 +231,17 @@ router.put(
     try {
       const isSystemAdmin = req.user.rol === 'admin';
       
-      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, activa, verificada }) => {
+      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, redesSociales, activa, verificada }) => {
         const base = { nombre, descripcion, logo, sitioWeb, activa };
+        if (redesSociales && typeof redesSociales === 'object') {
+          base.redesSociales = {
+            instagram: redesSociales.instagram || '',
+            facebook: redesSociales.facebook || '',
+            twitter: redesSociales.twitter || '',
+            tiktok: redesSociales.tiktok || '',
+            youtube: redesSociales.youtube || '',
+          };
+        }
         // Solo permitimos modificar 'verificada' si es administrador del sistema
         if (isSystemAdmin && verificada !== undefined) {
           base.verificada = verificada;
