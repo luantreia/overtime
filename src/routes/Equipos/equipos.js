@@ -158,10 +158,17 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
+    const { search } = req.query;
     const { page, limit, skip } = getPaginationParams(req);
+    const query = {};
+
+    if (search) {
+      query.nombre = new RegExp(search, 'i');
+    }
+
     const [total, equipos] = await Promise.all([
-      Equipo.countDocuments(),
-      Equipo.find()
+      Equipo.countDocuments(query),
+      Equipo.find(query)
         .skip(skip)
         .limit(limit)
         .lean()

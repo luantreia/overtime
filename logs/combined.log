@@ -3628,3 +3628,9 @@
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:52:18.569Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T05:57:21.756Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-04-29T06:12:28.884Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-07-07T15:49:36.475Z"}
+{"level":"info","message":{"duration":"64ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-07-07T15:49:39.508Z"}
+{"level":"info","message":{"duration":"43ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-07-07T15:49:48.476Z"}
+{"level":"info","message":{"duration":"39ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-07-07T15:49:59.374Z"}
+{"level":"info","message":{"duration":"37ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-07-07T15:49:59.683Z"}
+{"level":"info","message":{"duration":"72ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-07-07T15:50:00.037Z"}
