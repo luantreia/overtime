@@ -159,8 +159,9 @@ router.get('/', async (req, res) => {
       }
 
       if (compId) {
-        if (mongoose.Types.ObjectId.isValid(compId)) {
-          filtro.competencia = compId;
+        const compIds = Array.isArray(compId) ? compId : [compId];
+        if (compIds.every((id) => mongoose.Types.ObjectId.isValid(id))) {
+          filtro.competencia = compIds.length > 1 ? { $in: compIds } : compIds[0];
         } else {
           return res.json({ items: [], total: 0, page, limit, pages: 0 });
         }
