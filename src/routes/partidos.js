@@ -95,12 +95,21 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *         name: tipo
  *         schema:
  *           type: string
- *           enum: [amistoso]
+ *           enum: [amistoso, competencia]
  *       - in: query
  *         name: equipo
  *         schema:
  *           type: string
  *           format: ObjectId
+ *       - in: query
+ *         name: estado
+ *         description: Acepta un valor único o múltiples (repitiendo el parámetro, ej. ?estado=programado&estado=en_juego)
+ *         schema:
+ *           oneOf:
+ *             - type: string
+ *             - type: array
+ *               items:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Lista de partidos
@@ -120,9 +129,9 @@ router.get('/', async (req, res) => {
     const andConditions = [];
 
     if (estado) {
-      filtro.estado = estado;
+      filtro.estado = Array.isArray(estado) ? { $in: estado } : estado;
     }
-    
+
     const compId = competencia || competenciaId;
     const { page, limit, skip } = getPaginationParams(req);
 
@@ -155,6 +164,8 @@ router.get('/', async (req, res) => {
         } else {
           return res.json({ items: [], total: 0, page, limit, pages: 0 });
         }
+      } else if (tipo === 'competencia') {
+        filtro.competencia = { $ne: null };
       }
     }
 
