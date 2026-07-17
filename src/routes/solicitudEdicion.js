@@ -1019,7 +1019,6 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             const relacion = await JugadorEquipo.findById(contratoId).session(session);
             if (!relacion) throw new Error('Relación JugadorEquipo no encontrada');
             relacion.estado = 'baja';
-            relacion.activo = false;
             relacion.hasta = new Date();
             await relacion.save({ session });
           } else if (solicitud.tipo === 'jugador-equipo-editar' && solicitud.entidad) {
@@ -1039,7 +1038,6 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
               if (cambios.estado !== undefined) {
                 relacion.estado = cambios.estado;
-                relacion.activo = cambios.estado === 'aceptado';
                 if (cambios.estado === 'baja' && !relacion.hasta) relacion.hasta = new Date();
               }
 

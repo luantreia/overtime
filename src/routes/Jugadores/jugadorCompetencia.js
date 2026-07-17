@@ -57,7 +57,6 @@ const router = express.Router();
  *                 tarjetasAmarillas: 1
  *                 tarjetasRojas: 0
  *                 minutosJugados: 450
- *                 activo: true
  *                 creadoPor: "auth0|1234567890"
  *                 createdAt: "2023-01-10T08:15:00.000Z"
  *                 updatedAt: "2023-01-15T10:30:00.000Z"
@@ -134,7 +133,6 @@ router.get('/', async (req, res) => {
  *               tarjetasAmarillas: 1
  *               tarjetasRojas: 0
  *               minutosJugados: 450
- *               activo: true
  *               creadoPor: "auth0|1234567890"
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-15T10:30:00.000Z"
@@ -221,7 +219,6 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *               tarjetasAmarillas: 0
  *               tarjetasRojas: 0
  *               minutosJugados: 0
- *               activo: true
  *               creadoPor: "auth0|1234567890"
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-10T08:15:00.000Z"
@@ -310,10 +307,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *                 type: number
  *                 description: Minutos jugados (opcional)
  *                 example: 180
- *               activo:
- *                 type: boolean
- *                 description: Indica si la relación está activa (opcional)
- *                 example: true
  *     responses:
  *       200:
  *         description: Relación jugador-competencia actualizada exitosamente
@@ -333,7 +326,6 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *               tarjetasAmarillas: 1
  *               tarjetasRojas: 0
  *               minutosJugados: 180
- *               activo: true
  *               creadoPor: "auth0|1234567890"
  *               createdAt: "2023-01-10T08:15:00.000Z"
  *               updatedAt: "2023-01-16T14:30:00.000Z"

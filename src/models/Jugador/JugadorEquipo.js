@@ -10,8 +10,6 @@ const jugadorEquipoSchema = new Schema({
   desde: Date,
   hasta: Date,
 
-  activo: { type: Boolean, default: false },
-
   estado: {
     type: String,
     enum: ['aceptado', 'baja'],

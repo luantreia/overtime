@@ -7,7 +7,6 @@ const jugadorCompetenciaSchema = new Schema({
   jugador: { type: Schema.Types.ObjectId, ref: 'Jugador', required: true, index: true },
   competencia: { type: Schema.Types.ObjectId, ref: 'Competencia', required: true },
 
-  activo: { type: Boolean, default: true },
   estado: {
     type: String,
     enum: ['aceptado', 'suspendido'],

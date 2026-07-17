@@ -17,9 +17,6 @@ const equipoCompetenciaSchema = new Schema({
 
   solicitadoPor: { type: String, ref: 'Usuario' },
 
-
-  activo: { type: Boolean, default: true },
-
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 

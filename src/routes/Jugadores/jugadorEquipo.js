@@ -201,7 +201,6 @@ router.post('/', verificarToken, async (req, res) => {
       desde: desde || new Date(),
       hasta,
       estado: 'aceptado',
-      activo: true,
       origen: 'equipo',
       creadoPor: req.user.uid
     });
@@ -474,7 +473,6 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *               rol: "delantero"
  *               desde: "2023-01-01"
  *               hasta: "2023-12-31"
- *               activo: true
  *               origen: "equipo"
  *               solicitadoPor: "auth0|0987654321"
  *               creadoPor: "auth0|0987654321"
@@ -583,7 +581,6 @@ router.get('/:id', validarObjectId, verificarToken, async (req, res) => {
  *               rol: "entrenador"
  *               desde: "2023-01-01"
  *               hasta: "2023-12-31"
- *               activo: true
  *               origen: "equipo"
  *               solicitadoPor: "auth0|0987654321"
  *               creadoPor: "auth0|0987654321"
@@ -645,7 +642,6 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, esAdminEquipoOJugadorSolici
         if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre jugador y equipo' });
 
         relacion.estado = 'aceptado';
-        relacion.activo = true;
         relacion.fechaAceptacion = new Date();
         await relacion.save();
         return res.status(200).json(relacion);

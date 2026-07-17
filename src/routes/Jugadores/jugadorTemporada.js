@@ -202,7 +202,9 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
       return res.status(400).json({ message: 'participacionTemporada inválida' });
     }
 
-    const pt = await ParticipacionTemporada.findById(participacionTemporada).populate('equipo', 'creadoPor administradores nombre');
+    const pt = await ParticipacionTemporada.findById(participacionTemporada)
+      .populate('equipo', 'creadoPor administradores nombre')
+      .populate('temporada', 'fechaInicio fechaFin');
     if (!pt) return res.status(404).json({ message: 'ParticipacionTemporada no encontrada' });
 
     const uid = req.user?.uid;
@@ -215,8 +217,19 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
     const asignados = await JugadorTemporada.find({ participacionTemporada }).select('jugadorEquipo').lean();
     const usados = new Set(asignados.map(jt => jt.jugadorEquipo?.toString()));
 
-    // Jugadores del equipo con contrato aceptado
-    const filtroJE = { equipo: equipo._id, estado: 'aceptado' };
+    // Jugadores del equipo cuyo contrato nunca fue inválido (pendiente/rechazado/cancelado no cuentan)
+    // y cuyo rango desde/hasta se solapa con la temporada — no exigimos estado==='aceptado' a secas:
+    // un contrato 'baja' sigue siendo candidato legítimo si su ventana de fechas corresponde a esta
+    // temporada (p.ej. temporadas viejas ya finalizadas). La fecha decide, no el estado.
+    const temporadaInicio = pt.temporada?.fechaInicio ? new Date(pt.temporada.fechaInicio) : null;
+    const temporadaFin = pt.temporada?.fechaFin ? new Date(pt.temporada.fechaFin) : null;
+
+    const filtroJE = { equipo: equipo._id, estado: { $nin: ['pendiente', 'rechazado', 'cancelado'] } };
+    const condicionesFecha = [];
+    if (temporadaFin) condicionesFecha.push({ $or: [{ desde: null }, { desde: { $exists: false } }, { desde: { $lte: temporadaFin } }] });
+    if (temporadaInicio) condicionesFecha.push({ $or: [{ hasta: null }, { hasta: { $exists: false } }, { hasta: { $gte: temporadaInicio } }] });
+    if (condicionesFecha.length) filtroJE.$and = condicionesFecha;
+
     let queryJE = JugadorEquipo.find(filtroJE)
       .populate('jugador', 'nombre alias foto nacionalidad')
       .sort({ 'jugador.nombre': 1 })
@@ -229,6 +242,8 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
         _id: je._id,
         jugador: je.jugador ? { _id: je.jugador._id, nombre: je.jugador.nombre, alias: je.jugador.alias, foto: je.jugador.foto, nacionalidad: je.jugador.nacionalidad } : null,
         rol: je.rol,
+        estado: je.estado,
+        hasta: je.hasta,
       }));
 
     if (q) {

@@ -321,7 +321,6 @@ router.put(
           if (yaActivo) return res.status(400).json({ message: 'Ya hay un contrato activo entre este equipo y competencia' });
 
           relacion.estado = 'aceptado';
-          relacion.activo = true;
           relacion.fechaAceptacion = new Date();
           await relacion.save();
           return res.status(200).json(relacion);
