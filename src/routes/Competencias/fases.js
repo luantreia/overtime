@@ -260,7 +260,9 @@ router.post(
  */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
-    const fase = await Fase.findById(req.params.id).populate('competencia', 'nombre').lean();
+    // Nota: Fase no tiene campo `competencia` (solo `temporada`) — populate('competencia', ...)
+    // tiraba StrictPopulateError acá y esta ruta devolvía 500 siempre, para cualquier fase.
+    const fase = await Fase.findById(req.params.id).lean();
     if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
     res.json(fase);
   } catch (error) {
