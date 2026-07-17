@@ -94,6 +94,10 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
     grupos.equipo = extraerIds(equipo);
     grupos.jugador = extraerIds(jugador);
 
+    if (!grupos.equipo.length && !grupos.jugador.length) {
+      grupos.global = await getAdminSistemaIds();
+    }
+
   } else if (tipo.startsWith('participacion-temporada-')) {
     let equipo = null, competencia = null;
 
@@ -122,6 +126,10 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
     grupos.equipo = extraerIds(equipo);
     grupos.competencia = extraerIds(competencia);
 
+    if (!grupos.equipo.length && !grupos.competencia.length) {
+      grupos.global = await getAdminSistemaIds();
+    }
+
   } else if (tipo.startsWith('jugador-temporada-')) {
     let equipo = null, competencia = null;
 
@@ -149,6 +157,10 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
 
     grupos.equipo = extraerIds(equipo);
     grupos.competencia = extraerIds(competencia);
+
+    if (!grupos.equipo.length && !grupos.competencia.length) {
+      grupos.global = await getAdminSistemaIds();
+    }
 
   } else {
     // Lógica legacy o simple para otros tipos

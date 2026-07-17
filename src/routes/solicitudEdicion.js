@@ -827,27 +827,21 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
     if (solicitud.tipo.startsWith('jugador-equipo-')) {
       // 1. Fichajes (Jugador <-> Equipo)
-      admins = resolverAprobadores(
-        solicitud.creadoPor?.toString(), 
-        grupos.equipo || [], 
-        grupos.jugador || []
-      );
+      admins = (grupos.equipo?.length || grupos.jugador?.length)
+        ? resolverAprobadores(solicitud.creadoPor?.toString(), grupos.equipo || [], grupos.jugador || [])
+        : (grupos.global || []); // equipo y jugador huérfanos: fallback a admins globales
 
     } else if (solicitud.tipo.startsWith('participacion-temporada-')) {
       // 2. Torneos (Equipo <-> Competencia)
-      admins = resolverAprobadores(
-        solicitud.creadoPor?.toString(), 
-        grupos.equipo || [], 
-        grupos.competencia || []
-      );
+      admins = (grupos.equipo?.length || grupos.competencia?.length)
+        ? resolverAprobadores(solicitud.creadoPor?.toString(), grupos.equipo || [], grupos.competencia || [])
+        : (grupos.global || []); // equipo y competencia huérfanos: fallback a admins globales
 
     } else if (solicitud.tipo.startsWith('jugador-temporada-')) {
       // 3. Listas de Buena Fe (Equipo <-> Competencia)
-      admins = resolverAprobadores(
-        solicitud.creadoPor?.toString(), 
-        grupos.equipo || [], 
-        grupos.competencia || []
-      );
+      admins = (grupos.equipo?.length || grupos.competencia?.length)
+        ? resolverAprobadores(solicitud.creadoPor?.toString(), grupos.equipo || [], grupos.competencia || [])
+        : (grupos.global || []); // equipo y competencia huérfanos: fallback a admins globales
 
     } else if (solicitud.tipo.startsWith('usuario-crear-')) {
         // Requiere admin del sistema
