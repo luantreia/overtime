@@ -557,8 +557,19 @@ router.get('/', async (req, res) => {
         .lean()
     ]);
 
+    const playerIds = jugadores.map(j => j._id);
+    const rankedIds = await PlayerRating.distinct('playerId', {
+      playerId: { $in: playerIds },
+      matchesPlayed: { $gt: 0 }
+    });
+    const rankedSet = new Set(rankedIds.map(id => id.toString()));
+    const jugadoresConRanked = jugadores.map(j => ({
+      ...j,
+      isRanked: rankedSet.has(j._id.toString())
+    }));
+
     res.status(200).json({
-      items: jugadores,
+      items: jugadoresConRanked,
       total,
       page,
       limit,
