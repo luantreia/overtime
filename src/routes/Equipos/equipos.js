@@ -10,6 +10,8 @@ import { verificarEntidad } from '../../middleware/verificarEntidad.js';
 import Usuario from '../../models/Usuario.js';
 import { getPaginationParams } from '../../utils/pagination.js';
 import MiembroEquipo from '../../models/Equipo/MiembroEquipo.js';
+import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
+import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
 import { mergePermissions } from '../../constants/teamPermissions.js';
 import { hasTeamPermission } from '../../services/teamPermissionService.js';
 
@@ -548,6 +550,103 @@ router.delete('/:id/administradores/:adminUid', verificarToken, cargarRolDesdeBD
   } catch (error) {
     console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/equipos/{id}/categorias:
+ *   get:
+ *     summary: Agrupa a los jugadores del equipo por modalidad y categoría en las que jugaron con este equipo
+ *     tags: [Equipos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de grupos modalidad+categoría con jugadores vigentes e históricos
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/:id/categorias', validarObjectId, async (req, res) => {
+  try {
+    const equipoId = req.params.id;
+
+    const jugadorEquipos = await JugadorEquipo.find({ equipo: equipoId }).select('_id').lean();
+    const jugadorEquipoIds = jugadorEquipos.map((je) => je._id);
+
+    const jugadorTemporadas = await JugadorTemporada.find({ jugadorEquipo: { $in: jugadorEquipoIds } })
+      .populate({
+        path: 'participacionTemporada',
+        populate: {
+          path: 'temporada',
+          populate: {
+            path: 'competencia',
+            select: 'modalidad categoria',
+          },
+        },
+      })
+      .populate({
+        path: 'jugador',
+        select: 'nombre alias foto',
+      })
+      .lean();
+
+    const hoy = new Date();
+    const grupos = new Map();
+
+    jugadorTemporadas.forEach((jt) => {
+      const competencia = jt.participacionTemporada?.temporada?.competencia;
+      const jugador = jt.jugador;
+      if (!competencia || !jugador) return;
+
+      const modalidad = competencia.modalidad || 'Sin modalidad';
+      const categoria = competencia.categoria || 'Sin categoría';
+      const key = `${modalidad}|${categoria}`;
+
+      if (!grupos.has(key)) {
+        grupos.set(key, {
+          modalidad,
+          categoria,
+          actualesMap: new Map(),
+          historialMap: new Map(),
+        });
+      }
+
+      const grupo = grupos.get(key);
+      const esVigente = jt.estado === 'aceptado' && (!jt.hasta || new Date(jt.hasta) >= hoy);
+      const jugadorId = String(jugador._id);
+      const jugadorInfo = {
+        id: jugadorId,
+        nombre: jugador.nombre,
+        alias: jugador.alias,
+        foto: jugador.foto,
+      };
+
+      if (esVigente) {
+        grupo.actualesMap.set(jugadorId, jugadorInfo);
+      } else {
+        grupo.historialMap.set(jugadorId, jugadorInfo);
+      }
+    });
+
+    const resultado = Array.from(grupos.values())
+      .map((g) => ({
+        modalidad: g.modalidad,
+        categoria: g.categoria,
+        jugadoresActuales: Array.from(g.actualesMap.values()),
+        jugadoresHistorial: Array.from(g.historialMap.values()),
+      }))
+      .sort((a, b) => `${a.modalidad}${a.categoria}`.localeCompare(`${b.modalidad}${b.categoria}`));
+
+    res.status(200).json(resultado);
+  } catch (error) {
+    console.error('Error al obtener categorías del equipo:', error);
+    res.status(500).json({ message: 'Error al obtener categorías del equipo' });
   }
 });
 
