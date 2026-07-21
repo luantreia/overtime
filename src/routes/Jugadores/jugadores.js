@@ -817,13 +817,23 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
       }
     });
     
+    // Solo contar una competencia "por equipo" si el jugador tiene una inscripción
+    // individual real (JugadorTemporada) en esa competencia -- que su equipo esté
+    // anotado no implica que él haya participado del roster oficial de esa liga.
+    const registeredCompIds = new Set(
+      registrations
+        .map(reg => reg.participacionTemporada?.temporada?.competencia?.toString())
+        .filter(Boolean)
+    );
+
     teamComps.forEach(r => {
       if (r.competencia?._id || r.competencia?.id) {
         const c = r.competencia;
         const id = (c._id || c.id).toString();
-        compMap.set(id, { 
-          ...c, 
-          id, 
+        if (!registeredCompIds.has(id)) return;
+        compMap.set(id, {
+          ...c,
+          id,
           matchCount: compTotalMatches.get(id) || 0,
           preferredSeasonId: compBestSeason.get(id)
         });
