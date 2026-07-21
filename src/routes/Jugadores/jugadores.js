@@ -895,6 +895,29 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
       }
     });
 
+    // El vínculo equipo->competencia real en la práctica se arma sobre todo vía
+    // ParticipacionTemporada (equipo + temporada), no vía EquipoCompetencia (poco usado).
+    // Por eso cualquier competencia con inscripción individual real (registeredCompIds,
+    // ya construido arriba a partir de JugadorTemporada) tiene que entrar sí o sí, aunque
+    // nunca haya aparecido en `teamComps` porque esa competencia no tiene un doc EquipoCompetencia.
+    const missingRegisteredIds = Array.from(registeredCompIds).filter(id => !compMap.has(id));
+    if (missingRegisteredIds.length > 0) {
+      const Competencia = mongoose.model('Competencia');
+      const extraComps = await Competencia.find({ _id: { $in: missingRegisteredIds } })
+        .populate('organizacion', 'nombre')
+        .lean();
+      extraComps.forEach(c => {
+        const id = c._id.toString();
+        compMap.set(id, {
+          ...c,
+          id,
+          matchCount: compTotalMatches.get(id) || 0,
+          preferredSeasonId: compBestSeason.get(id),
+          playedSeasonIds: Array.from((compPlayedSeasons.get(id) || new Map()).values())
+        });
+      });
+    }
+
     const finalResult = Array.from(compMap.values());
     console.log(`[Competencias] Total unificadas: ${finalResult.length}`);
     res.json(finalResult);
