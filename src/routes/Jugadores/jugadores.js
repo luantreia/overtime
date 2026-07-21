@@ -738,10 +738,10 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
       .populate({
         path: 'participacionTemporada',
         select: 'temporada',
-        populate: { path: 'temporada', select: 'competencia' }
+        populate: { path: 'temporada', select: 'competencia nombre' }
       })
       .lean();
-    
+
     registrations.forEach(reg => {
       const temp = reg.participacionTemporada?.temporada;
       if (temp) {
@@ -750,6 +750,29 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
         if (cid && !compBestSeason.has(cid)) {
           compBestSeason.set(cid, tid);
         }
+      }
+    });
+
+    // Mapa de todas las temporadas jugadas por competencia (no solo la "preferida"),
+    // para exponer `playedSeasonIds` — usado por la tab "Torneos" para mostrar solo
+    // los badges de temporadas donde el jugador jugó realmente.
+    const compPlayedSeasons = new Map(); // compId -> Map(seasonId -> {_id, nombre})
+
+    const addPlayedSeason = (cid, temp) => {
+      if (!cid || !temp?._id) return;
+      const tid = temp._id.toString();
+      if (!compPlayedSeasons.has(cid)) compPlayedSeasons.set(cid, new Map());
+      const seasonsMap = compPlayedSeasons.get(cid);
+      if (!seasonsMap.has(tid)) {
+        seasonsMap.set(tid, { _id: temp._id, nombre: temp.nombre });
+      }
+    };
+
+    registrations.forEach(reg => {
+      const temp = reg.participacionTemporada?.temporada;
+      if (temp) {
+        const cid = temp.competencia?.toString();
+        addPlayedSeason(cid, temp);
       }
     });
 
@@ -788,35 +811,55 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
       });
     }
 
+    // Para competencias ranked no está confirmado que el jugador quede registrado en
+    // JugadorTemporada, así que derivamos sus temporadas jugadas directamente de
+    // MatchPlayer (prueba real de que jugó esa temporada).
+    const rankedCompIds = Array.from(new Set(ratings.map(r => r.competenciaId?._id?.toString()).filter(Boolean)));
+    if (rankedCompIds.length > 0) {
+      const Temporada = mongoose.model('Temporada');
+      await Promise.all(rankedCompIds.map(async (cid) => {
+        const seasonIds = await MatchPlayer.distinct('temporadaId', {
+          playerId: jugadorId,
+          competenciaId: new mongoose.Types.ObjectId(cid),
+          temporadaId: { $ne: null }
+        });
+        if (seasonIds.length === 0) return;
+        const temporadas = await Temporada.find({ _id: { $in: seasonIds } }).select('nombre').lean();
+        temporadas.forEach(t => addPlayedSeason(cid, t));
+      }));
+    }
+
     // Unificar y quitar duplicados por ID de competencia
     const compMap = new Map();
-    
+
     directRel.forEach(r => {
       if (r.competencia?._id || r.competencia?.id) {
         const c = r.competencia;
         const id = (c._id || c.id).toString();
-        compMap.set(id, { 
-          ...c, 
-          id, 
+        compMap.set(id, {
+          ...c,
+          id,
           matchCount: compTotalMatches.get(id) || 0,
-          preferredSeasonId: compBestSeason.get(id)
+          preferredSeasonId: compBestSeason.get(id),
+          playedSeasonIds: Array.from((compPlayedSeasons.get(id) || new Map()).values())
         });
       }
     });
-    
+
     ratings.forEach(r => {
       if (r.competenciaId?._id || r.competenciaId?.id) {
         const c = r.competenciaId;
         const id = (c._id || c.id).toString();
-        compMap.set(id, { 
-          ...c, 
-          id, 
+        compMap.set(id, {
+          ...c,
+          id,
           matchCount: compTotalMatches.get(id) || 0,
-          preferredSeasonId: compBestSeason.get(id)
+          preferredSeasonId: compBestSeason.get(id),
+          playedSeasonIds: Array.from((compPlayedSeasons.get(id) || new Map()).values())
         });
       }
     });
-    
+
     // Solo contar una competencia "por equipo" si el jugador tiene una inscripción
     // individual real (JugadorTemporada) en esa competencia -- que su equipo esté
     // anotado no implica que él haya participado del roster oficial de esa liga.
@@ -835,11 +878,12 @@ router.get('/:id/competencias', validarObjectId, async (req, res) => {
           ...c,
           id,
           matchCount: compTotalMatches.get(id) || 0,
-          preferredSeasonId: compBestSeason.get(id)
+          preferredSeasonId: compBestSeason.get(id),
+          playedSeasonIds: Array.from((compPlayedSeasons.get(id) || new Map()).values())
         });
       }
     });
-    
+
     const finalResult = Array.from(compMap.values());
     console.log(`[Competencias] Total unificadas: ${finalResult.length}`);
     res.json(finalResult);
@@ -1330,7 +1374,15 @@ router.get('/:id/radar', async (req, res) => {
     if (modalidad) ratingQuery.modalidad = modalidad;
     if (categoria) ratingQuery.categoria = categoria;
 
-    const masterRating = await PlayerRating.findOne(ratingQuery).lean();
+    // Sin modalidad/categoria puede haber varios documentos Master (uno por combinación);
+    // en ese caso usamos el de mayor rating en vez de un findOne arbitrario.
+    let masterRating;
+    if (modalidad || categoria) {
+      masterRating = await PlayerRating.findOne(ratingQuery).lean();
+    } else {
+      const topRatings = await PlayerRating.find(ratingQuery).sort({ rating: -1 }).limit(1).lean();
+      masterRating = topRatings[0] || null;
+    }
     
     // 1.1. Get Karma Stats
     const karmaStats = await KarmaLog.aggregate([
@@ -1472,8 +1524,12 @@ router.get('/:id/history', async (req, res) => {
       .populate({
         path: 'partidoId',
         select: 'marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante',
-        // Deep-populate competencia inside partidoId so we get the competencia document (with nombre)
-        populate: { path: 'competencia', select: 'nombre logo verificado' }
+        // Deep-populate competencia/equipos dentro de partidoId para tener los documentos completos (nombre, escudo)
+        populate: [
+          { path: 'competencia', select: 'nombre logo verificado' },
+          { path: 'equipoLocal', select: 'nombre escudo' },
+          { path: 'equipoVisitante', select: 'nombre escudo' }
+        ]
       })
       .lean();
 
@@ -1490,66 +1546,59 @@ router.get('/:id/history', async (req, res) => {
     const unrankedMatches = await Partido.find(pQuery)
       .select('marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante sets')
       .populate('competencia', 'nombre logo verificado')
+      .populate('equipoLocal', 'nombre escudo')
+      .populate('equipoVisitante', 'nombre escudo')
       .lean();
 
-    // 3. Format and Merge
+    // 3. Format and Merge — shape compatible con `Partido` (id, fecha, estado, marcadorLocal,
+    // marcadorVisitante, modalidad, categoria, equipoLocal, equipoVisitante, competencia)
     const formattedRanked = rankedMatches.map(m => {
       const p = m.partidoId;
       if (!p) return null;
-      // Debug: show competencia object to understand missing nombre
-      console.log(`HISTORY_DEBUG ranked partido ${p._id}: competencia=`, p.competencia);
       return {
-        id: p._id, // Usamos el ID del partido, no el del MatchPlayer
-        date: p.fecha || m.createdAt,
-        // Matches coming from MatchPlayer are treated as ranked (league)
-        type: 'league',
-        // If competencia exists use its nombre, otherwise use the system-wide ranked name
-        competition: p.competencia?.nombre || 'League of dodgeball',
-        organization: p.competencia?.nombre || 'League of dodgeball',
-        isVerified: p.competencia?.verificado || false,
-        modality: m.modalidad || p.modalidad,
-        category: m.categoria || p.categoria,
-        score: {
-          own: m.teamColor === 'rojo' ? p.marcadorLocal : p.marcadorVisitante,
-          opponent: m.teamColor === 'rojo' ? p.marcadorVisitante : p.marcadorLocal
+        partido: {
+          id: p._id,
+          fecha: p.fecha || m.createdAt,
+          estado: p.estado,
+          marcadorLocal: p.marcadorLocal,
+          marcadorVisitante: p.marcadorVisitante,
+          modalidad: m.modalidad || p.modalidad,
+          categoria: m.categoria || p.categoria,
+          equipoLocal: p.equipoLocal,
+          equipoVisitante: p.equipoVisitante,
+          competencia: p.competencia
         },
-        win: m.win,
-        delta: m.delta,
-        isRanked: true
+        isRanked: true,
+        eloDelta: m.delta,
+        win: m.win
       };
     }).filter(m => m);
 
     const formattedUnranked = unrankedMatches.map(p => {
-      // Find player team in sets to determine score/win
-      let playerTeam = 'local';
-      const stats = p.sets?.flatMap(s => s.statsJugadoresSet || []) || [];
-      const myStat = stats.find(s => s.jugador?.toString() === id);
-      // This is a bit complex for unranked without MatchPlayer, but we try:
       const ownScore = p.marcadorLocal;
       const oppScore = p.marcadorVisitante;
 
-      // Debug: show competencia object for unranked entries too
-      console.log(`HISTORY_DEBUG unranked partido ${p._id}: competencia=`, p.competencia);
-
       return {
-        id: p._id,
-        date: p.fecha,
-        type: p.competencia ? 'league' : 'plaza',
-        // For explicit unranked matches, show 'Amistoso' when there's no competencia
-        competition: p.competencia?.nombre || 'Amistoso',
-        organization: p.competencia?.nombre || (p.lobbyId ? 'Plaza' : 'Varios'),
-        isVerified: p.competencia?.verificado || false,
-        modality: p.modalidad,
-        category: p.categoria,
-        score: { own: ownScore, opponent: oppScore },
-        win: ownScore > oppScore, // Simplified
-        delta: 0,
-        isRanked: false
+        partido: {
+          id: p._id,
+          fecha: p.fecha,
+          estado: p.estado,
+          marcadorLocal: p.marcadorLocal,
+          marcadorVisitante: p.marcadorVisitante,
+          modalidad: p.modalidad,
+          categoria: p.categoria,
+          equipoLocal: p.equipoLocal,
+          equipoVisitante: p.equipoVisitante,
+          competencia: p.competencia
+        },
+        isRanked: false,
+        eloDelta: 0,
+        win: ownScore > oppScore // Simplified
       };
     });
 
     const allMatches = [...formattedRanked, ...formattedUnranked]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .sort((a, b) => new Date(b.partido.fecha) - new Date(a.partido.fecha))
       .slice(0, 50);
 
     res.json(allMatches);
