@@ -1008,7 +1008,7 @@ router.get('/leaderboard', async (req, res) => {
  */
 router.get('/synergy', async (req, res) => {
   try {
-    const { competition: competenciaId, season: temporadaId, modalidad, categoria, minGames = 5, limit = 10 } = req.query;
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria, minGames = 15, limit = 10 } = req.query;
     const q = {};
 
     if (competenciaId && competenciaId !== 'null' && competenciaId !== '') {
