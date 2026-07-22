@@ -881,13 +881,17 @@ router.post('/dev/sync-all-wins', async (req, res) => {
       let wins = 0;
       let losses = 0;
       let draws = 0;
+      let matchesPlayed = 0;
       for (const h of history) {
+        if (typeof h.delta !== 'number') continue;
+        matchesPlayed++;
         const outcome = resolveSnapshotOutcome(h);
         if (outcome === 'win') wins++;
         if (outcome === 'loss') losses++;
         if (outcome === 'draw') draws++;
       }
 
+      pr.matchesPlayed = matchesPlayed;
       pr.wins = wins;
       pr.losses = losses;
       pr.draws = draws;
@@ -991,6 +995,100 @@ router.get('/leaderboard', async (req, res) => {
     }));
 
     res.json({ ok: true, items: mappedItems });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/ranked/synergy
+ * Mejores duplas: pares de jugadores que compartieron equipo en partidos ranked,
+ * con winrate combinado. Filtra por un mínimo de partidos jugados juntos para
+ * evitar que una sola coincidencia distorsione el ranking.
+ */
+router.get('/synergy', async (req, res) => {
+  try {
+    const { competition: competenciaId, season: temporadaId, modalidad, categoria, minGames = 5, limit = 10 } = req.query;
+    const q = {};
+
+    if (competenciaId && competenciaId !== 'null' && competenciaId !== '') {
+      q.competenciaId = competenciaId;
+    } else {
+      q.competenciaId = null;
+    }
+
+    if (!temporadaId || temporadaId === 'null' || temporadaId === 'global') {
+      q.temporadaId = null;
+    } else {
+      q.temporadaId = temporadaId;
+    }
+
+    if (modalidad) q.modalidad = normalizeEnum(modalidad);
+    if (categoria) q.categoria = normalizeEnum(categoria);
+
+    const records = await MatchPlayer.find(q)
+      .where('isAFK').ne(true)
+      .select('partidoId playerId teamColor outcome')
+      .lean();
+
+    // Agrupar registros por partido para poder armar los equipos de cada uno
+    const byMatch = new Map();
+    for (const r of records) {
+      const key = String(r.partidoId);
+      if (!byMatch.has(key)) byMatch.set(key, []);
+      byMatch.get(key).push(r);
+    }
+
+    const pairs = new Map(); // "idA_idB" -> { a, b, gamesTogether, wins, draws }
+    for (const players of byMatch.values()) {
+      const byColor = { rojo: [], azul: [] };
+      players.forEach((p) => {
+        if (p.teamColor === 'rojo' || p.teamColor === 'azul') byColor[p.teamColor].push(p);
+      });
+
+      for (const color of ['rojo', 'azul']) {
+        const team = byColor[color];
+        for (let i = 0; i < team.length; i++) {
+          for (let j = i + 1; j < team.length; j++) {
+            const idA = String(team[i].playerId);
+            const idB = String(team[j].playerId);
+            const [x, y] = idA < idB ? [idA, idB] : [idB, idA];
+            const key = `${x}_${y}`;
+            if (!pairs.has(key)) pairs.set(key, { a: x, b: y, gamesTogether: 0, wins: 0, draws: 0 });
+            const entry = pairs.get(key);
+            entry.gamesTogether += 1;
+            // Comparten equipo y partido -> mismo resultado de equipo
+            if (team[i].outcome === 'win') entry.wins += 1;
+            else if (team[i].outcome === 'draw') entry.draws += 1;
+          }
+        }
+      }
+    }
+
+    const min = Number(minGames);
+    let results = Array.from(pairs.values()).filter((p) => p.gamesTogether >= min);
+    results.forEach((p) => {
+      p.losses = p.gamesTogether - p.wins - p.draws;
+      p.winrate = p.gamesTogether ? (p.wins / p.gamesTogether) * 100 : 0;
+    });
+    results.sort((a, b) => b.winrate - a.winrate || b.gamesTogether - a.gamesTogether);
+    results = results.slice(0, Number(limit));
+
+    const playerIds = Array.from(new Set(results.flatMap((p) => [p.a, p.b])));
+    const jugadores = await Jugador.find({ _id: { $in: playerIds } }).select('nombre foto').lean();
+    const byId = new Map(jugadores.map((j) => [String(j._id), j]));
+
+    const items = results.map((p) => ({
+      playerA: { id: p.a, nombre: byId.get(p.a)?.nombre || 'Jugador', foto: byId.get(p.a)?.foto },
+      playerB: { id: p.b, nombre: byId.get(p.b)?.nombre || 'Jugador', foto: byId.get(p.b)?.foto },
+      gamesTogether: p.gamesTogether,
+      wins: p.wins,
+      draws: p.draws,
+      losses: p.losses,
+      winrate: Math.round(p.winrate),
+    }));
+
+    res.json({ ok: true, items });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
