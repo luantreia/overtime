@@ -1,5 +1,8 @@
 import express from 'express';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import Jugador from '../../models/Jugador/Jugador.js';
+import InvitacionJugador from '../../models/Jugador/InvitacionJugador.js';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
 import PlayerRating from '../../models/Jugador/PlayerRating.js';
@@ -17,6 +20,8 @@ import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { verificarEntidad } from '../../middleware/verificarEntidad.js';
 import Usuario from '../../models/Usuario.js';
 import { getPaginationParams } from '../../utils/pagination.js';
+import { signAccessToken, signRefreshToken } from '../../utils/jwt.js';
+import { AuditoriaService } from '../../services/auditoriaService.js';
 
 /**
  * @swagger
@@ -1300,6 +1305,208 @@ router.delete('/:id/administradores/:adminId', verificarToken, esAdminDeEntidad(
   } catch (error) {
     console.error('Error al quitar administrador:', error);
     res.status(500).json({ message: 'Error al quitar administrador' });
+  }
+});
+
+const INVITACION_TTL_DIAS = 7;
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+/**
+ * @swagger
+ * /api/jugadores/{id}/invitaciones:
+ *   post:
+ *     summary: Genera un link de invitación de un solo uso para que otra persona reclame este perfil
+ *     description: |
+ *       Cualquier administrador actual del jugador (creador, administradores, o admin global)
+ *       puede generar el link. Invalida cualquier invitación pendiente previa del mismo jugador.
+ *     tags: [Jugadores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Invitación creada
+ *       400:
+ *         description: El perfil ya fue reclamado
+ *       404:
+ *         description: Jugador no encontrado
+ */
+router.post('/:id/invitaciones', verificarToken, esAdminDeEntidad(Jugador, 'jugador'), async (req, res) => {
+  try {
+    const jugador = req.jugador;
+
+    if (jugador.perfilReclamado) {
+      return res.status(400).json({ message: 'Este perfil ya fue reclamado, no se puede invitar' });
+    }
+
+    await InvitacionJugador.deleteMany({ jugador: jugador._id, usedAt: null });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + INVITACION_TTL_DIAS * 24 * 60 * 60 * 1000);
+
+    await InvitacionJugador.create({
+      jugador: jugador._id,
+      tokenHash: hashToken(rawToken),
+      creadoPor: req.user.uid,
+      expiresAt,
+    });
+
+    res.status(201).json({ token: rawToken, expiresAt });
+  } catch (error) {
+    console.error('Error al generar invitación:', error);
+    res.status(500).json({ message: 'Error al generar invitación' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/invitaciones/{token}:
+ *   get:
+ *     summary: Previsualiza una invitación de reclamo por token (público)
+ *     tags: [Jugadores]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Datos del jugador a reclamar
+ *       404:
+ *         description: Invitación no encontrada
+ *       410:
+ *         description: Invitación expirada o ya utilizada
+ */
+router.get('/invitaciones/:token', async (req, res) => {
+  try {
+    const invitacion = await InvitacionJugador.findOne({ tokenHash: hashToken(req.params.token) })
+      .populate('jugador', 'nombre alias foto perfilReclamado');
+
+    if (!invitacion) {
+      return res.status(404).json({ message: 'Invitación no encontrada' });
+    }
+    if (invitacion.usedAt || invitacion.expiresAt < new Date()) {
+      return res.status(410).json({ message: 'Esta invitación ya no es válida' });
+    }
+
+    res.json({ jugador: invitacion.jugador });
+  } catch (error) {
+    console.error('Error al previsualizar invitación:', error);
+    res.status(500).json({ message: 'Error al previsualizar invitación' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/jugadores/invitaciones/{token}/claim:
+ *   post:
+ *     summary: Registra una cuenta nueva y reclama el perfil de jugador asociado al token (público)
+ *     tags: [Jugadores]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre, email, password]
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Cuenta creada y perfil reclamado
+ *       400:
+ *         description: Datos inválidos o email ya registrado
+ *       404:
+ *         description: Invitación no encontrada
+ *       410:
+ *         description: Invitación expirada o ya utilizada
+ */
+router.post('/invitaciones/:token/claim', async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    const { nombre, email, password } = req.body || {};
+    if (!email || !password || !nombre) {
+      return res.status(400).json({ message: 'nombre, email y password son requeridos' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
+    }
+
+    const invitacion = await InvitacionJugador.findOne({ tokenHash: hashToken(req.params.token) });
+    if (!invitacion) {
+      return res.status(404).json({ message: 'Invitación no encontrada' });
+    }
+    if (invitacion.usedAt || invitacion.expiresAt < new Date()) {
+      return res.status(410).json({ message: 'Esta invitación ya no es válida' });
+    }
+
+    const existente = await Usuario.findOne({ email });
+    if (existente) {
+      return res.status(400).json({ message: 'El email ya está registrado' });
+    }
+
+    const jugador = await Jugador.findById(invitacion.jugador);
+    if (!jugador) {
+      return res.status(404).json({ message: 'Jugador no encontrado' });
+    }
+    if (jugador.perfilReclamado) {
+      return res.status(400).json({ message: 'Este perfil ya fue reclamado' });
+    }
+
+    let user;
+    await session.withTransaction(async () => {
+      const passwordHash = await bcrypt.hash(password, 10);
+      const _id = new mongoose.Types.ObjectId().toString();
+
+      [user] = await Usuario.create([{ _id, email, nombre, rol: 'lector', passwordHash, provider: 'local' }], { session });
+
+      const before = { userId: jugador.userId, perfilReclamado: jugador.perfilReclamado };
+
+      jugador.userId = user._id;
+      jugador.perfilReclamado = true;
+      if (!jugador.administradores.some((aid) => aid.toString() === user._id)) {
+        jugador.administradores.push(user._id);
+      }
+      await jugador.save({ session });
+
+      invitacion.usedAt = new Date();
+      await invitacion.save({ session });
+
+      await AuditoriaService.registrar(
+        user._id,
+        'Jugador',
+        jugador._id,
+        'UPDATE',
+        { before, after: { userId: jugador.userId, perfilReclamado: jugador.perfilReclamado } },
+        req
+      );
+    });
+
+    const accessToken = signAccessToken(user);
+    const refreshToken = signRefreshToken(user);
+
+    res.status(201).json({
+      user: { id: user._id, email: user.email, nombre: user.nombre, rol: user.rol },
+      accessToken,
+      refreshToken,
+      jugadorId: jugador._id,
+    });
+  } catch (error) {
+    console.error('Error al reclamar invitación:', error);
+    res.status(500).json({ message: 'Error al reclamar invitación' });
+  } finally {
+    await session.endSession();
   }
 });
 
