@@ -377,16 +377,10 @@ router.post('/match/:id/finalize', async (req, res) => {
       partido.ratingDeltas = [];
     }
 
-    // Optionally set scores from body
-    const { marcadorLocal, marcadorVisitante, sets, afkPlayers = [], creadoPor = 'ranked-mvp', startTime, rojoPlayers, azulPlayers } = req.body || {};
-    if (typeof marcadorLocal === 'number') {
-      partido.marcadorLocal = marcadorLocal;
-      partido.marcadorModificadoManualmente = true;
-    }
-    if (typeof marcadorVisitante === 'number') {
-      partido.marcadorVisitante = marcadorVisitante;
-      partido.marcadorModificadoManualmente = true;
-    }
+    // El marcador final NO se toma del cliente: se recalcula siempre desde los
+    // sets guardados (ver recalcularMarcador más abajo), para que la regla de
+    // puntos por modalidad (Cloth 2/1-1, Foam 1) sea siempre la que aplica el backend.
+    const { sets, afkPlayers = [], creadoPor = 'ranked-mvp', startTime, rojoPlayers, azulPlayers } = req.body || {};
 
     partido.rankedMeta = partido.rankedMeta || {};
 
@@ -435,6 +429,11 @@ router.post('/match/:id/finalize', async (req, res) => {
       });
       await SetPartido.insertMany(setDocs);
     }
+
+    // El marcador es siempre el que resulta de los sets guardados, no el que
+    // haya calculado el cliente.
+    partido.marcadorModificadoManualmente = false;
+    await partido.recalcularMarcador();
 
     // Check playoff tie restriction
     if (partido.fase) {

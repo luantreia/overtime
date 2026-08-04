@@ -146,6 +146,13 @@ PartidoSchema.methods.recalcularMarcador = async function () {
     return;
   }
 
+  // Guarda de reentrada: post('save') vuelve a llamar a este método para
+  // partidos finalizados, y este método termina en this.save(). Sin esta
+  // guarda esas dos llamadas se disparan entre sí en un ciclo infinito.
+  if (this.$locals.recalculandoMarcador) {
+    return;
+  }
+
   const SetPartido = mongoose.model('SetPartido');
   const sets = await SetPartido.find({ partido: this._id });
 
@@ -171,7 +178,12 @@ PartidoSchema.methods.recalcularMarcador = async function () {
   this.marcadorLocal = puntosLocal;
   this.marcadorVisitante = puntosVisitante;
 
-  await this.save();
+  this.$locals.recalculandoMarcador = true;
+  try {
+    await this.save();
+  } finally {
+    this.$locals.recalculandoMarcador = false;
+  }
 };
 
 PartidoSchema.pre('save', async function (next) {
