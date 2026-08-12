@@ -14,6 +14,7 @@ const PartidoSchema = new Schema({
 
   grupo: { type: String, default: null },
   division: { type: String, default: null },
+  jornada: { type: String, trim: true, default: null }, // ej. "5ª Fecha" — agrupa partidos de una fecha de liga sin importar cuántas competencias jueguen ese día
 
   // Posición en la llave/bracket (0, 1, 2, 3...) para mantener orden de ramas
   posicionBracket: { type: Number, default: 0 },
@@ -34,6 +35,9 @@ const PartidoSchema = new Schema({
   },
   fecha: { type: Date, required: true },
   ubicacion: { type: String, trim: true },
+  cancha: { type: String, trim: true, default: null },
+  sede: { type: Schema.Types.ObjectId, ref: 'Sede', default: null },
+  actividad: { type: Schema.Types.ObjectId, ref: 'Actividad', default: null },
 
   equipoLocal: { type: Schema.Types.ObjectId, ref: 'Equipo', required: false },
   equipoVisitante: { type: Schema.Types.ObjectId, ref: 'Equipo', required: false },
@@ -191,6 +195,16 @@ PartidoSchema.pre('save', async function (next) {
     const Fase = mongoose.model('Fase');
     const ParticipacionFase = mongoose.model('ParticipacionFase');
     const Competencia = mongoose.model('Competencia');
+
+    // --- 0. Validar que 'cancha' pertenezca a la Sede seleccionada ---
+    // Si la sede todavía no tiene canchas cargadas, no se bloquea (texto libre transicional).
+    if (this.sede && this.cancha && (this.isModified('sede') || this.isModified('cancha'))) {
+      const Sede = mongoose.model('Sede');
+      const sedeDoc = await Sede.findById(this.sede).select('canchas');
+      if (sedeDoc && sedeDoc.canchas.length > 0 && !sedeDoc.canchas.includes(this.cancha)) {
+        return next(new Error(`La cancha "${this.cancha}" no pertenece a la sede seleccionada`));
+      }
+    }
 
     // --- 1. Completar competencia y temporada desde fase ---
     if ((!this.competencia || !this.temporada) && this.fase) {

@@ -98,6 +98,7 @@ const LobbySchema = new Schema({
   }],
 
   matchId: { type: Schema.Types.ObjectId, ref: 'Partido' }, // Link al partido oficial una vez finalizado
+  actividad: { type: Schema.Types.ObjectId, ref: 'Actividad', default: null }, // Si este lobby pertenece a una jornada/lod programado
 
   // Datos de recompensa de Karma-ELO (Calculados al confirmar)
   appliedMultiplier: { type: Number },

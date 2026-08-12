@@ -120,6 +120,9 @@ import rankedRouter from './src/routes/ranked.js';
 import dashboardRoutes from './src/routes/dashboard.js';
 import plazaRoutes from './src/routes/Plaza/plaza.js';
 import feedbackRoutes from './src/routes/feedback.js';
+import sedeRoutes from './src/routes/Sede/sede.js';
+import actividadRoutes from './src/routes/Actividad/actividad.js';
+import actividadRecurrenteRoutes from './src/routes/Actividad/actividadRecurrente.js';
 
 
 dotenv.config(); // inicializar dotenv
@@ -290,6 +293,9 @@ app.use('/api/ranked', rankedRouter);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/plaza', plazaRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/sedes', sedeRoutes);
+app.use('/api/actividades', actividadRoutes);
+app.use('/api/actividades-recurrentes', actividadRecurrenteRoutes);
 
 
 // Public configuration endpoint for clients (feature flags, model info)
