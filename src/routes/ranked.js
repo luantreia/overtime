@@ -6,6 +6,7 @@ import SetPartido from '../models/Partido/SetPartido.js';
 import PlayerRating from '../models/Jugador/PlayerRating.js';
 import Equipo from '../models/Equipo/Equipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
+import Sede from '../models/Sede/Sede.js';
 import { getOrCreatePlayerRating } from '../services/ratingService.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import MatchPlayer from '../models/Partido/MatchPlayer.js';
@@ -15,6 +16,17 @@ import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 
 const router = express.Router();
+
+// Si se manda cancha junto con sede, valida que pertenezca a esa sede (misma regla que el pre-save hook de Partido,
+// que no corre en updates vía findByIdAndUpdate).
+async function validarCanchaDeSede(sedeId, cancha) {
+  if (!sedeId || !cancha) return null;
+  const sedeDoc = await Sede.findById(sedeId).select('canchas');
+  if (sedeDoc && sedeDoc.canchas.length > 0 && !sedeDoc.canchas.includes(cancha)) {
+    return `La cancha "${cancha}" no pertenece a la sede seleccionada`;
+  }
+  return null;
+}
 
 /**
  * @swagger
@@ -160,7 +172,7 @@ async function syncMatchPlayersFromTeams(partido) {
 // Create ranked match with team assignments (cap 9 per side)
 router.post('/match', async (req, res) => {
   try {
-    const { competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {} } = req.body;
+    const { competenciaId, temporadaId, modalidad: rawMod, categoria: rawCat, fecha, equipoLocal, equipoVisitante, creadoPor = 'ranked-mvp', rojoPlayers = [], azulPlayers = [], meta = {}, sede, cancha } = req.body;
     const rojo = ensureArray(rojoPlayers);
     const azul = ensureArray(azulPlayers);
     const modalidad = normalizeEnum(rawMod);
@@ -201,6 +213,12 @@ router.post('/match', async (req, res) => {
     };
     if (competenciaId && mongoose.isValidObjectId(competenciaId)) {
       partidoPayload.competencia = competenciaId;
+    }
+    if (sede && mongoose.isValidObjectId(sede)) {
+      const canchaError = await validarCanchaDeSede(sede, cancha);
+      if (canchaError) return res.status(400).json({ ok: false, error: canchaError });
+      partidoPayload.sede = sede;
+      if (cancha) partidoPayload.cancha = cancha;
     }
 
     const partido = await Partido.create(partidoPayload);
@@ -332,6 +350,33 @@ router.put('/match/:id/config', async (req, res) => {
     if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
 
     res.json({ ok: true, rankedMeta: partido.rankedMeta });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Set/actualizar sede y cancha de un partido ranked (dónde se está jugando)
+router.put('/match/:id/location', async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const { sede, cancha } = req.body;
+
+    if (sede && !mongoose.isValidObjectId(sede)) {
+      return res.status(400).json({ ok: false, error: 'sede inválida' });
+    }
+
+    const canchaError = await validarCanchaDeSede(sede, cancha);
+    if (canchaError) return res.status(400).json({ ok: false, error: canchaError });
+
+    const partido = await Partido.findByIdAndUpdate(
+      partidoId,
+      { $set: { sede: sede || null, cancha: cancha || null } },
+      { new: true }
+    ).populate('sede', 'nombre canchas');
+
+    if (!partido) return res.status(404).json({ ok: false, error: 'Partido no encontrado' });
+
+    res.json({ ok: true, sede: partido.sede, cancha: partido.cancha });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
