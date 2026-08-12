@@ -20,8 +20,14 @@ export const StandingsService = {
       .lean();
 
     const config = fase.configuracion || {};
-    // Normalizar criterios a mayúsculas para evitar errores de configuración
-    const criterios = (config.criteriosDesempate || ['PUNTOS', 'DIF_SETS', 'CARA_A_CARA', 'DIF_PUNTOS']).map(c => c.toUpperCase());
+    // Normalizar criterios a mayúsculas para evitar errores de configuración.
+    // Ojo: criteriosDesempate es un array de Mongoose, su default es [] (no undefined) —
+    // "[] || default" nunca cae al default porque [] es truthy. Hay que chequear length.
+    const criteriosConfigurados = config.criteriosDesempate;
+    const criterios = (criteriosConfigurados && criteriosConfigurados.length > 0
+      ? criteriosConfigurados
+      : ['PUNTOS', 'DIF_SETS', 'CARA_A_CARA', 'DIF_PUNTOS']
+    ).map(c => c.toUpperCase());
 
     // Obtener todos los partidos para el desempate "cara a cara"
     const partidos = await Partido.find({ fase: faseId, estado: 'finalizado' }).lean();
@@ -60,7 +66,7 @@ export const StandingsService = {
     };
 
     let sorted = [];
-    
+
     // Si la fase es de tipo 'grupo', ordenamos CADA GRUPO INDEPENDIENTEMENTE
     if (fase.tipo === 'grupo') {
       const grupos = {};
@@ -78,6 +84,22 @@ export const StandingsService = {
           p.posicionRelativa = idx + 1;
         });
         sorted = sorted.concat(sortedGrupo);
+      });
+    } else if (fase.tipo === 'liga' && participaciones.some(p => p.division)) {
+      // Ligas con División A/B (ascenso/descenso): mismo criterio que 'grupo' pero por 'division'
+      const divisiones = {};
+      participaciones.forEach(p => {
+        const d = p.division || 'General';
+        if (!divisiones[d]) divisiones[d] = [];
+        divisiones[d].push(p);
+      });
+
+      Object.keys(divisiones).sort().forEach(d => {
+        const sortedDivision = ordenarGrupo(divisiones[d]);
+        sortedDivision.forEach((p, idx) => {
+          p.posicionRelativa = idx + 1;
+        });
+        sorted = sorted.concat(sortedDivision);
       });
     } else {
       sorted = ordenarGrupo(participaciones);
@@ -255,5 +277,72 @@ export const StandingsService = {
 
     console.log(`[PROGRESION] Fase ${faseId} finalizada. Ganadores: ${resultados.ganadores}, Perdedores: ${resultados.perdedores}`);
     return resultados;
+  },
+
+  /**
+   * Sugiere (sin escribir nada) con qué división debería seguir cada equipo después de
+   * jugarse una fase de Promoción/Relegación puntual. Sirve tanto para la promoción de
+   * mitad de año (post-Apertura, define división para la Clausura) como para la de fin
+   * de año (post-Clausura, define división para el Apertura del año siguiente) — no
+   * asume cuál de las dos es, la deduce ubicando la fase de liga inmediatamente anterior
+   * por 'orden' dentro de la misma Temporada.
+   *
+   * Asume que cada cupo de Promoción/Relegación se define a partido único (no ida y
+   * vuelta). Si en el futuro hay series de 2 partidos por el mismo cupo, se queda con
+   * el resultado del último partido finalizado procesado para ese par de equipos.
+   */
+  async sugerirDivisionesPostPromocion(fasePromocionId) {
+    const fasePromocion = await Fase.findById(fasePromocionId).lean();
+    if (!fasePromocion) throw new Error('Fase de Promoción/Relegación no encontrada');
+
+    const fasesDeLaTemporada = await Fase.find({ temporada: fasePromocion.temporada }).sort('orden').lean();
+    const faseBase = [...fasesDeLaTemporada]
+      .filter(f => f.orden < fasePromocion.orden)
+      .sort((a, b) => b.orden - a.orden)[0];
+    if (!faseBase) throw new Error('No se encontró la fase base (liga) anterior a la Promoción/Relegación');
+
+    // Punto de partida: división actual de cada equipo en la fase base
+    const participacionesBase = await ParticipacionFase.find({ fase: faseBase._id })
+      .populate({ path: 'participacionTemporada', populate: { path: 'equipo', select: 'nombre' } })
+      .lean();
+
+    const sugerencias = new Map(); // equipoId -> { equipoId, equipoNombre, divisionActual, divisionSugerida, motivo }
+    for (const pf of participacionesBase) {
+      const equipo = pf.participacionTemporada?.equipo;
+      if (!equipo) continue;
+      sugerencias.set(equipo._id.toString(), {
+        equipoId: equipo._id,
+        equipoNombre: equipo.nombre,
+        faseBase: faseBase.nombre,
+        divisionActual: pf.division || null,
+        divisionSugerida: pf.division || null,
+        motivo: 'se mantiene',
+      });
+    }
+
+    // Resultado real de la Promoción/Relegación invierte el default para esos equipos
+    const partidosPromocion = await Partido.find({ fase: fasePromocion._id, estado: 'finalizado' }).lean();
+    for (const p of partidosPromocion) {
+      if (!p.equipoLocal || !p.equipoVisitante) continue;
+      const ganadorId = p.marcadorLocal === p.marcadorVisitante
+        ? null // empate: no hay ascenso/descenso claro, se deja como estaba
+        : (p.marcadorLocal > p.marcadorVisitante ? p.equipoLocal : p.equipoVisitante).toString();
+      const perdedorId = p.marcadorLocal === p.marcadorVisitante
+        ? null
+        : (p.marcadorLocal > p.marcadorVisitante ? p.equipoVisitante : p.equipoLocal).toString();
+
+      if (ganadorId && sugerencias.has(ganadorId)) {
+        const s = sugerencias.get(ganadorId);
+        s.divisionSugerida = 'A';
+        s.motivo = s.divisionActual === 'A' ? 'se mantiene en A' : 'asciende por Promoción/Relegación';
+      }
+      if (perdedorId && sugerencias.has(perdedorId)) {
+        const s = sugerencias.get(perdedorId);
+        s.divisionSugerida = 'B';
+        s.motivo = s.divisionActual === 'B' ? 'se mantiene en B' : 'desciende por Promoción/Relegación';
+      }
+    }
+
+    return [...sugerencias.values()];
   }
 };

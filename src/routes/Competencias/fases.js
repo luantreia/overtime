@@ -270,6 +270,37 @@ router.get('/:id', validarObjectId, async (req, res) => {
   }
 });
 
+// Sugerencia (solo lectura) de a qué división debería pasar cada equipo tras una fase de Promoción/Relegación
+/**
+ * @swagger
+ * /api/fases/{id}/sugerencia-divisiones:
+ *   get:
+ *     summary: Sugiere la división de cada equipo tras una fase de Promoción/Relegación, sin aplicar cambios
+ *     tags: [Fases]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Lista de sugerencias por equipo
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/:id/sugerencia-divisiones', validarObjectId, async (req, res) => {
+  try {
+    const sugerencias = await StandingsService.sugerirDivisionesPostPromocion(req.params.id);
+    res.json(sugerencias);
+  } catch (error) {
+    res.status(error.message?.includes('no encontrad') ? 404 : 500).json({ error: error.message || 'Error al calcular sugerencia de divisiones' });
+  }
+});
+
 // Crear fase (usuario autenticado)
 /**
  * @swagger
