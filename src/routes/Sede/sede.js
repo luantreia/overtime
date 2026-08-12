@@ -71,7 +71,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
-    const sede = await Sede.findById(req.params.id).lean();
+    const sede = await Sede.findById(req.params.id).populate('organizacion', 'nombre').lean();
     if (!sede) return res.status(404).json({ error: 'Sede no encontrada' });
     res.json(sede);
   } catch (error) {
