@@ -34,7 +34,7 @@ const router = express.Router();
  *       500:
  *         description: Error al obtener sedes
  */
-router.get('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const filtro = {};
     if (req.query.organizacion) filtro.organizacion = req.query.organizacion;
@@ -69,7 +69,7 @@ router.get('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *       500:
  *         description: Error al obtener sede
  */
-router.get('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const sede = await Sede.findById(req.params.id).lean();
     if (!sede) return res.status(404).json({ error: 'Sede no encontrada' });
