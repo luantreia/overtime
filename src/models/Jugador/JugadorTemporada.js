@@ -15,6 +15,7 @@ const jugadorTemporadaSchema = new Schema({
     default: 'aceptado' },
 
   rol: { type: String, enum: ['jugador', 'entrenador'], default: 'jugador' },
+  numeroCamiseta: { type: Number },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
