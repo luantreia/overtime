@@ -3674,3 +3674,6 @@
 {"level":"info","message":{"duration":"44ms","ip":"127.0.0.1","method":"PUT","path":"/match/6a7c4de5f6c2dcf5a2181582/location","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-08-12T10:41:57.016Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-08-12T10:42:07.675Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-08-12T10:42:17.381Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-08-13T03:39:51.411Z"}
+{"level":"info","message":{"duration":"852ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-08-13T03:39:52.379Z"}
+{"level":"info","message":{"duration":"680ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-08-13T03:39:53.316Z"}

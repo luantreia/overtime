@@ -227,7 +227,9 @@ router.get('/', async (req, res) => {
           'matchTeams'
         ])
         .populate('sets', '_id numeroSet estadoSet ganadorSet duracionReal')
-        .sort({ fecha: 1 })
+        // Descendente: con más de `limit` partidos totales (tope 1000, ver getPaginationParams),
+        // una consulta sin filtro angosto se corta — mejor perder los más viejos que los recientes.
+        .sort({ fecha: -1 })
         .skip(skip)
         .limit(limit)
     ]);
