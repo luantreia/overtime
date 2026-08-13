@@ -403,7 +403,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     console.log('req.body.estado después sanitizar:', req.body.estado);
     console.log('req.body.rol después sanitizar:', req.body.rol);
 
-    const { jugadorEquipo, participacionTemporada, estado, rol } = req.body;
+    const { jugadorEquipo, participacionTemporada, estado, rol, numeroCamiseta } = req.body;
     console.log('req.body:', req.body);
 
     if (!jugadorEquipo || !participacionTemporada) {
@@ -438,6 +438,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
       participacionTemporada,
       estado,
       rol,
+      numeroCamiseta,
       jugador: jugadorEquipoDoc.jugador,
       creadoPor: req.user.uid,
     });
