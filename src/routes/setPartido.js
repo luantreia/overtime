@@ -8,17 +8,21 @@ import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import TimerManager from '../services/TimerManager.js';
+import { requireMatchPermission } from '../middleware/requireMatchPermission.js';
+import { hasMatchPermission } from '../services/matchPermissionService.js';
 
+// hasMatchPermission es un superconjunto estricto de lo que validaba esta función a mano
+// (admin global, creador del partido, creador y administradores de la competencia) y además
+// contempla a los administradores del partido, a los miembros de la organización con
+// `matches.approve`, y a los planilleros/mesa con asignación vigente — que si no podían crear
+// un set pero no cerrarlo.
 async function puedeModificarSet(partidoId, uid, rol) {
-  if (rol === 'admin') return true;
-  const partido = await Partido.findById(partidoId, 'competencia creadoPor').lean();
-  if (!partido) return false;
-  if (partido.creadoPor?.toString() === uid) return true;
-  if (!partido.competencia) return false;
-  const comp = await Competencia.findById(partido.competencia, 'administradores creadoPor').lean();
-  if (!comp) return false;
-  if (comp.creadoPor?.toString() === uid) return true;
-  return (comp.administradores || []).includes(uid);
+  return hasMatchPermission({
+    partidoId: String(partidoId),
+    usuarioId: uid,
+    rolGlobal: rol,
+    permission: 'match.sets',
+  });
 }
 
 const router = express.Router();
@@ -154,6 +158,14 @@ router.post(
   '/',
   verificarToken,
   cargarRolDesdeBD,
+  // Antes esta ruta solo pedía estar logueado: cualquier usuario registrado podía crear, editar
+  // y borrar sets de cualquier partido. Ahora exige `match.sets`, que tienen el organizador, el
+  // creador/admins del partido y los planilleros/mesa con asignación vigente.
+  requireMatchPermission({
+    permission: 'match.sets',
+    resolvePartidoId: (req) => req.body?.partido,
+    missingMessage: 'Se requiere el partido para validar permisos',
+  }),
   async (req, res) => {
     try {
       const { partido, numeroSet } = req.body;

@@ -5,6 +5,8 @@ import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 import verificarToken from '../../middleware/authMiddleware.js';
 import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
+import { requireMatchPermission } from '../../middleware/requireMatchPermission.js';
+import { getPartidoIdFromJugadorPartido } from '../../services/matchPermissionService.js';
 
 const router = express.Router();
 
@@ -406,7 +408,14 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+// Antes estas tres rutas solo pedían estar logueado: cualquier usuario registrado podía sumar o
+// sacar jugadores de la convocatoria de cualquier partido. `match.lineup` lo tienen el
+// organizador, el creador/admins del partido y los planilleros con asignación vigente.
+router.post('/', verificarToken, cargarRolDesdeBD, requireMatchPermission({
+  permission: 'match.lineup',
+  resolvePartidoId: (req) => req.body?.partido,
+  missingMessage: 'Se requiere el partido para validar permisos',
+}), async (req, res) => {
   try {
     const nuevo = new JugadorPartido({
       ...req.body,
@@ -533,7 +542,10 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, requireMatchPermission({
+  permission: 'match.lineup',
+  resolvePartidoId: (req) => getPartidoIdFromJugadorPartido(req.params.id),
+}), async (req, res) => {
   try {
     const item = await JugadorPartido.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'No encontrado' });
@@ -600,7 +612,10 @@ router.put('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.delete('/:id', validarObjectId, verificarToken, cargarRolDesdeBD, requireMatchPermission({
+  permission: 'match.lineup',
+  resolvePartidoId: (req) => getPartidoIdFromJugadorPartido(req.params.id),
+}), async (req, res) => {
   try {
     const item = await JugadorPartido.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'No encontrado' });

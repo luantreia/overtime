@@ -64,6 +64,14 @@ export async function hasMatchPermission({ partidoId, usuarioId, rolGlobal, perm
   return false;
 }
 
+/** Resuelve el partido dueño de un JugadorPartido, para validar permisos sobre la convocatoria. */
+export async function getPartidoIdFromJugadorPartido(jugadorPartidoId) {
+  if (!jugadorPartidoId || !Types.ObjectId.isValid(jugadorPartidoId)) return null;
+  const JugadorPartido = (await import('../models/Jugador/JugadorPartido.js')).default;
+  const jp = await JugadorPartido.findById(jugadorPartidoId).select('partido').lean();
+  return jp?.partido ? String(jp.partido) : null;
+}
+
 /** Asignaciones vigentes de un usuario, para que la app pueda mostrarle "lo que tengo asignado". */
 export async function getAsignacionesVigentes(usuarioId, ahora = new Date()) {
   if (!usuarioId) return [];
