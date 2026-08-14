@@ -134,15 +134,22 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
 
     let organizaciones;
 
+    // La proyección tiene que incluir todo lo que el formulario de "Mi organización" (Overtime-
+    // Organizaciones) manda de vuelta en el PUT: ese form se inicializa con lo que llega de acá,
+    // así que un campo que no viene se inicializa vacío y al guardar cualquier otro cambio lo
+    // pisa con ''. Faltaban logo y redesSociales, que se borraban solos.
+    const PROYECCION_ADMIN =
+      'nombre _id descripcion activa verificada sitioWeb logo redesSociales videoFondoUrl createdAt updatedAt';
+
     if (rol === 'admin') {
-      organizaciones = await Organizacion.find({}, 'nombre _id descripcion activa verificada sitioWeb createdAt updatedAt').lean();
+      organizaciones = await Organizacion.find({}, PROYECCION_ADMIN).lean();
     } else {
       organizaciones = await Organizacion.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id descripcion activa verificada sitioWeb createdAt updatedAt').lean();
+      }, PROYECCION_ADMIN).lean();
     }
 
     res.status(200).json(organizaciones);
