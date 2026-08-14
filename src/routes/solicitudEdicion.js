@@ -1060,7 +1060,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             });
             await nuevaPT.save({ session });
           } else if (solicitud.tipo === 'jugador-temporada-crear') {
-            const { jugadorEquipoId, participacionTemporadaId, estado, rol } = solicitud.datosPropuestos || {};
+            const { jugadorEquipoId, participacionTemporadaId, estado, rol, numeroCamiseta } = solicitud.datosPropuestos || {};
             if (!jugadorEquipoId || !participacionTemporadaId) throw new Error('jugadorEquipoId y participacionTemporadaId requeridos');
             const je = await JugadorEquipo.findById(jugadorEquipoId).select('jugador').session(session);
             if (!je) throw new Error('jugadorEquipo no encontrado');
@@ -1069,8 +1069,11 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             const nuevoJT = new JugadorTemporada({
               jugadorEquipo: jugadorEquipoId,
               participacionTemporada: participacionTemporadaId,
-              estado: estado || 'activo',
+              // 'activo' no existe en el enum de JugadorTemporada (aceptado|baja|suspendido):
+              // si la solicitud venía sin estado, aprobarla tiraba ValidationError.
+              estado: estado || 'aceptado',
               rol: rol || 'jugador',
+              numeroCamiseta,
               jugador: je.jugador,
               creadoPor: solicitud.creadoPor,
             });
