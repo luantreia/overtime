@@ -10,6 +10,7 @@ import { requireTeamPermission } from '../../middleware/requireTeamPermission.js
 import {
   hasTeamPermission,
   getEquipoIdFromEstadisticaJugadorSet,
+  getEquipoIdFromJugadorPartido,
 } from '../../services/teamPermissionService.js';
 import {
   encolarSolicitudStatsLiga,
@@ -244,15 +245,21 @@ router.post(
   cargarRolDesdeBD,
   requireTeamPermission({
     permission: 'stats.capture',
-    resolveEquipoId: async (req) => req.body?.equipo,
-    missingMessage: 'Se requiere equipo para validar permisos de captura',
+    // El equipo se deriva del JugadorPartido, NO de req.body.equipo: si se toma del body, quien
+    // tenga stats.capture en su propio equipo puede declararlo y después apuntar el registro al
+    // jugador de cualquier otro equipo, en cualquier partido. El permiso validaba la declaración
+    // del que llama en vez del recurso.
+    resolveEquipoId: async (req) => getEquipoIdFromJugadorPartido(req.body?.jugadorPartido),
+    missingMessage: 'Se requiere un jugadorPartido válido para validar permisos de captura',
   }),
   async (req, res) => {
     try {
-      const { set, jugadorPartido, jugador, equipo, throws, hits, outs, catches, survive } = req.body;
-      if (!set || !jugadorPartido || !jugador || !equipo) {
-        return res.status(400).json({ error: 'set, jugadorPartido, jugador y equipo son obligatorios' });
+      const { set, jugadorPartido, jugador, throws, hits, outs, catches, survive } = req.body;
+      if (!set || !jugadorPartido || !jugador) {
+        return res.status(400).json({ error: 'set, jugadorPartido y jugador son obligatorios' });
       }
+      // El equipo del registro es el del JugadorPartido, ya resuelto al validar permisos.
+      const equipo = req.equipoIdPermisos;
 
       const nuevo = new EstadisticasJugadorSet({
         set,

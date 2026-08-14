@@ -160,6 +160,21 @@ router.post(
       });
     }
 
+    // El permiso se valida sobre el equipo que declara el que llama, así que hay que confirmar
+    // que ese equipo realmente jugó este partido: si no, alguien con stats.edit en su propio
+    // equipo podría inyectarlo en las estadísticas de cualquier partido ajeno.
+    const Partido = (await import('../../models/Partido/Partido.js')).default;
+    const partidoDoc = await Partido.findById(partidoId).select('equipoLocal equipoVisitante').lean();
+    if (!partidoDoc) {
+      return res.status(404).json({ error: 'Partido no encontrado' });
+    }
+    const jugaronEsteEquipo = [partidoDoc.equipoLocal, partidoDoc.equipoVisitante]
+      .filter(Boolean)
+      .some((id) => String(id) === String(equipoId));
+    if (!jugaronEsteEquipo) {
+      return res.status(403).json({ error: 'Ese equipo no jugó este partido' });
+    }
+
     console.log(' Solicitud de actualización de estadísticas de equipo:', { partidoId, equipoId });
 
     const estadisticasEquipo = await actualizarEstadisticasEquipoPartido(
