@@ -112,6 +112,7 @@ import estadisticasEquipoPartidoRoutes from './src/routes/Equipos/estadisticasEq
 
 import organizacionesRoutes from './src/routes/organizaciones.js';
 import miembrosOrganizacionRoutes from './src/routes/Organizaciones/miembrosOrganizacion.js';
+import asignacionesPartidoRoutes from './src/routes/Partido/asignacionesPartido.js';
 import competenciasRoutes from './src/routes/Competencias/competencias.js';
 import fasesRoutes from "./src/routes/Competencias/fases.js";
 import temporadasRoutes from './src/routes/Competencias/temporadas.js';
@@ -283,8 +284,15 @@ app.use('/api/estadisticas/jugador-partido-manual', estadisticasJugadorPartidoMa
 app.use('/api/estadisticas/jugador-set', estadisticasJugadorSetRoutes);
 app.use('/api/estadisticas/equipo-partido', estadisticasEquipoPartidoRoutes);
 
+// Las rutas de miembros van montadas ANTES que las de organización y en la ruta que documenta
+// su propio Swagger: /api/organizaciones/:id/miembros. Estaban montadas solo bajo
+// /api/organizaciones/miembros, lo que dejaba la URL real en .../miembros/:id/miembros y hacía
+// que toda la pantalla de gestión de miembros (GestionMiembros.tsx) pegara contra un 404.
+// El montaje viejo se conserva por si algún cliente quedó atado a él.
+app.use('/api/organizaciones', miembrosOrganizacionRoutes);
 app.use('/api/organizaciones', organizacionesRoutes);
 app.use('/api/organizaciones/miembros', miembrosOrganizacionRoutes);
+app.use('/api/asignaciones-partido', asignacionesPartidoRoutes);
 app.use('/api/competencias', competenciasRoutes);
 app.use('/api/temporadas', temporadasRoutes);
 app.use('/api/fases', fasesRoutes);

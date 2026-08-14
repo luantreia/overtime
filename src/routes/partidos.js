@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { getPaginationParams } from '../utils/pagination.js';
 import { requireCompetenciaPermission } from '../middleware/requireCompetenciaPermission.js';
 import { getCompetenciaIdFromFase } from '../services/competenciaPermissionService.js';
+import { hasMatchPermission } from '../services/matchPermissionService.js';
 
 
 const router = express.Router();
@@ -481,12 +482,17 @@ router.put(
         return res.status(404).json({ message: 'Partido no encontrado' });
       }
 
-      const uid = req.user.uid;
-      const esCreador = partido.creadoPor?.toString() === uid;
-      const esAdminDelPartido = partido.administradores?.some(adminId => adminId.toString() === uid);
-      const esAdminGlobal = req.user.rol === 'admin';
+      // hasMatchPermission ya contempla admin global, creador y administradores del partido —
+      // o sea todo lo que validaba el chequeo inline anterior — y además habilita a quien
+      // gestiona la competencia y a los planilleros/árbitros con asignación vigente.
+      const puede = await hasMatchPermission({
+        partidoId: req.params.id,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'match.resultado',
+      });
 
-      if (!esCreador && !esAdminDelPartido && !esAdminGlobal) {
+      if (!puede) {
         return res.status(403).json({ message: 'No tiene permiso para editar este partido' });
       }
 
@@ -581,12 +587,14 @@ router.put(
         return res.status(404).json({ message: 'Partido no encontrado' });
       }
 
-      const uid = req.user.uid;
-      const esCreador = partido.creadoPor?.toString() === uid;
-      const esAdminDelPartido = partido.administradores?.some(adminId => adminId.toString() === uid);
-      const esAdminGlobal = req.user.rol === 'admin';
+      const puede = await hasMatchPermission({
+        partidoId: req.params.id,
+        usuarioId: req.user.uid,
+        rolGlobal: req.user.rol,
+        permission: 'match.resultado',
+      });
 
-      if (!esCreador && !esAdminDelPartido && !esAdminGlobal) {
+      if (!puede) {
         return res.status(403).json({ message: 'No tiene permiso para recalcular el marcador de este partido' });
       }
 
