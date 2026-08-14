@@ -115,7 +115,11 @@ router.get('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     if (partido) filtro.partido = partido;
     if (fase) filtro.fase = fase;
 
-    const asignaciones = await AsignacionPartido.find(filtro).sort({ createdAt: -1 }).lean();
+    // Sin poblar, la UI muestra el id crudo del usuario, que no le sirve a nadie.
+    const asignaciones = await AsignacionPartido.find(filtro)
+      .populate('usuarioId', 'nombre email')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(asignaciones);
   } catch (error) {
     console.error('Error al listar asignaciones:', error);
@@ -172,6 +176,7 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     });
 
     const guardada = await asignacion.save();
+    await guardada.populate('usuarioId', 'nombre email');
     res.status(201).json(guardada);
   } catch (error) {
     console.error('Error al crear asignación:', error);

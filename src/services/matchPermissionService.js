@@ -17,7 +17,7 @@ export async function hasMatchPermission({ partidoId, usuarioId, rolGlobal, perm
   if ((rolGlobal || '').toLowerCase() === 'admin') return true;
 
   const partido = await Partido.findById(partidoId)
-    .select('creadoPor administradores competencia fase')
+    .select('creadoPor administradores competencia fase estado')
     .lean();
   if (!partido) return false;
 
@@ -36,7 +36,14 @@ export async function hasMatchPermission({ partidoId, usuarioId, rolGlobal, perm
     if (puedeCompetencia) return true;
   }
 
-  // 3) Asignación puntual del partido o del cuerpo estable de la fase
+  // 3) Asignación puntual del partido o del cuerpo estable de la fase.
+  //
+  // Un partido ya finalizado queda fuera del alcance de las asignaciones: la función del
+  // planillero es cargar el partido que se está jugando, no corregir historia. Rectificar un
+  // resultado cerrado sigue siendo del organizador (caminos 1 y 2 de arriba), que además tiene
+  // el flujo formal de `resultadoPartido` en solicitudes.
+  if (partido.estado === 'finalizado') return false;
+
   const alcance = [{ partido: partidoId }];
   if (partido.fase) alcance.push({ fase: partido.fase });
 
