@@ -56,7 +56,7 @@ router.post(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const { nombre, descripcion, verificada, logo, sitioWeb } = req.body;
+      const { nombre, descripcion, verificada, logo, sitioWeb, videoFondoUrl } = req.body;
 
       const creadoPor = req.user.uid;
       if (!creadoPor) return res.status(401).json({ error: 'No autenticado.' });
@@ -68,6 +68,7 @@ router.post(
         descripcion,
         logo,
         sitioWeb,
+        videoFondoUrl,
         creadoPor,
         administradores: [creadoPor],
         // Solo un administrador del sistema puede crear una organización ya verificada
@@ -231,8 +232,9 @@ router.put(
     try {
       const isSystemAdmin = req.user.rol === 'admin';
       
-      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, redesSociales, activa, verificada }) => {
+      const camposPermitidos = (({ nombre, descripcion, logo, sitioWeb, videoFondoUrl, redesSociales, activa, verificada }) => {
         const base = { nombre, descripcion, logo, sitioWeb, activa };
+        if (videoFondoUrl !== undefined) base.videoFondoUrl = videoFondoUrl;
         if (redesSociales && typeof redesSociales === 'object') {
           base.redesSociales = {
             instagram: redesSociales.instagram || '',
