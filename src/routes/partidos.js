@@ -6,6 +6,8 @@ import { validarObjectId } from '../middleware/validacionObjectId.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js'; // asegurate de importar el modelo
 import mongoose from 'mongoose';
 import { getPaginationParams } from '../utils/pagination.js';
+import { requireCompetenciaPermission } from '../middleware/requireCompetenciaPermission.js';
+import { getCompetenciaIdFromFase } from '../services/competenciaPermissionService.js';
 
 
 const router = express.Router();
@@ -324,7 +326,23 @@ router.get('/:id', validarObjectId, async (req, res) => {
  *       500:
  *         description: Error del servidor
  */
-router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
+router.post(
+  '/',
+  verificarToken,
+  cargarRolDesdeBD,
+  // Antes esta ruta no validaba nada: cualquier usuario logueado podía crear partidos dentro de
+  // la fase/competencia de otro. Los amistosos sueltos (sin fase ni competencia) siguen abiertos
+  // a propósito — los crean DTs y jugadores con `crearAmistoso` desde dodgeballmanager y Manager.
+  requireCompetenciaPermission({
+    permission: 'events.manage',
+    allowWhenUnresolved: true,
+    resolveCompetenciaId: async (req) => {
+      if (req.body?.competencia) return String(req.body.competencia);
+      if (req.body?.fase) return getCompetenciaIdFromFase(req.body.fase);
+      return null; // amistoso: no cuelga de ninguna competencia
+    },
+  }),
+  async (req, res) => {
   try {
     const { participacionFaseLocal, participacionFaseVisitante } = req.body;
     const data = {
@@ -412,7 +430,8 @@ router.post('/', verificarToken, cargarRolDesdeBD, async (req, res) => {
     console.error('Error creando partido:', err);
     res.status(400).json({ message: 'Error al crear el partido', error: err.message });
   }
-});
+  }
+);
 
 // PUT /api/partidos/:id - Actualizar partido
 /**

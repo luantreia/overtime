@@ -11,6 +11,8 @@ import EquipoPartido from '../../models/Equipo/EquipoPartido.js';
 import { generarFixturePorTipo } from '../../utils/generadorFixturePorTipo.js';
 import { StandingsService } from '../../services/StandingsService.js';
 import { recalcularFase } from '../../services/participacionFaseService.js';
+import { requireCompetenciaPermission } from '../../middleware/requireCompetenciaPermission.js';
+import { getCompetenciaIdFromTemporada } from '../../services/competenciaPermissionService.js';
 
 const router = express.Router();
 
@@ -326,17 +328,16 @@ router.post(
   '/',
   verificarToken,
   cargarRolDesdeBD,
+  // Antes esta ruta no validaba nada: cualquier usuario logueado podía crear una fase en la
+  // temporada de cualquier competencia y quedaba en `administradores`, lo que después le
+  // habilitaba editarla, borrarla, generarle fixture y finalizarla vía esAdminDeEntidad.
+  requireCompetenciaPermission({
+    permission: 'events.manage',
+    resolveCompetenciaId: (req) => getCompetenciaIdFromTemporada(req.body?.temporada),
+    missingMessage: 'Se requiere una temporada válida para crear la fase',
+  }),
   async (req, res) => {
     try {
-      // Validar que competencia exista
-      if (!req.body.temporada) {
-        return res.status(400).json({ error: 'Se requiere temporada para crear fase' });
-      }
-
-
-      // Idealmente verificar que el usuario tenga permiso en la competencia
-      // O usar un middleware que valide admin de competencia aquí
-
       const nuevaFase = new Fase({
         ...req.body,
         creadoPor: req.user.uid,
