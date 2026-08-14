@@ -8,6 +8,7 @@ import JugadorCompetencia from '../../models/Jugador/JugadorCompetencia.js';
 import PlayerRating from '../../models/Jugador/PlayerRating.js';
 import EquipoCompetencia from '../../models/Equipo/EquipoCompetencia.js';
 import MatchPlayer from '../../models/Partido/MatchPlayer.js';
+import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import JugadorTemporada from '../../models/Jugador/JugadorTemporada.js';
 import ParticipacionTemporada from '../../models/Equipo/ParticipacionTemporada.js';
 import KarmaLog from '../../models/Plaza/KarmaLog.js';
@@ -1791,6 +1792,28 @@ router.get('/:id/history', async (req, res) => {
       .populate('equipoVisitante', 'nombre escudo')
       .lean();
 
+    // 2.b Partidos de competencia donde el jugador figura en la alineación (JugadorPartido).
+    // No tienen estadísticas individuales — solo sabemos que estuvo convocado y cómo salió el
+    // equipo — pero es el grueso del historial de liga, que si no queda invisible.
+    const yaIncluidos = [...rankedIds, ...unrankedMatches.map(p => p._id.toString())];
+    const convocatorias = await JugadorPartido.find({ jugador: id }).select('partido equipo').lean();
+    const equipoPorPartido = new Map(
+      convocatorias.filter(c => c.partido).map(c => [c.partido.toString(), c.equipo?.toString()])
+    );
+
+    const cQuery = {
+      _id: { $in: convocatorias.map(c => c.partido).filter(Boolean), $nin: yaIncluidos },
+    };
+    if (modalidad) cQuery.modalidad = modalidad;
+    if (categoria) cQuery.categoria = categoria;
+
+    const convocadoMatches = await Partido.find(cQuery)
+      .select('marcadorLocal marcadorVisitante fecha modalidad categoria lobbyId isRanked estado competencia equipoLocal equipoVisitante')
+      .populate('competencia', 'nombre logo verificado')
+      .populate('equipoLocal', 'nombre escudo')
+      .populate('equipoVisitante', 'nombre escudo')
+      .lean();
+
     // 3. Format and Merge — shape compatible con `Partido` (id, fecha, estado, marcadorLocal,
     // marcadorVisitante, modalidad, categoria, equipoLocal, equipoVisitante, competencia)
     const formattedRanked = rankedMatches.map(m => {
@@ -1838,11 +1861,52 @@ router.get('/:id/history', async (req, res) => {
       };
     });
 
-    const allMatches = [...formattedRanked, ...formattedUnranked]
-      .sort((a, b) => new Date(b.partido.fecha) - new Date(a.partido.fecha))
-      .slice(0, 50);
+    // Acá sí sabemos de qué lado jugaba (lo dice el JugadorPartido), así que el resultado se
+    // calcula bien — a diferencia de la rama de arriba, que asume siempre local.
+    const formattedConvocado = convocadoMatches.map(p => {
+      const equipoJugador = equipoPorPartido.get(p._id.toString());
+      const localId = (p.equipoLocal?._id || p.equipoLocal)?.toString();
+      const esLocal = !!equipoJugador && !!localId && equipoJugador === localId;
+      const propio = esLocal ? p.marcadorLocal : p.marcadorVisitante;
+      const rival = esLocal ? p.marcadorVisitante : p.marcadorLocal;
 
-    res.json(allMatches);
+      return {
+        partido: {
+          id: p._id,
+          fecha: p.fecha,
+          estado: p.estado,
+          marcadorLocal: p.marcadorLocal,
+          marcadorVisitante: p.marcadorVisitante,
+          modalidad: p.modalidad,
+          categoria: p.categoria,
+          equipoLocal: p.equipoLocal,
+          equipoVisitante: p.equipoVisitante,
+          competencia: p.competencia
+        },
+        isRanked: false,
+        eloDelta: 0,
+        win: typeof propio === 'number' && typeof rival === 'number' ? propio > rival : false
+      };
+    });
+
+    const allMatches = [...formattedRanked, ...formattedUnranked, ...formattedConvocado]
+      .sort((a, b) => new Date(b.partido.fecha) - new Date(a.partido.fecha));
+
+    // Paginado opt-in: sin ?page/?limit se responde el array plano de siempre (tope 50) para no
+    // romper builds viejos de Public que siguen cacheados en Vercel tras un deploy del backend.
+    const quierePaginado = req.query.page !== undefined || req.query.limit !== undefined;
+    if (!quierePaginado) {
+      return res.json(allMatches.slice(0, 50));
+    }
+
+    const { page, limit, skip } = getPaginationParams(req);
+    return res.json({
+      items: allMatches.slice(skip, skip + limit),
+      total: allMatches.length,
+      page,
+      limit,
+      pages: Math.ceil(allMatches.length / limit) || 0,
+    });
   } catch (error) {
     console.error('Error in history endpoint:', error);
     res.status(500).json({ message: 'Error al obtener historial', error: error.message });
