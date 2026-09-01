@@ -3,7 +3,41 @@ import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPar
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import EquipoPartido from '../models/Equipo/EquipoPartido.js';
+import Jugador from '../models/Jugador/Jugador.js';
 import logger from '../utils/logger.js';
+import { hasTeamPermission } from '../services/teamPermissionService.js';
+
+// Todo lo que no fue rechazado, para quien tiene derecho a ver el detalle interno.
+const ESTADOS_INTERNOS = ['privada', 'pendiente_aprobacion', 'organizacion', 'publica'];
+// Lo único que puede ver alguien de afuera.
+const ESTADOS_PUBLICOS = ['publica'];
+
+/**
+ * Estos resúmenes agregan sobre las colecciones de estadísticas sin pasar por las
+ * rutas que filtran visibilidad, así que el filtro va acá: sin esto, cualquiera
+ * que pidiera el resumen recibía los totales de estadísticas privadas.
+ */
+async function puedeVerPrivadasDeEquipo(req, equipoId) {
+  return hasTeamPermission({
+    equipoId,
+    usuarioId: req.user?.uid,
+    rolGlobal: req.user?.rol,
+    permission: 'stats.view_private',
+  });
+}
+
+async function puedeVerPrivadasDeJugador(req, jugadorId) {
+  const uid = req.user?.uid;
+  if (!uid) return false;
+  if ((req.user?.rol || '').toLowerCase() === 'admin') return true;
+
+  const jugador = await Jugador.findById(jugadorId).select('userId administradores creadoPor').lean();
+  if (!jugador) return false;
+
+  if (String(jugador.userId || '') === String(uid)) return true;
+  if (String(jugador.creadoPor || '') === String(uid)) return true;
+  return (jugador.administradores || []).some((adminId) => String(adminId) === String(uid));
+}
 
 /**
  * Obtiene el resumen de estadísticas para un jugador
@@ -33,11 +67,15 @@ export async function obtenerResumenEstadisticasJugador(req, res) {
 
     const jugadorPartidoIds = jugadorPartidos.map((jp) => jp._id);
 
+    const verPrivadas = await puedeVerPrivadasDeJugador(req, jugadorId);
+    const estadosVisibles = verPrivadas ? ESTADOS_INTERNOS : ESTADOS_PUBLICOS;
+
     // Agregar estadísticas de todos los partidos
     const resumen = await EstadisticasJugadorPartido.aggregate([
       {
         $match: {
           jugadorPartido: { $in: jugadorPartidoIds },
+          estadoPublicacion: { $in: estadosVisibles },
         },
       },
       {
@@ -111,11 +149,15 @@ export async function obtenerResumenEstadisticasEquipo(req, res) {
 
     const equipoPartidoIds = equipoPartidos.map((ep) => ep._id);
 
+    const verPrivadas = await puedeVerPrivadasDeEquipo(req, equipoId);
+    const estadosVisibles = verPrivadas ? ESTADOS_INTERNOS : ESTADOS_PUBLICOS;
+
     // Agregar estadísticas de todos los partidos
     const resumen = await EstadisticasEquipoPartido.aggregate([
       {
         $match: {
           equipoPartido: { $in: equipoPartidoIds },
+          estadoPublicacion: { $in: estadosVisibles },
         },
       },
       {

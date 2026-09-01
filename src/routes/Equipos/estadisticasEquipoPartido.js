@@ -204,6 +204,11 @@ router.post(
       estadisticasEquipo.visibilidadObjetivo = visibilidadObjetivo;
       estadisticasEquipo.solicitudPublicacion = solicitud.solicitudId;
       await estadisticasEquipo.save();
+    } else if (solicitud.autoEstado) {
+      // Amistoso: sin organizador que apruebe, la visibilidad se aplica directo.
+      estadisticasEquipo.estadoPublicacion = solicitud.autoEstado;
+      estadisticasEquipo.visibilidadObjetivo = visibilidadObjetivo;
+      await estadisticasEquipo.save();
     }
 
     res.json({

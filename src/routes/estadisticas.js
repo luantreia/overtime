@@ -1,6 +1,8 @@
 // routes/estadisticas.js
 import express from 'express';
 import { obtenerResumenEstadisticasJugador, obtenerResumenEstadisticasEquipo } from '../controllers/estadisticasController.js';
+import verificarToken from '../middleware/authMiddleware.js';
+import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 
 const router = express.Router();
 
@@ -35,7 +37,7 @@ const router = express.Router();
  *       500:
  *         description: Error al obtener resumen
  */
-router.get('/jugador/:jugadorId/resumen', obtenerResumenEstadisticasJugador);
+router.get('/jugador/:jugadorId/resumen', verificarToken, cargarRolDesdeBD, obtenerResumenEstadisticasJugador);
 
 /**
  * @swagger
@@ -60,6 +62,6 @@ router.get('/jugador/:jugadorId/resumen', obtenerResumenEstadisticasJugador);
  *       500:
  *         description: Error al obtener resumen
  */
-router.get('/equipo/:equipoId/resumen', obtenerResumenEstadisticasEquipo);
+router.get('/equipo/:equipoId/resumen', verificarToken, cargarRolDesdeBD, obtenerResumenEstadisticasEquipo);
 
 export default router;

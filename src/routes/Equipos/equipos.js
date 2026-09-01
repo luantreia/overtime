@@ -193,10 +193,18 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     if (rol === 'admin') {
       equipos = await Equipo.find({}, 'nombre _id tipo esSeleccionNacional pais verificado createdAt updatedAt').lean();
     } else {
+      const membresias = await MiembroEquipo.find({
+        usuarioId: uid,
+        estado: 'activo',
+      }).select('equipo').lean();
+
+      const equiposPorMembresia = membresias.map((m) => m.equipo).filter(Boolean);
+
       equipos = await Equipo.find({
         $or: [
           { creadoPor: uid },
-          { administradores: uid }
+          { administradores: uid },
+          ...(equiposPorMembresia.length ? [{ _id: { $in: equiposPorMembresia } }] : []),
         ]
       }, 'nombre _id tipo esSeleccionNacional pais verificado createdAt updatedAt').lean();
     }

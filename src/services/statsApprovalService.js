@@ -111,7 +111,14 @@ export async function encolarSolicitudStatsLiga({
 
   const partido = await Partido.findById(partidoId).select('competencia').lean();
   if (!partido?.competencia) {
-    return { queued: false, reason: 'friendly-match' };
+    // Un amistoso no tiene organizador que apruebe: la autoridad es el propio
+    // equipo. Antes la estadística quedaba en 'privada' para siempre, sin ningún
+    // camino para publicarla. Ahora se aplica directo la visibilidad pedida.
+    return {
+      queued: false,
+      reason: 'friendly-match',
+      autoEstado: normalizarVisibilidadObjetivo(visibilidadObjetivo),
+    };
   }
 
   const solicitudPendiente = await SolicitudEdicion.findOne({

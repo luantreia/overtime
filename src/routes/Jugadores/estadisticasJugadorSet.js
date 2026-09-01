@@ -293,6 +293,11 @@ router.post(
           guardado.visibilidadObjetivo = visibilidadObjetivo;
           guardado.solicitudPublicacion = solicitud.solicitudId;
           await guardado.save();
+        } else if (solicitud.autoEstado) {
+          // Amistoso: sin organizador que apruebe, la visibilidad se aplica directo.
+          guardado.estadoPublicacion = solicitud.autoEstado;
+          guardado.visibilidadObjetivo = visibilidadObjetivo;
+          await guardado.save();
         }
       }
       
@@ -409,6 +414,11 @@ router.put(
           actualizado.estadoPublicacion = 'pendiente_aprobacion';
           actualizado.visibilidadObjetivo = visibilidadObjetivo;
           actualizado.solicitudPublicacion = solicitud.solicitudId;
+          await actualizado.save();
+        } else if (solicitud.autoEstado) {
+          // Amistoso: sin organizador que apruebe, la visibilidad se aplica directo.
+          actualizado.estadoPublicacion = solicitud.autoEstado;
+          actualizado.visibilidadObjetivo = visibilidadObjetivo;
           await actualizado.save();
         }
       }

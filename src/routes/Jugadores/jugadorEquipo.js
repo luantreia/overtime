@@ -57,6 +57,53 @@ async function esAdminEquipoOJugadorSolicitante(req, res, next) {
   next();
 }
 
+/**
+ * Autorización para crear una relación jugador-equipo.
+ * Mismos roles que aprueban la solicitud equivalente en solicitudesMeta
+ * ('jugador-equipo-crear': adminEquipo | adminJugador). Sin esto, cualquier
+ * usuario con sesión podía fichar a cualquier jugador en cualquier equipo.
+ */
+async function puedeCrearRelacionJugadorEquipo(req, res, next) {
+  try {
+    const usuarioId = req.user?.uid;
+    const rol = (req.user?.rol || '').toLowerCase();
+    const { jugadorId, equipoId } = req.body;
+
+    if (!usuarioId) {
+      return res.status(401).json({ message: 'No autorizado' });
+    }
+
+    if (rol === 'admin') return next();
+
+    if (!Types.ObjectId.isValid(equipoId || '') || !Types.ObjectId.isValid(jugadorId || '')) {
+      return res.status(400).json({ message: 'jugadorId y equipoId deben ser IDs válidos' });
+    }
+
+    const [equipo, jugador] = await Promise.all([
+      Equipo.findById(equipoId).select('creadoPor administradores').lean(),
+      Jugador.findById(jugadorId).select('creadoPor administradores').lean(),
+    ]);
+
+    if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado' });
+    if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado' });
+
+    const esAdminDe = (entidad) =>
+      String(entidad.creadoPor || '') === String(usuarioId) ||
+      (entidad.administradores || []).some((adminId) => String(adminId) === String(usuarioId));
+
+    if (!esAdminDe(equipo) && !esAdminDe(jugador)) {
+      return res.status(403).json({
+        message: 'Necesitás administrar el equipo o el jugador para crear el contrato',
+      });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error validando permisos de creación jugador-equipo:', error);
+    return res.status(500).json({ message: 'Error interno al verificar permisos' });
+  }
+}
+
 // --- Utilidad: Determina si la solicitud fue hecha por el equipo
 function fueHechaPorEquipo(relacion, equipo) {
   const solicitante = relacion.solicitadoPor?.toString();
@@ -176,7 +223,7 @@ router.get('/', async (req, res) => {
  *       400:
  *         $ref: '#/components/responses/BadRequest'
  */
-router.post('/', verificarToken, async (req, res) => {
+router.post('/', verificarToken, cargarRolDesdeBD, puedeCrearRelacionJugadorEquipo, async (req, res) => {
   try {
     const { jugadorId, equipoId, rol, desde, hasta } = req.body;
     if (!jugadorId || !equipoId) {

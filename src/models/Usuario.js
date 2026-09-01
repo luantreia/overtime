@@ -11,6 +11,11 @@ const usuarioSchema = new mongoose.Schema({
   passwordHash: { type: String, select: false },
   provider: { type: String, enum: ["firebase", "local"], default: "local" },
   firebaseUid: { type: String },
+
+  // Verificación de email. Arranca en false para altas locales; los tokens de
+  // un solo uso viven en la colección TokenUsuario.
+  emailVerificado: { type: Boolean, default: false },
+  emailVerificadoEn: { type: Date, default: null },
 });
 
 export default mongoose.model("Usuario", usuarioSchema);

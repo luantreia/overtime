@@ -16,6 +16,16 @@ export const validateUserCreation = [
     .withMessage('Password debe tener mayúscula, minúscula y número'),
 ];
 
+export const validatePassword = (password) => {
+  if (typeof password !== 'string' || password.length < 8) {
+    return 'Password debe tener al menos 8 caracteres';
+  }
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+    return 'Password debe tener mayúscula, minúscula y número';
+  }
+  return null;
+};
+
 // Middleware para procesar errores
 export const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);

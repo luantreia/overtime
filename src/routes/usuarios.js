@@ -64,9 +64,11 @@ router.get('/mi-perfil', verificarToken, async (req, res) => {
     }
 
     res.json({
+      id: usuario._id,
       nombre: usuario.nombre || '',
       email: usuario.email,
       rol: usuario.rol,
+      emailVerificado: Boolean(usuario.emailVerificado),
     });
   } catch (error) {
     console.error('Error al obtener perfil:', error);

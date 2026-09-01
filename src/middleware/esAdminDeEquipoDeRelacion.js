@@ -8,7 +8,8 @@ export const esAdminDeEquipoDeRelacion = async (req, res, next) => {
     const usuarioId = req.user?.uid;
     const rolGlobal = req.user?.rol?.toLowerCase();
     const idRelacion = req.params.id;
-    const equipoId = req.body.equipo || req.query.equipo;
+    // Las rutas no son consistentes en cómo nombran el campo: aceptamos ambas.
+    const equipoId = req.body.equipo || req.body.equipoId || req.query.equipo;
 
     if (!usuarioId) {
       return res.status(401).json({ message: 'No autorizado, token inválido o ausente' });
