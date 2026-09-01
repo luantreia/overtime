@@ -165,6 +165,9 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
   } else {
     // Lógica legacy o simple para otros tipos
     switch (tipo) {
+      // La entidad ya es el partido, así que no hay que resolver nada extra.
+      case 'estadisticas-set-propuesta':
+      case 'estadisticas-partido-propuesta':
       case 'resultadoPartido':
       case 'editarPartidoCompetencia':
       case 'estadisticasEquipoPartido':

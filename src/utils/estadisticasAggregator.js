@@ -25,14 +25,21 @@ export async function actualizarEstadisticasJugadorPartido(jugadorPartidoId, cre
       return estadisticasExistentes;
     }
 
-    // Obtener todas las estadísticas por set de este jugador
+    // Obtener todas las estadísticas por set de este jugador.
+    //
+    // Se excluyen las rechazadas: antes se sumaban igual, así que rechazar una
+    // solicitud solo escondía la fila de origen y dejaba su aporte dentro de los
+    // totales para siempre.
     const estadisticasPorSet = await EstadisticasJugadorSet.find({
-      jugadorPartido: jugadorPartidoId
+      jugadorPartido: jugadorPartidoId,
+      estadoPublicacion: { $ne: 'rechazada' },
     });
 
     if (estadisticasPorSet.length === 0) {
-      console.log('⚠️ No hay estadísticas por set para este jugador');
-      return null;
+      console.log('⚠️ No hay estadísticas por set computables para este jugador');
+      // Importante: no cortamos acá. Si el jugador tenía totales de una carga
+      // anterior que después se rechazó, hay que bajarlos a cero en vez de
+      // dejar el registro viejo intacto.
     }
 
     // Sumar todas las estadísticas
@@ -101,13 +108,16 @@ export async function actualizarEstadisticasEquipoPartido(partidoId, equipoId, c
     const jugadorPartidoIds = jugadoresPartido.map(jp => jp._id);
     
     // Obtener estadísticas de todos los jugadores del equipo
+    // Se excluyen las rechazadas, igual que en los totales del jugador.
     const estadisticasJugadores = await EstadisticasJugadorPartido.find({
-      jugadorPartido: { $in: jugadorPartidoIds }
+      jugadorPartido: { $in: jugadorPartidoIds },
+      estadoPublicacion: { $ne: 'rechazada' },
     });
     
     if (estadisticasJugadores.length === 0) {
-      console.log('⚠️ No hay estadísticas de jugadores para este equipo');
-      return null;
+      // No cortamos: si lo que había quedó rechazado, los totales del equipo
+      // tienen que bajar a cero en vez de conservar la carga anterior.
+      console.log('⚠️ No hay estadísticas computables de jugadores para este equipo');
     }
     
     // Sumar todas las estadísticas
@@ -140,6 +150,34 @@ export async function actualizarEstadisticasEquipoPartido(partidoId, equipoId, c
   } catch (error) {
     console.error('❌ Error actualizando estadísticas de equipo partido:', error);
     throw error;
+  }
+}
+
+/**
+ * Rehace la cadena de agregados que cuelga de un JugadorPartido: primero sus
+ * totales del partido y después los de su equipo.
+ *
+ * Se usa cuando cambia algo que altera las sumas sin pasar por la ruta de
+ * captura: aprobar una propuesta de estadísticas o rechazar una carga previa.
+ *
+ * No lanza: es una reconciliación, y romper el flujo que la llamó (por ejemplo
+ * un rechazo que ya se guardó) sería peor que un total desfasado.
+ */
+export async function recalcularAgregadosDeJugadorPartido(jugadorPartidoId, creadoPor) {
+  try {
+    const jp = await JugadorPartido.findById(jugadorPartidoId).select('partido equipo').lean();
+    if (!jp) return null;
+
+    await actualizarEstadisticasJugadorPartido(jugadorPartidoId, creadoPor, false);
+
+    if (jp.partido && jp.equipo) {
+      await actualizarEstadisticasEquipoPartido(jp.partido, jp.equipo, creadoPor);
+    }
+
+    return jp;
+  } catch (error) {
+    console.error('❌ Error recalculando agregados de jugadorPartido:', jugadorPartidoId, error);
+    return null;
   }
 }
 

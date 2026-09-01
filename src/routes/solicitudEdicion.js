@@ -21,6 +21,13 @@ import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPar
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartido.js';
 import { normalizarVisibilidadObjetivo } from '../services/statsApprovalService.js';
+import SetPartido from '../models/Partido/SetPartido.js';
+import JugadorPartido from '../models/Jugador/JugadorPartido.js';
+import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
+import Partido from '../models/Partido/Partido.js';
+import TimerManager from '../services/TimerManager.js';
+import { hasTeamPermission } from '../services/teamPermissionService.js';
+import { hasMatchPermission } from '../services/matchPermissionService.js';
 
 /**
  * @swagger
@@ -642,6 +649,71 @@ router.post('/', verificarToken, async (req, res) => {
       }
     }
 
+    // Propuesta de estadísticas: validar la forma y que quien propone tenga algo
+    // que ver con el partido. Sin esto, cualquier usuario con sesión podría dejar
+    // una propuesta esperando sobre cualquier partido.
+    const esPropuestaDeStats = ['estadisticas-set-propuesta', 'estadisticas-partido-propuesta'].includes(tipo);
+    if (esPropuestaDeStats) {
+      if (!entidad) {
+        return res.status(400).json({ message: 'entidad (el id del partido) es requerida' });
+      }
+
+      if (tipo === 'estadisticas-set-propuesta') {
+        if (!datosPropuestos.setId) {
+          return res.status(400).json({ message: 'setId es requerido' });
+        }
+        const filasLocal = Array.isArray(datosPropuestos.estadisticasLocal) ? datosPropuestos.estadisticasLocal : [];
+        const filasVisitante = Array.isArray(datosPropuestos.estadisticasVisitante) ? datosPropuestos.estadisticasVisitante : [];
+        if (filasLocal.length === 0 && filasVisitante.length === 0) {
+          return res.status(400).json({ message: 'La propuesta no incluye ninguna estadística' });
+        }
+      } else {
+        const filas = Array.isArray(datosPropuestos.estadisticas) ? datosPropuestos.estadisticas : [];
+        if (filas.length === 0) {
+          return res.status(400).json({ message: 'La propuesta no incluye ninguna estadística' });
+        }
+      }
+
+      const partido = await Partido.findById(entidad).select('equipoLocal equipoVisitante competencia').lean();
+      if (!partido) {
+        return res.status(404).json({ message: 'Partido no encontrado' });
+      }
+      if (!partido.competencia) {
+        return res.status(400).json({
+          message: 'En un amistoso las estadísticas se cargan directo, no hace falta una propuesta.',
+        });
+      }
+
+      const equiposDelPartido = [partido.equipoLocal, partido.equipoVisitante].filter(Boolean);
+      let puedeProponer = await hasMatchPermission({
+        partidoId: entidad,
+        usuarioId: creadoPor,
+        rolGlobal: req.user?.rol,
+        permission: 'match.stats',
+      });
+
+      if (!puedeProponer) {
+        for (const equipoId of equiposDelPartido) {
+          const puede = await hasTeamPermission({
+            equipoId: String(equipoId),
+            usuarioId: creadoPor,
+            rolGlobal: req.user?.rol,
+            permission: 'stats.capture',
+          });
+          if (puede) {
+            puedeProponer = true;
+            break;
+          }
+        }
+      }
+
+      if (!puedeProponer) {
+        return res.status(403).json({
+          message: 'Necesitás poder capturar estadísticas de alguno de los equipos del partido',
+        });
+      }
+    }
+
     // Un equipo creado self-service arranca sin verificar: puede gestionar plantilla,
     // amistosos y estadísticas, pero no entrar a una competencia hasta que un Super
     // Admin lo valide. Ver PUT /api/equipos/:id/verificacion.
@@ -911,11 +983,28 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           solicitudPublicacion: solicitud._id,
         };
 
+        // Marcar la fila como rechazada no alcanzaba: los agregados ya la habían
+        // sumado, y nada los volvía a calcular. El aporte del dato rechazado
+        // quedaba dentro de los totales para siempre.
         if (solicitud.tipo === 'estadisticasJugadorSet') {
-          await EstadisticasJugadorSet.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+          const stat = await EstadisticasJugadorSet.findByIdAndUpdate(
+            solicitud.entidad,
+            rechazoPayload,
+            { new: true },
+          );
+          if (stat?.jugadorPartido) {
+            await recalcularAgregadosDeJugadorPartido(stat.jugadorPartido, uid);
+          }
         } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
-          await EstadisticasJugadorPartido.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+          const stat = await EstadisticasJugadorPartido.findByIdAndUpdate(
+            solicitud.entidad,
+            rechazoPayload,
+            { new: true },
+          );
           await EstadisticasJugadorPartidoManual.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
+          if (stat?.jugadorPartido) {
+            await recalcularAgregadosDeJugadorPartido(stat.jugadorPartido, uid);
+          }
         } else if (solicitud.tipo === 'estadisticasEquipoPartido') {
           await EstadisticasEquipoPartido.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
         }
@@ -954,6 +1043,15 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         solicitud.datosPropuestos = datosPropuestos;
       }
 
+      // JugadorPartido afectados por una propuesta de estadísticas. Los agregados
+      // se rehacen DESPUÉS de commitear: el aggregator no recibe la sesión, así
+      // que adentro de la transacción leería datos que todavía no están visibles.
+      const jugadorPartidosARecalcular = new Set();
+
+      // TimerManager guarda el estado del partido en memoria: si se tocan los sets
+      // hay que avisarle, igual que hace la ruta directa de sets.
+      const partidosARecargarEnTimer = new Set();
+
       // Aplicar cambios a la entidad si corresponde. Hacemos las operaciones que modifican datos
       // dentro de una transacción para asegurar atomicidad entre la solicitud y las entidades.
       const session = await mongoose.startSession();
@@ -962,7 +1060,187 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           // Guardar estado intermedio de solicitud (aceptadoPor/estado) dentro de la transacción
           await solicitud.save({ session });
 
-          if (solicitud.tipo === 'estadisticasJugadorSet') {
+          if (solicitud.tipo === 'resultadoSet') {
+            // Este tipo nunca tuvo rama de aplicación: caía en el `else` final y
+            // aprobar la creación, edición o borrado de un set no hacía nada.
+            const datos = solicitud.datosPropuestos || {};
+            const partidoId = solicitud.entidad;
+            const accion = datos.accion;
+
+            if (accion === 'crear') {
+              const numeroSet = Number(datos.numeroSet);
+              if (!Number.isFinite(numeroSet)) {
+                throw new Error('La propuesta no indica un número de set válido');
+              }
+
+              // El índice {partido, numeroSet} es único: si alguien ya creó ese set
+              // mientras la solicitud esperaba, no es un error, ya está hecho.
+              const existente = await SetPartido.findOne({ partido: partidoId, numeroSet })
+                .session(session)
+                .lean();
+
+              if (!existente) {
+                await SetPartido.create([{
+                  partido: partidoId,
+                  numeroSet,
+                  estadoSet: datos.estadoSet || 'en_juego',
+                  ganadorSet: datos.ganadorSet || 'pendiente',
+                  creadoPor: solicitud.creadoPor,
+                }], { session });
+              }
+
+              partidosARecargarEnTimer.add(String(partidoId));
+
+            } else if (accion === 'actualizar') {
+              const set = await SetPartido.findById(datos.setId).session(session);
+              if (!set) {
+                throw new Error('El set de la propuesta ya no existe');
+              }
+              if (String(set.partido) !== String(partidoId)) {
+                throw new Error('El set no pertenece al partido de la solicitud');
+              }
+
+              // Lista blanca: datosPropuestos se arma en el cliente, así que no se
+              // vuelca entero sobre el documento.
+              for (const campo of ['ganadorSet', 'estadoSet', 'numeroSet']) {
+                if (datos[campo] !== undefined) set[campo] = datos[campo];
+              }
+              // save() y no findByIdAndUpdate: el pre('validate') del schema cierra
+              // el set solo cuando se le carga un ganador.
+              await set.save({ session });
+
+              partidosARecargarEnTimer.add(String(partidoId));
+
+            } else if (accion === 'eliminar') {
+              const set = await SetPartido.findById(datos.setId).session(session);
+
+              if (set) {
+                if (String(set.partido) !== String(partidoId)) {
+                  throw new Error('El set no pertenece al partido de la solicitud');
+                }
+
+                // Las estadísticas del set se borran con él. Si quedaran huérfanas
+                // seguirían sumando: el aggregator agrupa por jugadorPartido, no por
+                // set, así que no notaría que el set ya no existe.
+                const statsDelSet = await EstadisticasJugadorSet.find({ set: set._id })
+                  .select('jugadorPartido')
+                  .session(session)
+                  .lean();
+
+                for (const stat of statsDelSet) {
+                  if (stat.jugadorPartido) jugadorPartidosARecalcular.add(String(stat.jugadorPartido));
+                }
+
+                await EstadisticasJugadorSet.deleteMany({ set: set._id }, { session });
+                await set.deleteOne({ session });
+
+                partidosARecargarEnTimer.add(String(partidoId));
+              }
+
+            } else {
+              throw new Error('La propuesta no indica una acción válida sobre el set');
+            }
+
+          } else if (solicitud.tipo === 'estadisticas-set-propuesta') {
+            // Los números vienen en datosPropuestos y todavía no existen como
+            // filas: recién acá se materializan. Hasta que un aprobador pase por
+            // este punto, los totales del partido no se movieron.
+            const datos = solicitud.datosPropuestos || {};
+            const visibilidad = normalizarVisibilidadObjetivo(datos.visibilidadObjetivo);
+
+            const set = await SetPartido.findById(datos.setId).select('partido').session(session).lean();
+            if (!set) {
+              throw new Error('El set de la propuesta ya no existe');
+            }
+            if (String(set.partido) !== String(solicitud.entidad)) {
+              throw new Error('El set no pertenece al partido de la solicitud');
+            }
+
+            const propuestas = [
+              ...(Array.isArray(datos.estadisticasLocal) ? datos.estadisticasLocal : []),
+              ...(Array.isArray(datos.estadisticasVisitante) ? datos.estadisticasVisitante : []),
+            ];
+
+            for (const item of propuestas) {
+              const jugadorPartidoId = item?.jugadorPartidoId;
+              if (!jugadorPartidoId) continue;
+
+              const jp = await JugadorPartido.findById(jugadorPartidoId)
+                .select('partido equipo jugador')
+                .session(session)
+                .lean();
+              if (!jp) continue;
+
+              // Sin esto, una solicitud aprobada podría escribir estadísticas en
+              // el partido de otro con solo mandar un jugadorPartido ajeno.
+              if (String(jp.partido) !== String(set.partido)) {
+                throw new Error('Un jugador de la propuesta no pertenece a este partido');
+              }
+
+              const valores = item.estadisticas || {};
+              await EstadisticasJugadorSet.findOneAndUpdate(
+                { set: datos.setId, jugadorPartido: jugadorPartidoId },
+                {
+                  set: datos.setId,
+                  jugadorPartido: jugadorPartidoId,
+                  jugador: jp.jugador,
+                  equipo: jp.equipo,
+                  throws: Number(valores.throws) || 0,
+                  hits: Number(valores.hits) || 0,
+                  outs: Number(valores.outs) || 0,
+                  catches: Number(valores.catches) || 0,
+                  survive: Boolean(valores.survive),
+                  estadoPublicacion: visibilidad,
+                  visibilidadObjetivo: visibilidad,
+                  solicitudPublicacion: solicitud._id,
+                  creadoPor: solicitud.creadoPor,
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true, session },
+              );
+
+              jugadorPartidosARecalcular.add(String(jugadorPartidoId));
+            }
+          } else if (solicitud.tipo === 'estadisticas-partido-propuesta') {
+            // Captura directa: los totales del partido se cargan a mano, sin sets.
+            // Van a la colección manual, que es la que lee `modoVisualizacion`.
+            // No se tocan los agregados automáticos: no derivan de esto.
+            const datos = solicitud.datosPropuestos || {};
+            const visibilidad = normalizarVisibilidadObjetivo(datos.visibilidadObjetivo);
+            const filas = Array.isArray(datos.estadisticas) ? datos.estadisticas : [];
+
+            for (const item of filas) {
+              const jugadorPartidoId = item?.jugadorPartido;
+              if (!jugadorPartidoId) continue;
+
+              const jp = await JugadorPartido.findById(jugadorPartidoId)
+                .select('partido')
+                .session(session)
+                .lean();
+              if (!jp) continue;
+
+              if (String(jp.partido) !== String(solicitud.entidad)) {
+                throw new Error('Un jugador de la propuesta no pertenece a este partido');
+              }
+
+              await EstadisticasJugadorPartidoManual.findOneAndUpdate(
+                { jugadorPartido: jugadorPartidoId },
+                {
+                  jugadorPartido: jugadorPartidoId,
+                  throws: Number(item.throws) || 0,
+                  hits: Number(item.hits) || 0,
+                  outs: Number(item.outs) || 0,
+                  catches: Number(item.catches) || 0,
+                  fuente: 'ingreso-manual',
+                  ultimaActualizacion: new Date(),
+                  estadoPublicacion: visibilidad,
+                  visibilidadObjetivo: visibilidad,
+                  solicitudPublicacion: solicitud._id,
+                  creadoPor: solicitud.creadoPor,
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true, session },
+              );
+            }
+          } else if (solicitud.tipo === 'estadisticasJugadorSet') {
             const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
             await EstadisticasJugadorSet.findByIdAndUpdate(
               solicitud.entidad,
@@ -1213,6 +1491,19 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
         return res.status(500).json({ message: 'Error al aplicar los cambios de la solicitud', error: e.message });
       } finally {
         session.endSession();
+      }
+
+      // Fuera de la transacción, ya con las filas visibles.
+      for (const jugadorPartidoId of jugadorPartidosARecalcular) {
+        await recalcularAgregadosDeJugadorPartido(jugadorPartidoId, uid);
+      }
+
+      for (const partidoId of partidosARecargarEnTimer) {
+        try {
+          await TimerManager.reloadMatch(partidoId);
+        } catch (e) {
+          console.error('No se pudo refrescar el timer del partido', partidoId, e);
+        }
       }
     }
 

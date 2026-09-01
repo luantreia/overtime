@@ -107,6 +107,30 @@ export const tiposSolicitudMeta = {
     rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
   },
 
+  // Propuesta de carga de estadísticas de un set en un partido de competencia.
+  //
+  // OJO con la diferencia contra 'estadisticasJugadorSet': ese tipo pide PUBLICAR
+  // una estadística que YA está escrita, y su `entidad` es el id de esa fila. Este
+  // otro propone NÚMEROS QUE TODAVÍA NO EXISTEN, su `entidad` es el id del partido,
+  // y recién al aprobarse se materializan las filas. Son contratos opuestos: no los
+  // mezcles bajo el mismo tipo.
+  'estadisticas-set-propuesta': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['setId', 'estadisticasLocal', 'estadisticasVisitante'],
+    rolesAprobadores: ['adminCompetencia', 'adminPartido'],
+    camposPermitidosSinConsenso: [],
+  },
+
+  // Propuesta de carga directa (manual) de estadísticas de un partido de
+  // competencia. Misma distinción que 'estadisticas-set-propuesta' contra el tipo
+  // de publicación: acá los números todavía no existen y `entidad` es el partido.
+  'estadisticas-partido-propuesta': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['estadisticas'],
+    rolesAprobadores: ['adminCompetencia', 'adminPartido'],
+    camposPermitidosSinConsenso: [],
+  },
+
   // Usuario / Entidades
   'usuario-crear-jugador': {
     requiereDobleConfirmacion: false,

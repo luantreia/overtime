@@ -691,4 +691,69 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
   }
 });
 
+/**
+ * @swagger
+ * /api/partidos/{id}/mis-permisos:
+ *   get:
+ *     summary: Qué puede hacer el usuario autenticado sobre este partido
+ *     tags: [Partidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     responses:
+ *       200:
+ *         description: Permisos del usuario sobre el partido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 partidoId: { type: string }
+ *                 esCompetencia: { type: boolean }
+ *                 canManageLineup: { type: boolean }
+ *                 canManageSets: { type: boolean }
+ *                 canSetResultado: { type: boolean }
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+// Espejo de /equipos/:id/mis-permisos, pero para la capa de partido. La UI lo
+// necesita para no ofrecer acciones que el backend va a rechazar: en un partido
+// de competencia, cargar alineación o sets es del organizador o de quien tenga
+// una asignación vigente, no de los equipos que juegan.
+router.get('/:id/mis-permisos', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const partidoId = req.params.id;
+    const usuarioId = req.user.uid;
+    const rolGlobal = req.user.rol;
+
+    const partido = await Partido.findById(partidoId).select('competencia').lean();
+    if (!partido) {
+      return res.status(404).json({ message: 'Partido no encontrado' });
+    }
+
+    const [canManageLineup, canManageSets, canSetResultado] = await Promise.all([
+      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.lineup' }),
+      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.sets' }),
+      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.resultado' }),
+    ]);
+
+    return res.status(200).json({
+      partidoId,
+      esCompetencia: Boolean(partido.competencia),
+      canManageLineup,
+      canManageSets,
+      canSetResultado,
+    });
+  } catch (error) {
+    console.error('Error al obtener mis permisos de partido:', error);
+    return res.status(500).json({ message: 'Error al obtener permisos del partido' });
+  }
+});
+
 export default router;

@@ -8,6 +8,8 @@ import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import TimerManager from '../services/TimerManager.js';
+import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
+import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
 import { requireMatchPermission } from '../middleware/requireMatchPermission.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 
@@ -297,7 +299,23 @@ router.delete(
         return res.status(403).json({ error: 'No tenés permisos para eliminar sets de este partido' });
       }
 
+      // Las estadísticas del set se van con él. Si quedaran huérfanas seguirían
+      // sumando en los totales: el aggregator agrupa por jugadorPartido, no por
+      // set, así que no se entera de que el set dejó de existir.
+      const statsDelSet = await EstadisticasJugadorSet.find({ set: set._id })
+        .select('jugadorPartido')
+        .lean();
+
+      await EstadisticasJugadorSet.deleteMany({ set: set._id });
       await set.deleteOne();
+
+      const jugadorPartidoIds = new Set(
+        statsDelSet.map((s) => s.jugadorPartido).filter(Boolean).map(String)
+      );
+      for (const jugadorPartidoId of jugadorPartidoIds) {
+        await recalcularAgregadosDeJugadorPartido(jugadorPartidoId, req.user.uid);
+      }
+
       await TimerManager.reloadMatch(set.partido);
       res.json({ mensaje: 'Set eliminado correctamente' });
     } catch (err) {
