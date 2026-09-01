@@ -30,6 +30,13 @@ const equipoSchema = new Schema({
     youtube: { type: String, default: '' },
   },
 
+  // Verificacion: un equipo creado por un DT desde su propio panel nace sin verificar.
+  // Puede operar (plantilla, amistosos, estadisticas) pero no inscribirse a
+  // competencias hasta que un Super Admin lo valide.
+  verificado: { type: Boolean, default: false, index: true },
+  verificadoPor: { type: String, ref: 'Usuario', default: null },
+  verificadoEn: { type: Date, default: null },
+
   creadoPor: { type: String, ref: 'Usuario', required: true },
   administradores: [{ type: String, ref: 'Usuario' }],
 }, { timestamps: true });

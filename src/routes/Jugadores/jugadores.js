@@ -526,6 +526,20 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *           type: integer
  *           default: 1
  *         description: Número de página para la paginación
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [nombre, createdAt, fechaNacimiento]
+ *           default: nombre
+ *         description: Campo por el cual ordenar los resultados
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *         description: Orden de clasificación (ascendente o descendente)
  *     responses:
  *       200:
  *         description: Lista de jugadores obtenida exitosamente
@@ -538,9 +552,11 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *       500:
  *         description: Error del servidor al obtener los jugadores
  */
+const JUGADORES_SORT_FIELDS = ['nombre', 'createdAt', 'fechaNacimiento'];
+
 router.get('/', async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, sortBy, sortOrder } = req.query;
     const { page, limit, skip } = getPaginationParams(req);
     const query = {};
 
@@ -553,13 +569,16 @@ router.get('/', async (req, res) => {
       ];
     }
 
+    const sortField = JUGADORES_SORT_FIELDS.includes(sortBy) ? sortBy : 'nombre';
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+
     const [total, jugadores] = await Promise.all([
       Jugador.countDocuments(query),
       Jugador.find(query)
         .populate('userId', 'nombre email')
         .limit(limit)
         .skip(skip)
-        .sort({ nombre: 1 })
+        .sort({ [sortField]: sortDirection })
         .lean()
     ]);
 

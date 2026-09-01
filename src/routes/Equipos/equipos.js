@@ -63,7 +63,7 @@ const { Types } = mongoose;
  *         description: Error al crear equipo
  */
 router.post('/', verificarToken, async (req, res) => {
-  const { nombre, escudo, foto } = req.body;
+  const { nombre, escudo, foto, tipo, pais } = req.body;
 
   if (!nombre || nombre.trim() === '') {
     return res.status(400).json({ message: 'El nombre es obligatorio' });
@@ -79,7 +79,12 @@ router.post('/', verificarToken, async (req, res) => {
       nombre: nombre.trim(),
       escudo,
       foto,
-      creadoPor: req.user.uid,        // <--- AGREGAR esta línea
+      tipo: tipo || 'club',
+      pais: pais || '',
+      // Alta self-service desde el panel del DT: opera enseguida, pero sin verificar.
+      // Solo un Super Admin puede pasarlo a verificado (PUT /equipos/:id/verificacion).
+      verificado: false,
+      creadoPor: req.user.uid,
       administradores: [req.user.uid],
     });
 
@@ -88,6 +93,70 @@ router.post('/', verificarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al crear equipo:', error);
     res.status(500).json({ message: 'Error al crear equipo', error: error.message });
+  }
+});
+
+// PUT /equipos/:id/verificacion - marca o desmarca un equipo como verificado
+/**
+ * @swagger
+ * /api/equipos/{id}/verificacion:
+ *   put:
+ *     summary: Verifica (o desverifica) un equipo. Solo Super Admin.
+ *     tags: [Equipos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               verificado:
+ *                 type: boolean
+ *                 default: true
+ *     responses:
+ *       200:
+ *         description: Equipo actualizado
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Solo un Super Admin puede verificar equipos
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.put('/:id/verificacion', verificarToken, validarObjectId, cargarRolDesdeBD, async (req, res) => {
+  if (req.user.rol !== 'admin') {
+    return res.status(403).json({ message: 'Solo un Super Admin puede verificar equipos' });
+  }
+
+  const verificado = req.body?.verificado !== false;
+
+  try {
+    const equipo = await Equipo.findByIdAndUpdate(
+      req.params.id,
+      {
+        verificado,
+        verificadoPor: verificado ? req.user.uid : null,
+        verificadoEn: verificado ? new Date() : null,
+      },
+      { new: true }
+    );
+
+    if (!equipo) {
+      return res.status(404).json({ message: 'Equipo no encontrado' });
+    }
+
+    res.status(200).json(equipo);
+  } catch (error) {
+    console.error('Error al verificar equipo:', error);
+    res.status(500).json({ message: 'Error al verificar equipo', error: error.message });
   }
 });
 
@@ -122,14 +191,14 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     let equipos;
 
     if (rol === 'admin') {
-      equipos = await Equipo.find({}, 'nombre _id tipo esSeleccionNacional pais createdAt updatedAt').lean();
+      equipos = await Equipo.find({}, 'nombre _id tipo esSeleccionNacional pais verificado createdAt updatedAt').lean();
     } else {
       equipos = await Equipo.find({
         $or: [
           { creadoPor: uid },
           { administradores: uid }
         ]
-      }, 'nombre _id tipo esSeleccionNacional pais createdAt updatedAt').lean();
+      }, 'nombre _id tipo esSeleccionNacional pais verificado createdAt updatedAt').lean();
     }
 
     res.status(200).json(equipos);
@@ -272,6 +341,11 @@ router.get('/:id', validarObjectId, async (req, res) => {
 router.put('/:id', verificarToken, validarObjectId, cargarRolDesdeBD, esAdminDeEntidad(Equipo, 'equipo'), async (req, res) => {
   const { id } = req.params;
   const datosActualizar = { ...req.body };
+
+  // La verificación no se edita por acá: solo Super Admin vía PUT /:id/verificacion.
+  delete datosActualizar.verificado;
+  delete datosActualizar.verificadoPor;
+  delete datosActualizar.verificadoEn;
 
   // Limpieza de campos vacíos y tipos
   if ('colores' in datosActualizar && Array.isArray(datosActualizar.colores)) {

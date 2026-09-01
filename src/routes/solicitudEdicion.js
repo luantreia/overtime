@@ -642,6 +642,26 @@ router.post('/', verificarToken, async (req, res) => {
       }
     }
 
+    // Un equipo creado self-service arranca sin verificar: puede gestionar plantilla,
+    // amistosos y estadísticas, pero no entrar a una competencia hasta que un Super
+    // Admin lo valide. Ver PUT /api/equipos/:id/verificacion.
+    const tiposQueExigenEquipoVerificado = [
+      'participacion-temporada-crear',
+      'contratoEquipoCompetencia',
+    ];
+    if (tiposQueExigenEquipoVerificado.includes(tipo)) {
+      const equipoId = datosPropuestos.equipo || datosPropuestos.equipoId;
+      if (equipoId) {
+        const equipo = await Equipo.findById(equipoId).select('verificado nombre').lean();
+        if (equipo && !equipo.verificado) {
+          return res.status(403).json({
+            message: 'Tu equipo todavía no está verificado. Un administrador de Overtime tiene que validarlo antes de que puedas inscribirlo a una competencia.',
+            codigo: 'EQUIPO_NO_VERIFICADO',
+          });
+        }
+      }
+    }
+
     // Para equipos: rechazar si ya tiene suficientes admins
     const MAX_ADMINS_EQUIPO = 3;
     if (tipo === 'usuario-solicitar-admin-equipo' && entidad) {
@@ -1083,6 +1103,10 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               ...solicitud.datosPropuestos,
               creadoPor: solicitud.creadoPor,
               administradores: [solicitud.creadoPor],
+              // Pasó por aprobación de un Super Admin: queda verificado de entrada.
+              verificado: true,
+              verificadoPor: req.user.uid,
+              verificadoEn: new Date(),
               activo: true
             });
             await nuevoEquipo.save({ session });

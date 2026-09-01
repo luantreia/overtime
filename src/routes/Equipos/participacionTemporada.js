@@ -339,6 +339,13 @@ router.post('/', verificarToken, validarCamposManual, async (req, res) => {
     if (!equipoDB) return res.status(400).json({ message: 'Equipo no encontrado' });
     if (!temporadaDB) return res.status(400).json({ message: 'Temporada no encontrada' });
 
+    if (!equipoDB.verificado) {
+      return res.status(403).json({
+        message: 'El equipo no está verificado y no puede inscribirse a una competencia.',
+        codigo: 'EQUIPO_NO_VERIFICADO',
+      });
+    }
+
     // Verificar que no exista ya una participación con el mismo equipo-temporada
     const existe = await ParticipacionTemporada.findOne({ equipo, temporada });
     if (existe) {
