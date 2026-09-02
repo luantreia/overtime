@@ -215,6 +215,129 @@ router.get(
 
 /**
  * @swagger
+ * /api/planillas-equipo/resumen:
+ *   get:
+ *     summary: Acumulado de todas las planillas de un equipo
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Lo que alimenta la vista de análisis del equipo. Son datos propios, NO
+ *       oficiales: no salen de las colecciones de la competencia ni se mezclan con
+ *       ellas. Un mismo jugador puede tener números acá y otros distintos en el
+ *       registro oficial, y las dos cosas son correctas en su propio marco.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: equipo
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Acumulado por jugador y por partido }
+ */
+router.get(
+  '/resumen',
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.view_private',
+    resolveEquipoId: (req) => req.query?.equipo,
+    missingMessage: 'Se requiere el parámetro equipo para validar permisos de lectura',
+  }),
+  async (req, res) => {
+    try {
+      const equipoId = req.equipoIdPermisos;
+
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId })
+        .populate('partido', 'fecha estado equipoLocal equipoVisitante competencia')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (!planillas.length) {
+        return res.json({ jugadores: [], partidos: [] });
+      }
+
+      const planillaIds = planillas.map((p) => p._id);
+
+      const [presentes, estadisticas] = await Promise.all([
+        PlanillaPresente.find({ planilla: { $in: planillaIds } })
+          .populate('jugador', 'nombre apellido alias foto')
+          .lean(),
+        PlanillaEstadistica.find({ planilla: { $in: planillaIds } }).lean(),
+      ]);
+
+      const presentePorId = new Map(presentes.map((p) => [String(p._id), p]));
+
+      // Acumulado por jugador (no por presente: el mismo jugador aparece en una
+      // planilla por partido, y lo que interesa es su total en la temporada).
+      const porJugador = new Map();
+      const porPlanilla = new Map();
+
+      for (const stat of estadisticas) {
+        const presente = presentePorId.get(String(stat.planillaPresente));
+        if (!presente) continue;
+
+        const jugadorDoc = presente.jugador;
+        const jugadorId = String(jugadorDoc?._id || jugadorDoc);
+
+        if (!porJugador.has(jugadorId)) {
+          porJugador.set(jugadorId, {
+            jugadorId,
+            nombre: jugadorDoc?.alias
+              || [jugadorDoc?.nombre, jugadorDoc?.apellido].filter(Boolean).join(' ')
+              || 'Jugador',
+            foto: jugadorDoc?.foto,
+            throws: 0,
+            hits: 0,
+            outs: 0,
+            catches: 0,
+            sets: 0,
+            planillas: new Set(),
+          });
+        }
+
+        const acc = porJugador.get(jugadorId);
+        acc.throws += stat.throws || 0;
+        acc.hits += stat.hits || 0;
+        acc.outs += stat.outs || 0;
+        acc.catches += stat.catches || 0;
+        if (stat.planillaSet) acc.sets += 1;
+        acc.planillas.add(String(stat.planilla));
+
+        const planillaKey = String(stat.planilla);
+        if (!porPlanilla.has(planillaKey)) {
+          porPlanilla.set(planillaKey, { throws: 0, hits: 0, outs: 0, catches: 0 });
+        }
+        const tot = porPlanilla.get(planillaKey);
+        tot.throws += stat.throws || 0;
+        tot.hits += stat.hits || 0;
+        tot.outs += stat.outs || 0;
+        tot.catches += stat.catches || 0;
+      }
+
+      const jugadores = [...porJugador.values()]
+        .map(({ planillas: setPlanillas, ...resto }) => ({
+          ...resto,
+          partidos: setPlanillas.size,
+        }))
+        .sort((a, b) => b.hits - a.hits);
+
+      const partidos = planillas.map((p) => ({
+        planillaId: String(p._id),
+        partido: p.partido || null,
+        estado: p.estado,
+        modo: p.modo,
+        totales: porPlanilla.get(String(p._id)) || { throws: 0, hits: 0, outs: 0, catches: 0 },
+      }));
+
+      return res.json({ jugadores, partidos });
+    } catch (error) {
+      console.error('Error armando resumen de planillas:', error);
+      return res.status(500).json({ error: 'Error interno armando el resumen' });
+    }
+  },
+);
+
+/**
+ * @swagger
  * /api/planillas-equipo/{id}:
  *   get:
  *     summary: Planilla completa - presentes, sets y estadísticas
