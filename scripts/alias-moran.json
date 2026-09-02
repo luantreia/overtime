@@ -1,0 +1,45 @@
+{
+  "_comentario": "Apodo tal como aparece en las planillas de Excel -> jugador tal como esta cargado en Overtime. Las claves no distinguen mayusculas ni acentos: NAHUM, Nahum y nahum se resuelven con una sola entrada. Los valores se matchean contra el alias Y el nombre completo del jugador, asi que cualquiera de los dos sirve.",
+
+  "NAHUM": "Nahum Vinas",
+  "LUAN": "Luan Vinas Piol",
+  "ALAN": "Alan Magliocco",
+
+  "_donato": "'Doanto' es un typo de Donato en Fecha1-Moran-Marvin-Foam-Masculino.",
+  "DONATO": "Donato Fedele",
+  "DOANTO": "Donato Fedele",
+
+  "_gabi": "Gabi y Gabriel son la misma persona en archivos distintos.",
+  "GABI": "Gabriel Romano",
+  "GABRIEL": "Gabriel Romano",
+
+  "_santi": "Santi y Santiago son la misma persona en archivos distintos.",
+  "SANTI": "Santiago Cacia Rey",
+  "SANTIAGO": "Santiago Cacia Rey",
+
+  "_zayas": "Mati Z es la forma corta. Matias P fue un error de carga en Moran vs Riestra: tambien es Zayas.",
+  "MATI Z": "Matias Zayas",
+  "MATI ZAYAS": "Matias Zayas",
+  "MATIAS ZAYAS": "Matias Zayas",
+  "MATIAS P": "Matias Zayas",
+
+  "_gimenez": "Mati G y MATI GIMENEZ son formas cortas de Matias Gimenez. OJO: su alias en Overtime es 'Mati' a secas, y hay otros Matias en el plantel — por eso estas entradas son obligatorias y no se puede confiar en el matcheo difuso.",
+  "MATI G": "Matias Gimenez",
+  "MATI GIMENEZ": "Matias Gimenez",
+  "MATIAS GIMENEZ": "Matias Gimenez",
+
+  "_mixto": "Jugadoras que aparecen en las planillas de mixto y femenino. MARTU es Martina Zurita: la ficha 'Martina Garattoni' era un duplicado creado por la importacion de copafacil y se fusiono en Zurita. 'Agus M' es Agustina Montenegro: se distingue de 'AGUS T' (Agustin Torrente) por la inicial del apellido, y en mixto la categoria no filtra por genero, asi que la entrada explicita es obligatoria.",
+  "AYLU": "Aylen Sosa",
+  "CATA": "Catalina Trejo Piol",
+  "AGUS M": "Agustina Montenegro",
+  "AGUS MONTENEGRO": "Agustina Montenegro",
+
+  "MARTU": "Martina Zurita",
+
+  "_apodoMasApellido": "Formas 'apodo + apellido' que no resuelven solas porque el apodo no es un prefijo del nombre real: gabi no es gabriel, agus no es agustina.",
+  "GABI ROMANO": "Gabriel Romano",
+
+  "_agus": "AGUS T = Agustin Torrente (la T es la inicial del apellido). 'agus' a secas, en la planilla de Hydra, es la misma persona: Panthers (22/03) y Hydra (12/04) tienen exactamente los mismos otros 6 jugadores y 'agus' ocupa el lugar de 'AGUS T'. Agustin Gimenez (alias 'Discoteca') es OTRA persona y no aparece en ninguna de estas 5 planillas; Matias Gimenez, que si aparece en LAMADRID/HOKORY/Riestra, tampoco esta en estos dos archivos. Agustina Montenegro (alias 'Agus', femenino) queda fuera por categoria: estas planillas son Masculino.",
+  "AGUS T": "Agustin Torrente",
+  "AGUS": "Agustin Torrente"
+}

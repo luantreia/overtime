@@ -10,6 +10,7 @@ import PlanillaSet from '../../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../../models/Equipo/PlanillaEstadistica.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import SetPartido from '../../models/Partido/SetPartido.js';
+import Partido from '../../models/Partido/Partido.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
 import SolicitudEdicion from '../../models/SolicitudEdicion.js';
 import { normalizarVisibilidadObjetivo } from '../../services/statsApprovalService.js';
@@ -329,6 +330,116 @@ router.get(
     } catch (error) {
       console.error('Error armando resumen de planillas:', error);
       return res.status(500).json({ error: 'Error interno armando el resumen' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/filas:
+ *   get:
+ *     summary: Todas las estadísticas del equipo en formato largo, para analizar
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Una fila por jugador y set, con todas sus dimensiones ya resueltas — partido,
+ *       rival, categoría, modalidad, número de set y quién ganó ese set. Es lo que
+ *       consume la vista de análisis cruzado: el cliente agrupa por las dimensiones que
+ *       elija el usuario sin volver a pedir nada.
+ *
+ *       Son datos propios del equipo, no oficiales.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: equipo
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Filas en formato largo }
+ */
+router.get(
+  '/filas',
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.view_private',
+    resolveEquipoId: (req) => req.query?.equipo,
+    missingMessage: 'Se requiere el parámetro equipo para validar permisos de lectura',
+  }),
+  async (req, res) => {
+    try {
+      const equipoId = req.equipoIdPermisos;
+
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId }).lean();
+      if (!planillas.length) return res.json({ filas: [] });
+
+      const planillaIds = planillas.map((p) => p._id);
+
+      const [presentes, sets, estadisticas, partidos] = await Promise.all([
+        PlanillaPresente.find({ planilla: { $in: planillaIds } })
+          .populate('jugador', 'nombre apellido alias')
+          .lean(),
+        PlanillaSet.find({ planilla: { $in: planillaIds } }).lean(),
+        PlanillaEstadistica.find({ planilla: { $in: planillaIds } }).lean(),
+        Partido.find({ _id: { $in: planillas.map((p) => p.partido) } })
+          .populate('equipoLocal', 'nombre')
+          .populate('equipoVisitante', 'nombre')
+          .populate('competencia', 'categoria modalidad')
+          .select('fecha equipoLocal equipoVisitante competencia')
+          .lean(),
+      ]);
+
+      const porId = (arr) => new Map(arr.map((x) => [String(x._id), x]));
+      const presentePorId = porId(presentes);
+      const setPorId = porId(sets);
+      const partidoPorId = porId(partidos);
+      const planillaPorId = porId(planillas);
+
+      const nombreDe = (j) => {
+        if (!j || typeof j === 'string') return 'Jugador';
+        return j.alias || [j.nombre, j.apellido].filter(Boolean).join(' ').trim() || 'Jugador';
+      };
+
+      const filas = [];
+      for (const stat of estadisticas) {
+        const presente = presentePorId.get(String(stat.planillaPresente));
+        const planilla = planillaPorId.get(String(stat.planilla));
+        if (!presente || !planilla) continue;
+
+        const partido = partidoPorId.get(String(planilla.partido));
+        const esLocal = String(partido?.equipoLocal?._id) === String(equipoId);
+        const rival = esLocal ? partido?.equipoVisitante?.nombre : partido?.equipoLocal?.nombre;
+
+        const setDoc = stat.planillaSet ? setPorId.get(String(stat.planillaSet)) : null;
+
+        // El ganador del set se guarda como local/visitante; se traduce a la óptica del
+        // equipo, que es como se lee el análisis: "en los sets que ganamos…".
+        let resultadoSet = 'sin definir';
+        if (setDoc?.ganadorSet === 'empate') resultadoSet = 'empate';
+        else if (setDoc?.ganadorSet === 'local') resultadoSet = esLocal ? 'ganado' : 'perdido';
+        else if (setDoc?.ganadorSet === 'visitante') resultadoSet = esLocal ? 'perdido' : 'ganado';
+
+        filas.push({
+          jugadorId: String(presente.jugador?._id || presente.jugador),
+          jugador: nombreDe(presente.jugador),
+          partidoId: String(planilla.partido),
+          fecha: partido?.fecha ?? null,
+          rival: rival || 'Rival',
+          categoria: partido?.competencia?.categoria ?? 'Amistoso',
+          modalidad: partido?.competencia?.modalidad ?? 'Sin modalidad',
+          numeroSet: setDoc?.numeroSet ?? null,
+          resultadoSet,
+          throws: stat.throws || 0,
+          hits: stat.hits || 0,
+          outs: stat.outs || 0,
+          catches: stat.catches || 0,
+          survive: Boolean(stat.survive),
+        });
+      }
+
+      return res.json({ filas });
+    } catch (error) {
+      console.error('Error armando filas de planillas:', error);
+      return res.status(500).json({ error: 'Error interno armando las filas' });
     }
   },
 );

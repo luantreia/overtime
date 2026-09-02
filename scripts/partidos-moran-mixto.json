@@ -1,0 +1,23 @@
+{
+  "_comentario": "Nombre exacto del archivo -> _id del Partido. Cada asignacion se verifico contra el marcador que implican los resultados de los sets de la propia planilla (cloth: G=2, E=1; foam: G=1).",
+
+  "_fecha2605": "Estas tres planillas de foam son todas de la fecha del 26/05/2026, pero cada Excel trae una fecha distinta y ninguna correcta.",
+
+  "_oldblue": "El Excel dice 17/05. Implica Moran 12-4, que es OLD BLUE vs MORAN 4-12 del 26/05.",
+  "MORAN VS OLD BLUE FOAM MIXTO FECHA 4.xlsx": "6a14f2d6e983a71e6feb1dcd",
+
+  "_hokoryfoam": "El Excel dice 29/03. Implica Moran 8-4, que es MORAN vs HOKORY 8-4 del 26/05 (no el del 02/08, que fue 2-11).",
+  "Moran vs Hokory Foam Mixto.xlsx": "6a14f2d6e983a71e6feb1dd4",
+
+  "_lamadrid": "El Excel dice 31/05. Implica Moran 5-9, que es MORAN vs LAMADRID 5-9 del 26/05.",
+  "MORAN VS LAMADRID FOAM MIXTO.xlsx": "6a14f2d6e983a71e6feb1dd3",
+
+  "_berseker": "El Excel no tiene fecha ni pelota cargadas. Implica Moran 14-20 leido como cloth, que es MORAN vs BERSERK 14-20 del 07/06.",
+  "MORAN VS BERSEKER CLOTH MIXTO FECHA 5.xlsx": "6a7c033f40c84b82a5383e56",
+
+  "_marvinclausura": "El Excel no tiene fecha ni pelota cargadas. Implica Moran 17-15 leido como cloth, que es MARVIN vs MORAN 15-17 del 02/08.",
+  "MORAN VS MARVIN CLOTH MIXTO CLAUSURA FECHA 1 02_08_2026.xlsx": "6a7c02bfddadcad2ca8cc115",
+
+  "_linces": "El Excel dice 16/08. El partido existe cargado con resultado 15-13 pero conserva la fecha placeholder 31/12/2026, asi que no se puede matchear por fecha. El 13 de Moran coincide con lo que implica la planilla.",
+  "MORAN VS LINCES CLAUSURA FECHA 2 MIXTO CLOTH.xlsx": "6a7d3da7280ab75633cca5e5"
+}

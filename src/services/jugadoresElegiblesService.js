@@ -25,6 +25,10 @@ import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import JugadorTemporada from '../models/Jugador/JugadorTemporada.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js';
+// Import por efecto: este servicio hace populate('jugador') y necesita el modelo
+// registrado. En el server lo registra alguna ruta, pero un script que importe solo
+// este servicio se rompía con "Schema hasn't been registered for model Jugador".
+import '../models/Jugador/Jugador.js';
 import {
   jugadorElegiblePorCategoria,
   categoriaRestringe,
@@ -39,6 +43,18 @@ const nombreDeJugador = (jugador) => {
     || [jugador.nombre, jugador.apellido].filter(Boolean).join(' ').trim()
     || 'Jugador'
   );
+};
+
+/**
+ * Todas las formas con las que se puede nombrar al jugador: el alias y el nombre
+ * completo. `nombre` (el que muestra la UI) prioriza el alias, así que un jugador con
+ * alias queda con su nombre real invisible — y quien importa planillas o busca por
+ * texto necesita las dos.
+ */
+const nombresDeJugador = (jugador) => {
+  if (!jugador || typeof jugador === 'string') return [];
+  const completo = [jugador.nombre, jugador.apellido].filter(Boolean).join(' ').trim();
+  return [jugador.alias, completo, jugador.nombre].filter(Boolean);
 };
 
 /** ¿El contrato estaba vigente en esta fecha? Sin fecha, no filtramos por fecha. */
@@ -100,6 +116,7 @@ export async function obtenerJugadoresElegibles({ partidoId, equipoId }) {
       jugadorId: String(jp.jugador?._id || jp.jugador),
       jugadorPartidoId: String(jp._id),
       nombre: nombreDeJugador(jp.jugador),
+      nombres: nombresDeJugador(jp.jugador),
       numero: jp.numero,
       genero: jp.jugador?.genero ?? null,
     }));
@@ -143,6 +160,7 @@ export async function obtenerJugadoresElegibles({ partidoId, equipoId }) {
           jugadorId: String(jt.jugador?._id || jt.jugador),
           jugadorPartidoId: null,
           nombre: nombreDeJugador(jt.jugador),
+          nombres: nombresDeJugador(jt.jugador),
           numero: jt.numeroCamiseta,
           genero: jt.jugador?.genero ?? null,
         }));
@@ -164,6 +182,7 @@ export async function obtenerJugadoresElegibles({ partidoId, equipoId }) {
     jugadorId: String(je.jugador?._id || je.jugador),
     jugadorPartidoId: null,
     nombre: nombreDeJugador(je.jugador),
+    nombres: nombresDeJugador(je.jugador),
     numero: undefined,
     genero: je.jugador?.genero ?? null,
   }));

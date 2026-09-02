@@ -1,0 +1,9 @@
+{
+  "_comentario": "Nombre exacto del archivo -> _id del Partido en Overtime. Solo hace falta cuando la planilla tiene la fecha mal escrita o vacia y el matcheo por fecha + rival no puede resolverla. Se corrige aca en vez de editar el Excel original.",
+
+  "_panthers": "El Excel dice 19/04/2026, pero ese dia Moran jugo dos veces contra MARVIN en Mixto. El partido real es PANTHERS vs MORAN del 22/03/2026, Masculino/Cloth, 15-15 — el mismo marcador que figura en la celda TOTAL de la planilla.",
+  "VS PANTHERS CLOTH MASC FECHA 1 2026.xlsx": "6a4cebdddd2d188bd72bdebb",
+
+  "_hydra": "El Excel tiene la celda FECHA vacia. El partido es HYDRA vs MORAN del 12/04/2026, Masculino/Cloth, 16-12 — la planilla dice 12-16 en su celda TOTAL, que es el mismo resultado visto desde Moran.",
+  "moran hydra cloth masc STATS DODGEBALL MORAN.xlsx": "6a4cebdddd2d188bd72bdeb4"
+}

@@ -1,0 +1,12 @@
+{
+  "_comentario": "Alias especificos de las planillas FEMENINO de Moran. Se pasa DESPUES de alias-moran.json para que pise las entradas que alli significan otra persona.",
+
+  "_agus": "En masculino 'AGUS' es Agustin Torrente. En femenino es Agustina Montenegro. El mismo apodo, dos personas: por eso este archivo existe y se aplica encima del comun.",
+  "AGUS": "Agustina Montenegro",
+  "AGUS M": "Agustina Montenegro",
+
+  "ASTRID": "Astrid Montenegro",
+  "AYLU": "Aylen Sosa",
+  "CATA": "Catalina Trejo Piol",
+  "MARTU": "Martina Zurita"
+}
