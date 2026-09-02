@@ -8,6 +8,11 @@ import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import mongoose from 'mongoose';
 import Equipo from '../../models/Equipo/Equipo.js';
+import Temporada from '../../models/Competencia/Temporada.js';
+import {
+  jugadorElegiblePorCategoria,
+  categoriaRestringe,
+} from '../../services/categoriaElegibilidadService.js';
 
 const router = express.Router();
 
@@ -231,20 +236,39 @@ router.get('/opciones', verificarToken, cargarRolDesdeBD, async (req, res) => {
     if (condicionesFecha.length) filtroJE.$and = condicionesFecha;
 
     let queryJE = JugadorEquipo.find(filtroJE)
-      .populate('jugador', 'nombre alias foto nacionalidad')
+      .populate('jugador', 'nombre alias foto nacionalidad genero')
       .sort({ 'jugador.nombre': 1 })
       .lean();
     const lista = await queryJE;
 
+    // Categoría de la competencia dueña de esta temporada. En 'Masculino' y 'Femenino'
+    // marca a quién no corresponde anotar; en 'Mixto' y 'Libre' no marca a nadie.
+    //
+    // Se marcan, NO se ocultan: si el jugador desaparece de la lista, quien la carga no
+    // tiene forma de saber si es un problema de categoría, de contrato o de que se
+    // olvidó de darlo de alta. Que la UI lo muestre deshabilitado y con el motivo.
+    const temporadaConCompetencia = await Temporada.findById(pt.temporada?._id || pt.temporada)
+      .populate('competencia', 'categoria')
+      .select('competencia')
+      .lean();
+    const categoria = temporadaConCompetencia?.competencia?.categoria ?? null;
+    const restringe = categoriaRestringe(categoria);
+
     let opciones = lista
       .filter(je => je?._id && !usados.has(je._id.toString()))
-      .map(je => ({
-        _id: je._id,
-        jugador: je.jugador ? { _id: je.jugador._id, nombre: je.jugador.nombre, alias: je.jugador.alias, foto: je.jugador.foto, nacionalidad: je.jugador.nacionalidad } : null,
-        rol: je.rol,
-        estado: je.estado,
-        hasta: je.hasta,
-      }));
+      .map(je => {
+        const elegible = !restringe || jugadorElegiblePorCategoria(categoria, je.jugador?.genero);
+        return {
+          _id: je._id,
+          jugador: je.jugador ? { _id: je.jugador._id, nombre: je.jugador.nombre, alias: je.jugador.alias, foto: je.jugador.foto, nacionalidad: je.jugador.nacionalidad, genero: je.jugador.genero } : null,
+          rol: je.rol,
+          estado: je.estado,
+          hasta: je.hasta,
+          categoriaCompetencia: categoria,
+          elegible,
+          motivoNoElegible: elegible ? null : `La competencia es de categoría ${categoria}`,
+        };
+      });
 
     if (q) {
       const regex = new RegExp(q, 'i');

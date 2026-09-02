@@ -9,6 +9,7 @@ import { getPaginationParams } from '../utils/pagination.js';
 import { requireCompetenciaPermission } from '../middleware/requireCompetenciaPermission.js';
 import { getCompetenciaIdFromFase } from '../services/competenciaPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
+import { obtenerJugadoresElegibles } from '../services/jugadoresElegiblesService.js';
 
 
 const router = express.Router();
@@ -688,6 +689,55 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
     res.json({ message: 'Partido eliminado correctamente' });
   } catch (err) {
     res.status(500).json({ message: 'Error al eliminar el partido', error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/partidos/{id}/jugadores-elegibles:
+ *   get:
+ *     summary: Jugadores que pueden aparecer en la captura de este partido
+ *     tags: [Partidos]
+ *     description: >
+ *       Resuelve la lista por cascada — convocatoria del partido, si no lista de buena
+ *       fe de la temporada, si no plantel vigente A LA FECHA DEL PARTIDO — y le aplica
+ *       la categoría de la competencia. Existe para que la captura deje de ofrecer
+ *       jugadores con contratos de años anteriores. El campo `origen` dice de dónde
+ *       salió la lista, y `excluidos` cuántos quedaron afuera y por qué.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *       - in: query
+ *         name: equipo
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Lista de elegibles con su origen }
+ *       400: { description: Falta el equipo o es inválido }
+ *       403: { description: El equipo no juega este partido }
+ *       404: { description: Partido no encontrado }
+ */
+router.get('/:id/jugadores-elegibles', validarObjectId, verificarToken, cargarRolDesdeBD, async (req, res) => {
+  try {
+    const { equipo } = req.query;
+    if (!equipo || !mongoose.Types.ObjectId.isValid(equipo)) {
+      return res.status(400).json({ message: 'Se requiere un equipo válido' });
+    }
+
+    const resultado = await obtenerJugadoresElegibles({ partidoId: req.params.id, equipoId: equipo });
+
+    if (!resultado) return res.status(404).json({ message: 'Partido no encontrado' });
+    if (resultado.noParticipa) {
+      return res.status(403).json({ message: 'El equipo no participa de este partido' });
+    }
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    console.error('Error resolviendo jugadores elegibles:', error);
+    return res.status(500).json({ message: 'Error al resolver los jugadores elegibles' });
   }
 });
 

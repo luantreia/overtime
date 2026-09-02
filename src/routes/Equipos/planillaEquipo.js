@@ -8,7 +8,6 @@ import PlanillaEquipo from '../../models/Equipo/PlanillaEquipo.js';
 import PlanillaPresente from '../../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../../models/Equipo/PlanillaEstadistica.js';
-import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import SetPartido from '../../models/Partido/SetPartido.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
@@ -16,6 +15,7 @@ import SolicitudEdicion from '../../models/SolicitudEdicion.js';
 import { normalizarVisibilidadObjetivo } from '../../services/statsApprovalService.js';
 import { hasTeamPermission } from '../../services/teamPermissionService.js';
 import { hasMatchPermission } from '../../services/matchPermissionService.js';
+import { obtenerJugadoresElegibles } from '../../services/jugadoresElegiblesService.js';
 import {
   getEquipoIdFromPlanilla,
   validarEquipoJuegaElPartido,
@@ -130,30 +130,27 @@ router.post(
       });
 
       if (autocompletarPresentes) {
-        const plantel = await JugadorEquipo.find({ equipo, estado: 'aceptado' })
-          .select('jugador rol')
-          .lean();
+        // Misma cascada que usa la captura del partido: convocatoria → lista de buena
+        // fe → plantel vigente a la fecha del partido, con la categoría aplicada.
+        // Antes esto tomaba el plantel entero filtrando solo por estado, así que traía
+        // contratos de años anteriores a un partido reciente.
+        const elegibles = await obtenerJugadoresElegibles({
+          partidoId: String(partido),
+          equipoId: String(equipo),
+        });
 
-        if (plantel.length) {
-          // Si la organización ya cargó la convocatoria, enlazamos con ella desde el
-          // arranque: así la oficialización no tiene que crear JugadorPartido de más.
-          const convocatoria = await JugadorPartido.find({ partido, equipo })
-            .select('jugador numero')
-            .lean();
-          const porJugador = new Map(convocatoria.map((jp) => [String(jp.jugador), jp]));
+        const candidatos = elegibles?.jugadores ?? [];
 
+        if (candidatos.length) {
           await PlanillaPresente.insertMany(
-            plantel.map((je) => {
-              const oficial = porJugador.get(String(je.jugador));
-              return {
-                planilla: planilla._id,
-                jugador: je.jugador,
-                jugadorPartido: oficial?._id || null,
-                numero: oficial?.numero,
-                rol: je.rol || 'jugador',
-                creadoPor: req.user.uid,
-              };
-            }),
+            candidatos.map((c) => ({
+              planilla: planilla._id,
+              jugador: c.jugadorId,
+              jugadorPartido: c.jugadorPartidoId || null,
+              numero: c.numero,
+              rol: 'jugador',
+              creadoPor: req.user.uid,
+            })),
             { ordered: false },
           );
         }
