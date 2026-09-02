@@ -785,6 +785,25 @@ router.post(
         return res.status(400).json({ error: 'La planilla no tiene ninguna estadística cargada' });
       }
 
+      // Un set sin ganador se materializa como SetPartido 'en_juego'. Además de quedar
+      // mal en un partido finalizado, el marcador del partido se deriva de los sets
+      // FINALIZADOS: si alguien recalcula después, esos sets cuentan cero y el
+      // resultado oficial se va a 0-0. Se corta acá, antes de que exista el problema.
+      if (planilla.modo === 'sets') {
+        const sinGanador = await PlanillaSet.find({
+          planilla: planilla._id,
+          $or: [{ ganadorSet: 'pendiente' }, { ganadorSet: { $exists: false } }],
+        }).select('numeroSet').lean();
+
+        if (sinGanador.length) {
+          const numeros = sinGanador.map((s) => s.numeroSet).sort((a, b) => a - b);
+          return res.status(400).json({
+            error: `Falta indicar quién ganó ${numeros.length === 1 ? 'el set' : 'los sets'} ${numeros.join(', ')}. Sin eso el set entra al partido como no jugado.`,
+            setsSinGanador: numeros,
+          });
+        }
+      }
+
       const validacion = await validarEquipoJuegaElPartido(planilla.partido, planilla.equipo);
       if (!validacion.ok) {
         return res.status(validacion.status).json({ error: validacion.message });

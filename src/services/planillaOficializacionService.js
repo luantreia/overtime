@@ -18,6 +18,7 @@ import PlanillaPresente from '../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
+import Partido from '../models/Partido/Partido.js';
 import SetPartido from '../models/Partido/SetPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
@@ -164,6 +165,34 @@ export async function aplicarPlanillaOficializada({
     }
 
     jugadorPartidosARecalcular.add(String(jugadorPartidoId));
+  }
+
+  // 4) Modo de estadísticas del partido.
+  //
+  // La captura directa escribe en EstadisticasJugadorPartidoManual, pero la vista del
+  // partido elige la fuente con `modoEstadisticas`, que viene en 'automatico' por
+  // defecto. Sin este paso la oficialización guardaba bien y no se veía nada: había que
+  // ir a cambiar el modo a mano sin ninguna pista de que hacía falta.
+  //
+  // Solo se cambia si el partido no tiene estadísticas automáticas propias: si las
+  // tiene, la fuente actual es una decisión de la organización y no la pisamos.
+  if (planilla.modo === 'directa' && jugadorPartidosARecalcular.size > 0) {
+    const consulta = EstadisticasJugadorSet.countDocuments({
+      jugadorPartido: { $in: [...jugadorPartidosARecalcular] },
+      estadoPublicacion: { $ne: 'rechazada' },
+    });
+    const tieneAutomaticas = await (session ? consulta.session(session) : consulta);
+
+    if (!tieneAutomaticas) {
+      // updateOne y no doc.save(): Partido tiene un post('save') que, en partidos
+      // finalizados, recalcula el marcador desde los sets y reescribe la tabla de
+      // posiciones. Cambiar el modo de visualización no debe disparar nada de eso.
+      await Partido.updateOne(
+        { _id: planilla.partido },
+        { modoEstadisticas: 'manual' },
+        opts,
+      );
+    }
   }
 
   planilla.estado = 'oficializada';
