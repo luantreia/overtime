@@ -131,6 +131,33 @@ export const tiposSolicitudMeta = {
     camposPermitidosSinConsenso: [],
   },
 
+  // Publicación agrupada de las estadísticas de un set.
+  //
+  // Mismo contrato que 'estadisticasJugadorSet' —pide PUBLICAR filas que YA existen—
+  // pero con `entidad` en el SET en vez de en una fila, y los ids de las filas en
+  // `datosPropuestos.statIds`. Existe porque el tipo por fila generaba una solicitud
+  // por jugador: un set de 12 jugadores dejaba 12 solicitudes en la bandeja del
+  // organizador, y un partido de 5 sets, 60. El tipo viejo sigue vivo: hay
+  // solicitudes pendientes creadas con aquel contrato.
+  'estadisticasJugadorSet-lote': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['statIds'],
+    rolesAprobadores: ['adminCompetencia', 'adminEquipo'],
+    camposPermitidosSinConsenso: [],
+  },
+
+  // Un equipo pide que la competencia adopte su planilla como dato oficial.
+  //
+  // `entidad` es la PlanillaEquipo, y los números viven en sus colecciones hijas —no
+  // en datosPropuestos— porque hasta acá nunca tocaron nada oficial. Recién al
+  // aprobarse se materializan JugadorPartido, SetPartido y las estadísticas.
+  'planilla-equipo-oficializacion': {
+    requiereDobleConfirmacion: false,
+    camposCriticos: ['planillaId'],
+    rolesAprobadores: ['adminCompetencia', 'adminPartido'],
+    camposPermitidosSinConsenso: [],
+  },
+
   // Usuario / Entidades
   'usuario-crear-jugador': {
     requiereDobleConfirmacion: false,

@@ -28,6 +28,8 @@ import Partido from '../models/Partido/Partido.js';
 import TimerManager from '../services/TimerManager.js';
 import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
+import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
+import { aplicarPlanillaOficializada } from '../services/planillaOficializacionService.js';
 
 /**
  * @swagger
@@ -714,6 +716,37 @@ router.post('/', verificarToken, async (req, res) => {
       }
     }
 
+    // Oficializar una planilla la trae al registro oficial: solo puede pedirlo quien
+    // captura para el equipo dueño de esa planilla. El camino normal es
+    // POST /api/planillas-equipo/:id/solicitar-oficializacion, que además deja la
+    // planilla en 'pendiente_oficializacion'; esto cubre a quien llegue por acá.
+    if (tipo === 'planilla-equipo-oficializacion') {
+      if (!entidad) {
+        return res.status(400).json({ message: 'entidad (el id de la planilla) es requerida' });
+      }
+
+      const planilla = await PlanillaEquipo.findById(entidad).select('equipo estado').lean();
+      if (!planilla) {
+        return res.status(404).json({ message: 'Planilla no encontrada' });
+      }
+      if (planilla.estado === 'oficializada') {
+        return res.status(409).json({ message: 'La planilla ya fue oficializada' });
+      }
+
+      const puede = await hasTeamPermission({
+        equipoId: String(planilla.equipo),
+        usuarioId: creadoPor,
+        rolGlobal: req.user?.rol,
+        permission: 'stats.capture',
+      });
+
+      if (!puede) {
+        return res.status(403).json({
+          message: 'Necesitás poder capturar estadísticas del equipo dueño de la planilla',
+        });
+      }
+    }
+
     // Un equipo creado self-service arranca sin verificar: puede gestionar plantilla,
     // amistosos y estadísticas, pero no entrar a una competencia hasta que un Super
     // Admin lo valide. Ver PUT /api/equipos/:id/verificacion.
@@ -1009,6 +1042,39 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           await EstadisticasEquipoPartido.findByIdAndUpdate(solicitud.entidad, rechazoPayload);
         }
       }
+
+      // Lote rechazado: mismo criterio que el tipo por fila, sobre todas las filas
+      // del set. Los agregados se rehacen porque ya habían sumado estos números.
+      if (solicitud.tipo === 'estadisticasJugadorSet-lote' && solicitud.entidad) {
+        const statIds = Array.isArray(solicitud.datosPropuestos?.statIds)
+          ? solicitud.datosPropuestos.statIds
+          : [];
+
+        if (statIds.length) {
+          const stats = await EstadisticasJugadorSet.find({
+            _id: { $in: statIds },
+            set: solicitud.entidad,
+          }).select('jugadorPartido').lean();
+
+          await EstadisticasJugadorSet.updateMany(
+            { _id: { $in: statIds }, set: solicitud.entidad },
+            { estadoPublicacion: 'rechazada', solicitudPublicacion: solicitud._id },
+          );
+
+          const jugadorPartidos = new Set(
+            stats.map((s) => s.jugadorPartido).filter(Boolean).map(String),
+          );
+          for (const jugadorPartidoId of jugadorPartidos) {
+            await recalcularAgregadosDeJugadorPartido(jugadorPartidoId, uid);
+          }
+        }
+      }
+
+      // Planilla rechazada: vuelve a manos del equipo, que puede corregirla y volver
+      // a pedirla. No hay agregados que rehacer porque nunca se escribió nada oficial.
+      if (solicitud.tipo === 'planilla-equipo-oficializacion' && solicitud.entidad) {
+        await PlanillaEquipo.findByIdAndUpdate(solicitud.entidad, { estado: 'rechazada' });
+      }
       // Podríamos guardar quién rechazó si agregamos el campo al esquema, por ahora solo fecha y motivo.
     } else if (estado === 'aceptado') {
       const requiereDobleConfirmacion = tiposSolicitudMeta[solicitud.tipo]?.requiereDobleConfirmacion ?? false;
@@ -1251,6 +1317,43 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               },
               { session },
             );
+          } else if (solicitud.tipo === 'estadisticasJugadorSet-lote') {
+            // Mismo efecto que el tipo por fila, pero sobre todas las filas del set
+            // de una sola vez. El filtro por `set` no es decorativo: sin él, un
+            // statIds manipulado publicaría filas de otro set con esta aprobación.
+            const datos = solicitud.datosPropuestos || {};
+            const visibilidad = normalizarVisibilidadObjetivo(datos.visibilidadObjetivo);
+            const statIds = Array.isArray(datos.statIds) ? datos.statIds : [];
+
+            if (statIds.length) {
+              await EstadisticasJugadorSet.updateMany(
+                { _id: { $in: statIds }, set: solicitud.entidad },
+                {
+                  estadoPublicacion: visibilidad,
+                  visibilidadObjetivo: visibilidad,
+                  solicitudPublicacion: solicitud._id,
+                },
+                { session },
+              );
+            }
+          } else if (solicitud.tipo === 'planilla-equipo-oficializacion') {
+            // Único punto donde la captura de un equipo entra al registro oficial.
+            // Toda la mecánica (crear lo que falte sin pisar lo que exista) vive en
+            // el servicio; acá solo se propaga lo que hay que recalcular después de
+            // commitear.
+            const datos = solicitud.datosPropuestos || {};
+            const visibilidad = normalizarVisibilidadObjetivo(datos.visibilidadObjetivo);
+
+            const resultado = await aplicarPlanillaOficializada({
+              planillaId: solicitud.entidad,
+              visibilidad,
+              uid,
+              solicitudId: solicitud._id,
+              session,
+            });
+
+            resultado.jugadorPartidosARecalcular.forEach((id) => jugadorPartidosARecalcular.add(id));
+            if (resultado.partidoId) partidosARecargarEnTimer.add(String(resultado.partidoId));
           } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
             const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
             await EstadisticasJugadorPartido.findByIdAndUpdate(

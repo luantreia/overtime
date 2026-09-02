@@ -19,6 +19,10 @@ import EstadisticasEquipoPartido from '../models/Equipo/EstadisticasEquipoPartid
 import EstadisticasJugadorPartido from '../models/Jugador/EstadisticasJugadorPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import SetPartido from '../models/Partido/SetPartido.js';
+// Se usaba sin importar en el caso 'estadisticasJugadorPartido': resolver los
+// aprobadores de ese tipo tiraba ReferenceError.
+import JugadorPartido from '../models/Jugador/JugadorPartido.js';
+import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 
 function extraerIds(doc, campos = []) {
   const ids = new Set();
@@ -171,8 +175,22 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
       case 'resultadoPartido':
       case 'editarPartidoCompetencia':
       case 'estadisticasEquipoPartido':
+      case 'estadisticasJugadorSet-lote':
+      case 'planilla-equipo-oficializacion':
       case 'estadisticasJugadorPartido': {
         let partidoId = entidadId;
+
+        // El lote agrupa por set: la entidad es el SetPartido, no una fila suelta.
+        if (tipo === 'estadisticasJugadorSet-lote') {
+          const set = await SetPartido.findById(entidadId).select('partido').lean();
+          if (set?.partido) partidoId = set.partido;
+        }
+
+        // La entidad es la planilla del equipo; el partido cuelga de ella.
+        if (tipo === 'planilla-equipo-oficializacion') {
+          const planilla = await PlanillaEquipo.findById(entidadId).select('partido').lean();
+          if (planilla?.partido) partidoId = planilla.partido;
+        }
 
         if (tipo === 'estadisticasEquipoPartido') {
           const statEq = await EstadisticasEquipoPartido.findById(entidadId).select('partido').lean();

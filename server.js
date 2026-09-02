@@ -94,6 +94,7 @@ import equiposCompetenciaRoutes from './src/routes/Equipos/equiposCompetencia.js
 import participacionTemporadaRoutes from './src/routes/Equipos/participacionTemporada.js';
 import participacionFaseRoutes from './src/routes/Equipos/participacionFase.js';
 import equipoPartidoRoutes from './src/routes/Equipos/equipoPartido.js';
+import planillaEquipoRoutes from './src/routes/Equipos/planillaEquipo.js';
 
 import jugadoresRoutes from './src/routes/Jugadores/jugadores.js';
 import jugadorEquipoRoutes from './src/routes/Jugadores/jugadorEquipo.js';  
@@ -268,6 +269,7 @@ app.use('/api/equipos-competencia', equiposCompetenciaRoutes);
 app.use('/api/participacion-temporada', participacionTemporadaRoutes);
 app.use('/api/participacion-fase', participacionFaseRoutes);
 app.use('/api/equipo-partido', equipoPartidoRoutes); // Asegúrate de que este modelo esté correctamente definido
+app.use('/api/planillas-equipo', planillaEquipoRoutes);
 
 app.use('/api/jugadores', jugadoresRoutes);
 app.use('/api/jugador-equipo', jugadorEquipoRoutes);

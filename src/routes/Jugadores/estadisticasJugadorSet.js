@@ -13,7 +13,7 @@ import {
   getEquipoIdFromJugadorPartido,
 } from '../../services/teamPermissionService.js';
 import {
-  encolarSolicitudStatsLiga,
+  encolarSolicitudStatsLoteSet,
   normalizarVisibilidadObjetivo,
   resolverFiltroEstadoPublicacion,
 } from '../../services/statsApprovalService.js';
@@ -279,9 +279,11 @@ router.post(
       const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
       const setDoc = await SetPartido.findById(set).select('partido').lean();
       if (setDoc?.partido) {
-        const solicitud = await encolarSolicitudStatsLiga({
-          tipo: 'estadisticasJugadorSet',
-          entidadId: guardado._id,
+        // Agrupado por { set, equipo }: capturar un set entero deja UNA solicitud,
+        // no una por jugador.
+        const solicitud = await encolarSolicitudStatsLoteSet({
+          setId: set,
+          statId: guardado._id,
           partidoId: setDoc.partido,
           equipoId: equipo,
           creadoPor: req.user.uid,
@@ -401,9 +403,9 @@ router.put(
       const setDoc = await SetPartido.findById(item.set).select('partido').lean();
       if (setDoc?.partido) {
         const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo ?? item.visibilidadObjetivo);
-        const solicitud = await encolarSolicitudStatsLiga({
-          tipo: 'estadisticasJugadorSet',
-          entidadId: actualizado._id,
+        const solicitud = await encolarSolicitudStatsLoteSet({
+          setId: item.set,
+          statId: actualizado._id,
           partidoId: setDoc.partido,
           equipoId: item.equipo,
           creadoPor: req.user.uid,
