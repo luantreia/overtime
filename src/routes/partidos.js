@@ -9,6 +9,7 @@ import { getPaginationParams } from '../utils/pagination.js';
 import { requireCompetenciaPermission } from '../middleware/requireCompetenciaPermission.js';
 import { getCompetenciaIdFromFase } from '../services/competenciaPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
+import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { obtenerJugadoresElegibles } from '../services/jugadoresElegiblesService.js';
 
 
@@ -226,9 +227,13 @@ router.get('/', async (req, res) => {
           'equipoVisitante',
           'participacionFaseLocal',
           'participacionFaseVisitante',
-          'creadoPor',
-          'administradores',
-          'matchTeams'
+          'matchTeams',
+          // Sólo el nombre. Esta ruta es publica (no lleva verificarToken) y popular el Usuario
+          // entero devolvia el email de cada DT y admin que creo o administra un partido: con un
+          // solo GET se enumeraban los mails de todos los entrenadores de la plataforma. El
+          // passwordHash ya estaba a salvo por el select:false del modelo, el email no.
+          { path: 'creadoPor', select: 'nombre' },
+          { path: 'administradores', select: 'nombre' }
         ])
         .populate('sets', '_id numeroSet estadoSet ganadorSet duracionReal')
         // Descendente: con más de `limit` partidos totales (tope 1000, ver getPaginationParams),
@@ -292,8 +297,9 @@ router.get('/:id', validarObjectId, async (req, res) => {
         'participacionFaseLocal',
         'participacionFaseVisitante',
         'sede',
-        'creadoPor',
-        'administradores'
+        // Idem GET /api/partidos: esta ruta tampoco exige token, asi que nada de emails.
+        { path: 'creadoPor', select: 'nombre' },
+        { path: 'administradores', select: 'nombre' }
       ]);
 
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado' });
@@ -782,16 +788,31 @@ router.get('/:id/mis-permisos', validarObjectId, verificarToken, cargarRolDesdeB
     const usuarioId = req.user.uid;
     const rolGlobal = req.user.rol;
 
-    const partido = await Partido.findById(partidoId).select('competencia').lean();
+    const partido = await Partido.findById(partidoId)
+      .select('competencia equipoLocal equipoVisitante')
+      .lean();
     if (!partido) {
       return res.status(404).json({ message: 'Partido no encontrado' });
     }
 
-    const [canManageLineup, canManageSets, canSetResultado] = await Promise.all([
-      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.lineup' }),
-      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.sets' }),
-      hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.resultado' }),
-    ]);
+    // `stats.capture` se valida por equipo, no por partido: un DT puede cargar las estadísticas
+    // de su plantel y no las del rival. El panel mostraba las dos grillas por igual, así que se
+    // cargaban los números del rival, se guardaban los propios y los ajenos morían en un 403
+    // con un error genérico. Devolvemos el permiso por lado para que la UI sólo ofrezca lo que
+    // el usuario puede escribir de verdad.
+    const puedeCapturarEquipo = (equipoId) =>
+      equipoId
+        ? hasTeamPermission({ equipoId: String(equipoId), usuarioId, rolGlobal, permission: 'stats.capture' })
+        : Promise.resolve(false);
+
+    const [canManageLineup, canManageSets, canSetResultado, canCaptureLocal, canCaptureVisitante] =
+      await Promise.all([
+        hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.lineup' }),
+        hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.sets' }),
+        hasMatchPermission({ partidoId, usuarioId, rolGlobal, permission: 'match.resultado' }),
+        puedeCapturarEquipo(partido.equipoLocal),
+        puedeCapturarEquipo(partido.equipoVisitante),
+      ]);
 
     return res.status(200).json({
       partidoId,
@@ -799,6 +820,8 @@ router.get('/:id/mis-permisos', validarObjectId, verificarToken, cargarRolDesdeB
       canManageLineup,
       canManageSets,
       canSetResultado,
+      canCaptureStatsLocal: canCaptureLocal,
+      canCaptureStatsVisitante: canCaptureVisitante,
     });
   } catch (error) {
     console.error('Error al obtener mis permisos de partido:', error);
