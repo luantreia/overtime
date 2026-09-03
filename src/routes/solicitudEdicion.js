@@ -30,6 +30,7 @@ import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import { aplicarPlanillaOficializada } from '../services/planillaOficializacionService.js';
+import { contratoSolapado, mensajeSolapamiento } from '../services/contratoEquipoService.js';
 
 /**
  * @swagger
@@ -1398,6 +1399,30 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             const creadorEsEquipo = adminsEquipo.includes(creador);
             const creadorEsJugador = adminsJugador.includes(creador);
             const origen = creadorEsEquipo ? 'equipo' : (creadorEsJugador ? 'jugador' : 'equipo');
+
+            /**
+             * Este camino no chequeaba NADA antes de crear el contrato.
+             *
+             * Es la mitad del "alta doble": el DT agrega al jugador desde el panel y, en
+             * paralelo, el jugador pide sumarse; al aprobar la solicitud se creaba un segundo
+             * contrato superpuesto. Esos duplicados son los que después hacían fallar la
+             * convocatoria de entrenamientos con un 500, porque el índice único
+             * {entrenamiento, jugador} rechazaba la fila repetida.
+             *
+             * Se valida al APROBAR y no al crear la solicitud: entre una cosa y la otra puede
+             * pasar cualquier cosa, incluido que alguien haya fichado al jugador por el otro
+             * camino mientras la solicitud esperaba.
+             */
+            const choque = await contratoSolapado({
+              jugador: jugadorId,
+              equipo: equipoId,
+              desde: fechaInicio,
+              hasta: fechaFin,
+              session,
+            });
+            if (choque) {
+              throw new Error(mensajeSolapamiento(choque));
+            }
 
             const nuevaRelacion = new JugadorEquipo({
               jugador: jugadorId,

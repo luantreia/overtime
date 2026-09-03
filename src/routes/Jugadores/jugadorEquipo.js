@@ -6,6 +6,7 @@ import Equipo from '../../models/Equipo/Equipo.js';
 import verificarToken from '../../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../../middleware/validacionObjectId.js';
+import { contratoSolapado, mensajeSolapamiento } from '../../services/contratoEquipoService.js';
 
 const router = express.Router();
 const { Types } = mongoose;
@@ -256,22 +257,30 @@ router.post('/', verificarToken, cargarRolDesdeBD, puedeCrearRelacionJugadorEqui
       return res.status(400).json({ message: 'jugadorId y equipoId son obligatorios' });
     }
 
-    // Verificar si ya existe
-    const existe = await JugadorEquipo.findOne({ 
-      jugador: jugadorId, 
-      equipo: equipoId, 
-      estado: 'aceptado' 
+    /**
+     * Se chequea SOLAPAMIENTO, no "existe un contrato aceptado".
+     *
+     * La guarda anterior fallaba en las dos direcciones: bloqueaba volver a fichar a un jugador
+     * cuyo contrato ya había vencido —porque un contrato vencido sigue estando 'aceptado'— y a
+     * la vez no impedía que se creara un segundo contrato superpuesto desde el otro camino de
+     * alta, el de aprobar una solicitud, que no chequeaba nada.
+     */
+    const desdeEfectivo = desde || new Date();
+    const choque = await contratoSolapado({
+      jugador: jugadorId,
+      equipo: equipoId,
+      desde: desdeEfectivo,
+      hasta,
     });
-    
-    if (existe) {
-      return res.status(400).json({ message: 'El jugador ya pertenece a este equipo' });
+    if (choque) {
+      return res.status(409).json({ message: mensajeSolapamiento(choque) });
     }
 
     const relacion = new JugadorEquipo({
       jugador: jugadorId,
       equipo: equipoId,
       rol: rol || 'jugador',
-      desde: desde || new Date(),
+      desde: desdeEfectivo,
       hasta,
       estado: 'aceptado',
       origen: 'equipo',
