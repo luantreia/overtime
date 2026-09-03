@@ -1,0 +1,42 @@
+# Verificación automática del backend en cada push y pull request.
+#
+# No hay TypeScript ni ESLint acá, así que la primera red es un chequeo de sintaxis sobre todo
+# `src/`: es instantáneo y atrapa el error más tonto y más caro de todos, que es publicar un
+# archivo que ni siquiera parsea. Después corren los tests.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # `node --check` sobre cada archivo. No valida imports ni tipos, pero sí que el módulo
+      # sea sintácticamente válido, y cuesta menos de un segundo.
+      - name: Sintaxis
+        run: |
+          find src server.js -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      # Los tipos generados tienen que estar al dia con los schemas. Si alguien toca un
+      # modelo y no regenera, el archivo commiteado miente y las 6 apps compilan contra algo
+      # que ya no existe. Este paso lo convierte en un error visible en vez de un bug lento.
+      - name: Tipos generados al dia
+        run: npm run tipos:check
+
+      # Jest en modo ESM: el proyecto es "type": "module" y el runner necesita el flag.
+      # `cross-env` ya está declarado como dependencia, así que el script funciona tal cual.
+      - name: Tests
+        run: npm test

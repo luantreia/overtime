@@ -9,7 +9,9 @@
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "start": "node server.js",
     "deploy": "git add . && git commit -m \"Auto deploy\" && git push",
-    "dev": "nodemon -r dotenv/config server.js"
+    "dev": "nodemon -r dotenv/config server.js",
+    "tipos": "node scripts/generarTipos.js",
+    "tipos:check": "node scripts/generarTipos.js --check --solo-backend"
   },
   "keywords": [],
   "author": "",

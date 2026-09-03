@@ -4,6 +4,7 @@ export const TEAM_PERMISSION_VALUES = [
   'stats.view_private',
   'matches.manage',
   'lineup.manage',
+  'trainings.manage',
   'members.manage',
   'team.settings.manage',
   'team.*',
@@ -22,9 +23,11 @@ export const TEAM_MEMBER_ROLE_VALUES = [
 
 export const TEAM_ROLE_PERMISSION_PRESETS = {
   jugador: ['stats.view_private'],
-  entrenador: ['stats.capture', 'stats.edit', 'stats.view_private', 'lineup.manage'],
+  entrenador: ['stats.capture', 'stats.edit', 'stats.view_private', 'lineup.manage', 'trainings.manage'],
   video_analista: ['stats.capture', 'stats.edit', 'stats.view_private'],
-  preparador_fisico: ['stats.view_private'],
+  // El preparador fisico organiza y toma asistencia de los entrenamientos: es literalmente
+  // su trabajo, y hasta ahora el rol existia sin ningun permiso que se lo permitiera.
+  preparador_fisico: ['stats.view_private', 'trainings.manage'],
   community_manager: [],
   sponsor_manager: [],
   staff: ['stats.capture'],

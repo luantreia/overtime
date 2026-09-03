@@ -558,6 +558,74 @@ router.get('/match/:id/players', async (req, res) => {
 });
 
 // Player rating
+/**
+ * GET /api/ranked/equipos/:equipoId/ratings
+ *
+ * El rating de todo el plantel de un equipo, en una sola consulta.
+ *
+ * Ya existía /players/:playerId/rating, pero un panel de DT que quiere la columna de rating en
+ * su lista de jugadores tendría que llamarlo una vez por jugador: veinte requests contra un
+ * backend con cold starts para pintar una tabla. Acá son tres consultas, sin importar el
+ * tamaño del plantel.
+ *
+ * Devuelve TODOS los buckets de cada jugador (global, por competencia, por temporada, por
+ * modalidad y categoría) sin aplanarlos: cuál es "el" rating depende de qué esté mirando el
+ * DT, y esa decisión es de la pantalla, no de la API.
+ */
+router.get('/equipos/:equipoId/ratings', verificarToken, async (req, res) => {
+  try {
+    const { equipoId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(equipoId)) {
+      return res.status(400).json({ ok: false, error: 'equipoId inválido' });
+    }
+
+    const JugadorEquipo = (await import('../models/Jugador/JugadorEquipo.js')).default;
+
+    // Sólo el plantel vigente: un contrato dado de baja no es parte del equipo hoy.
+    const contratos = await JugadorEquipo.find({ equipo: equipoId, estado: 'aceptado' })
+      .select('jugador')
+      .lean();
+
+    const jugadorIds = [...new Set(contratos.map((c) => String(c.jugador)))];
+    if (jugadorIds.length === 0) return res.json({ ok: true, jugadores: [] });
+
+    const [jugadores, ratings] = await Promise.all([
+      Jugador.find({ _id: { $in: jugadorIds } }).select('nombre apellido alias foto').lean(),
+      PlayerRating.find({ playerId: { $in: jugadorIds } })
+        .select('playerId competenciaId temporadaId modalidad categoria rating matchesPlayed wins losses draws lastDelta')
+        .lean(),
+    ]);
+
+    const porJugador = new Map(jugadorIds.map((id) => [id, []]));
+    for (const r of ratings) {
+      porJugador.get(String(r.playerId))?.push({
+        competenciaId: r.competenciaId ? String(r.competenciaId) : null,
+        temporadaId: r.temporadaId ? String(r.temporadaId) : null,
+        modalidad: r.modalidad ?? null,
+        categoria: r.categoria ?? null,
+        rating: r.rating,
+        matchesPlayed: r.matchesPlayed,
+        wins: r.wins,
+        losses: r.losses,
+        draws: r.draws,
+        lastDelta: r.lastDelta,
+      });
+    }
+
+    const salida = jugadores.map((j) => ({
+      _id: String(j._id),
+      nombre: j.alias || [j.nombre, j.apellido].filter(Boolean).join(' ').trim() || 'Jugador',
+      foto: j.foto ?? null,
+      ratings: porJugador.get(String(j._id)) ?? [],
+    }));
+
+    return res.json({ ok: true, jugadores: salida });
+  } catch (err) {
+    console.error('Error obteniendo ratings del equipo:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/players/:playerId/rating', async (req, res) => {
   try {
     const { playerId } = req.params;

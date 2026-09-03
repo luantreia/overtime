@@ -272,6 +272,92 @@ router.get('/:id', validarObjectId, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/fases/{id}/tabla:
+ *   get:
+ *     summary: Tabla de posiciones de una fase (solo lectura)
+ *     tags: [Fases]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Posiciones ordenadas, agrupadas por grupo/división }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+
+/**
+ * Tabla de posiciones para consumo de cualquier panel.
+ *
+ * DELIBERADAMENTE NO llama a `StandingsService.calculateStandings`: ese método recalcula el
+ * orden Y ESCRIBE la posición de cada equipo en la base. Colgarlo de un GET significaría que
+ * abrir una pantalla muta datos de la competencia, y que dos DTs mirando la tabla al mismo
+ * tiempo se pisan entre sí. El recálculo es del organizador; acá sólo se lee lo ya calculado.
+ *
+ * El orden de respaldo (puntos, luego diferencia) existe para las fases que todavía no fueron
+ * recalculadas nunca: sin él, `posicion` es null en todas y la tabla saldría en orden de
+ * inserción, que parece un ranking y no lo es.
+ */
+router.get('/:id/tabla', validarObjectId, async (req, res) => {
+  try {
+    const fase = await Fase.findById(req.params.id).select('nombre tipo configuracion').lean();
+    if (!fase) return res.status(404).json({ error: 'Fase no encontrada' });
+
+    const participaciones = await ParticipacionFase.find({ fase: req.params.id })
+      .populate({
+        path: 'participacionTemporada',
+        select: 'equipo',
+        populate: { path: 'equipo', select: 'nombre escudo' },
+      })
+      .lean();
+
+    const filas = participaciones
+      .map((p) => {
+        const equipo = p.participacionTemporada?.equipo ?? null;
+        return {
+          _id: String(p._id),
+          equipo: equipo
+            ? { _id: String(equipo._id), nombre: equipo.nombre, escudo: equipo.escudo ?? null }
+            : null,
+          grupo: p.grupo ?? null,
+          division: p.division ?? null,
+          posicion: p.posicion ?? null,
+          puntos: p.puntos ?? 0,
+          partidosJugados: p.partidosJugados ?? 0,
+          partidosGanados: p.partidosGanados ?? 0,
+          partidosEmpatados: p.partidosEmpatados ?? 0,
+          partidosPerdidos: p.partidosPerdidos ?? 0,
+          diferenciaPuntos: p.diferenciaPuntos ?? 0,
+          clasificado: Boolean(p.clasificado),
+          eliminado: Boolean(p.eliminado),
+        };
+      })
+      .sort((a, b) => {
+        // `posicion` null va al final: es una fase sin recalcular, no un último puesto.
+        if (a.posicion !== null && b.posicion !== null && a.posicion !== b.posicion) {
+          return a.posicion - b.posicion;
+        }
+        if (a.posicion === null && b.posicion !== null) return 1;
+        if (b.posicion === null && a.posicion !== null) return -1;
+        if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+        return b.diferenciaPuntos - a.diferenciaPuntos;
+      });
+
+    return res.json({
+      fase: { _id: String(fase._id), nombre: fase.nombre, tipo: fase.tipo },
+      // Si nunca se recalculó, el orden que se devuelve es el de respaldo y conviene decirlo:
+      // la UI puede avisar que la tabla es provisoria en vez de presentarla como oficial.
+      calculada: filas.some((f) => f.posicion !== null),
+      posiciones: filas,
+    });
+  } catch (error) {
+    console.error('Error obteniendo la tabla de posiciones:', error);
+    return res.status(500).json({ error: 'Error al obtener la tabla de posiciones' });
+  }
+});
+
 // Sugerencia (solo lectura) de a qué división debería pasar cada equipo tras una fase de Promoción/Relegación
 /**
  * @swagger
