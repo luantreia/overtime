@@ -36,7 +36,12 @@ const REFERENCIAS = [
   { modelo: 'Jugador/EstadisticasJugadorSet.js', campo: 'jugador' },
   { modelo: 'Jugador/InvitacionJugador.js', campo: 'jugador' },
   { modelo: 'Jugador/JugadorCompetencia.js', campo: 'jugador', unicoCon: 'competencia' },
-  { modelo: 'Jugador/JugadorEquipo.js', campo: 'jugador' },
+  // 'avisarSiRepiteCon' no bloquea la fusión: avisa. JugadorEquipo NO tiene índice único
+  // {jugador, equipo} —y está bien, porque un jugador puede irse y volver, y eso son dos
+  // contratos legítimos— pero eso también significa que fusionar dos fichas que tenían
+  // contrato con el mismo equipo deja DOS contratos superpuestos que no significan nada.
+  // Es de donde salen los duplicados que después rompen la convocatoria de entrenamientos.
+  { modelo: 'Jugador/JugadorEquipo.js', campo: 'jugador', avisarSiRepiteCon: 'equipo' },
   { modelo: 'Jugador/JugadorFase.js', campo: 'jugador' },
   { modelo: 'Jugador/JugadorPartido.js', campo: 'jugador', unicoCon: 'partido' },
   { modelo: 'Jugador/JugadorTemporada.js', campo: 'jugador' },
@@ -101,6 +106,8 @@ async function main() {
     let totalRepuntadas = 0;
     let totalDescartadas = 0;
     const bloqueos = [];
+    /** No frenan la fusión, pero hay que verlos: quedan filas repetidas que conviene revisar. */
+    const avisos = [];
 
     for (const ref of REFERENCIAS) {
       const M = (await import(`../src/models/${ref.modelo}`)).default;
@@ -139,6 +146,22 @@ async function main() {
         }
       }
 
+      // Aviso (no bloqueo) para las colecciones sin índice único donde el duplicado igual
+      // molesta. Se reporta al final para que quede a la vista después de la fusión.
+      if (ref.avisarSiRepiteCon) {
+        const delQueSeQueda = await M.find({ [ref.campo]: mantener._id })
+          .select(ref.avisarSiRepiteCon)
+          .lean();
+        const yaTiene = new Set(delQueSeQueda.map((d) => String(d[ref.avisarSiRepiteCon])));
+        const repetidos = docs.filter((d) => yaTiene.has(String(d[ref.avisarSiRepiteCon])));
+        if (repetidos.length) {
+          avisos.push(
+            `${nombre}: ${repetidos.length} fila(s) van a quedar repetidas por ${ref.avisarSiRepiteCon}. ` +
+            `Revisalo después con: node -r dotenv/config scripts/contratosDuplicados.js`
+          );
+        }
+      }
+
       totalRepuntadas += repuntar.length;
       totalDescartadas += descartar.length;
       console.log(
@@ -159,6 +182,11 @@ async function main() {
       bloqueos.forEach((b) => console.log(`  ${b}`));
       console.log(c.dim('Resolvé esas filas a mano y volvé a correr.'));
       process.exit(1);
+    }
+
+    if (avisos.length) {
+      console.log(c.warn('\nOjo con esto:'));
+      avisos.forEach((a) => console.log(`  ${a}`));
     }
 
     console.log(c.bold('\n=== Resumen ==='));

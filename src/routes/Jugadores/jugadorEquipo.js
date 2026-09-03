@@ -176,7 +176,33 @@ router.get('/', async (req, res) => {
       .populate('equipo', 'nombre escudo')
       .lean();
 
-    res.status(200).json(relaciones);
+    /**
+     * `vigencia` es un campo DERIVADO que se agrega a cada contrato. No se guarda.
+     *
+     * `estado` y las fechas son dos ejes distintos y confundirlos causó bugs reales. `estado`
+     * dice qué pasó con el VÍNCULO ('aceptado' = se aprobó, 'baja' = se cortó a propósito);
+     * `desde`/`hasta` dicen en qué PERÍODO vale. Un contrato puede estar perfectamente
+     * 'aceptado' y a la vez vencido: nadie lo dio de baja, simplemente se cumplió el plazo.
+     *
+     * Tratar 'aceptado' como "está en el equipo hoy" hacía que jugadores con contrato vencido
+     * siguieran apareciendo en el plantel y en las convocatorias. Se calcula acá, una sola vez,
+     * para que las 6 apps no tengan cada una su versión de la regla — que es exactamente cómo
+     * empiezan a diferir.
+     */
+    const ahora = Date.now();
+    const conVigencia = relaciones.map((r) => {
+      let vigencia;
+      if (r.estado === 'baja') vigencia = 'baja';
+      else if (r.estado !== 'aceptado') vigencia = 'pendiente';
+      else if (r.desde && new Date(r.desde).getTime() > ahora) vigencia = 'futuro';
+      // `hasta` vacío es contrato abierto, no vencido.
+      else if (r.hasta && new Date(r.hasta).getTime() < ahora) vigencia = 'vencido';
+      else vigencia = 'vigente';
+
+      return { ...r, vigencia };
+    });
+
+    res.status(200).json(conVigencia);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener contratos', error: error.message });
   }
