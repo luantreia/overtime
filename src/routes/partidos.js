@@ -11,6 +11,12 @@ import { getCompetenciaIdFromFase } from '../services/competenciaPermissionServi
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { obtenerJugadoresElegibles } from '../services/jugadoresElegiblesService.js';
+import { requireTeamPermission } from '../middleware/requireTeamPermission.js';
+import SetPartido from '../models/Partido/SetPartido.js';
+import JugadorPartido from '../models/Jugador/JugadorPartido.js';
+import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
+import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
+import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 
 
 const router = express.Router();
@@ -76,6 +82,217 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
     res.status(500).json({ message: 'Error al obtener partidos administrables' });
   }
 });
+
+/**
+ * GET /api/partidos/timeline?equipo=<id>[&desde=<ISO>&hasta=<ISO>]
+ *
+ * Los partidos de UN equipo, cada uno anotado con todo lo que hace falta para filtrarlo y
+ * para saber qué datos tiene. Es la fuente de la línea temporal del panel de DT.
+ *
+ * Por qué un endpoint propio y no filtros sueltos sobre `GET /api/partidos`:
+ *
+ * 1. Los filtros que pide esa pantalla —modalidad, categoría, organización, rival, rango de
+ *    fechas— se combinan entre sí y cada uno tiene que recalcular las opciones de los demás
+ *    ("elegí Foam" tiene que descartar las competencias de Cloth). Resolverlo con un ida y
+ *    vuelta al servidor por clic, sobre un backend con cold starts, es inusable. Se manda el
+ *    conjunto entero del equipo una vez y el filtrado facetado ocurre en el navegador: un
+ *    equipo juega decenas de partidos por temporada, no millones.
+ * 2. Saber si un partido "tiene estadísticas" cruza cuatro colecciones y ninguna apunta al
+ *    partido directamente (EstadisticasJugadorSet cuelga de SetPartido, la manual de
+ *    JugadorPartido). Hacerlo desde el front es N+1; acá son seis consultas en total,
+ *    agrupadas, sin importar cuántos partidos haya.
+ *
+ * Devuelve datos privados del equipo (la existencia y el estado de sus planillas), así que
+ * pide `stats.view_private` sobre el equipo consultado.
+ */
+router.get(
+  '/timeline',
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.view_private',
+    resolveEquipoId: (req) => req.query?.equipo,
+    missingMessage: 'Se requiere el parámetro equipo',
+  }),
+  async (req, res) => {
+    try {
+      const equipoId = req.equipoIdPermisos;
+      const { desde, hasta } = req.query;
+
+      const filtro = {
+        $or: [{ equipoLocal: equipoId }, { equipoVisitante: equipoId }],
+      };
+
+      // El rango es opcional y cada extremo lo es por separado: "desde 2026" sin tope superior
+      // es una consulta legítima. Una fecha inválida se ignora en vez de romper la pantalla.
+      const rango = {};
+      const desdeFecha = desde ? new Date(desde) : null;
+      const hastaFecha = hasta ? new Date(hasta) : null;
+      if (desdeFecha && !Number.isNaN(desdeFecha.getTime())) rango.$gte = desdeFecha;
+      if (hastaFecha && !Number.isNaN(hastaFecha.getTime())) rango.$lte = hastaFecha;
+      if (Object.keys(rango).length > 0) filtro.fecha = rango;
+
+      const partidos = await Partido.find(filtro)
+        .select(
+          'fecha estado modalidad categoria ubicacion cancha jornada etapa nombrePartido ' +
+            'marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia temporada fase'
+        )
+        .populate('equipoLocal', 'nombre escudo')
+        .populate('equipoVisitante', 'nombre escudo')
+        .populate({
+          path: 'competencia',
+          select: 'nombre modalidad categoria tipo organizacion',
+          populate: { path: 'organizacion', select: 'nombre' },
+        })
+        .populate('temporada', 'nombre')
+        .populate('fase', 'nombre')
+        .sort({ fecha: -1 })
+        .lean();
+
+      if (partidos.length === 0) return res.json({ partidos: [] });
+
+      const partidoIds = partidos.map((p) => p._id);
+
+      // Las cuatro fuentes de "este partido tiene datos", todas en lote.
+      const [sets, jugadorPartidos, planillas] = await Promise.all([
+        SetPartido.find({ partido: { $in: partidoIds } }).select('_id partido').lean(),
+        JugadorPartido.find({ partido: { $in: partidoIds }, equipo: equipoId })
+          .select('_id partido')
+          .lean(),
+        PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId })
+          .select('_id partido estado modo fuentePreferida')
+          .lean(),
+      ]);
+
+      const [statsSet, statsManual] = await Promise.all([
+        EstadisticasJugadorSet.find({
+          set: { $in: sets.map((s) => s._id) },
+          equipo: equipoId,
+        })
+          .select('set estadoPublicacion')
+          .lean(),
+        EstadisticasJugadorPartidoManual.find({
+          jugadorPartido: { $in: jugadorPartidos.map((jp) => jp._id) },
+        })
+          .select('jugadorPartido')
+          .lean(),
+      ]);
+
+      const partidoDeSet = new Map(sets.map((s) => [String(s._id), String(s.partido)]));
+      const partidoDeJp = new Map(jugadorPartidos.map((jp) => [String(jp._id), String(jp.partido)]));
+
+      // 'organizacion' y 'publica' son los estados ya aprobados; 'privada',
+      // 'pendiente_aprobacion' y 'rechazada' son estadísticas que existen pero que nadie
+      // validó todavía. Esa es la diferencia entre "tiene datos" y "está verificado".
+      const APROBADOS = new Set(['organizacion', 'publica']);
+
+      const porPartido = new Map(
+        partidoIds.map((id) => [
+          String(id),
+          { conSets: false, verificada: false, conManual: false },
+        ])
+      );
+
+      for (const stat of statsSet) {
+        const pid = partidoDeSet.get(String(stat.set));
+        const acc = pid && porPartido.get(pid);
+        if (!acc) continue;
+        acc.conSets = true;
+        if (APROBADOS.has(stat.estadoPublicacion)) acc.verificada = true;
+      }
+
+      for (const manual of statsManual) {
+        const pid = partidoDeJp.get(String(manual.jugadorPartido));
+        const acc = pid && porPartido.get(pid);
+        if (acc) acc.conManual = true;
+      }
+
+      const planillaDePartido = new Map(planillas.map((pl) => [String(pl.partido), pl]));
+
+      const resultado = partidos.map((partido) => {
+        const pid = String(partido._id);
+        const acc = porPartido.get(pid) ?? { conSets: false, verificada: false, conManual: false };
+        const planilla = planillaDePartido.get(pid) ?? null;
+
+        const esLocal = String(partido.equipoLocal?._id) === String(equipoId);
+        const rival = esLocal ? partido.equipoVisitante : partido.equipoLocal;
+
+        const tieneOficial = acc.conSets || acc.conManual;
+        const tienePlanilla = Boolean(planilla);
+
+        // `fuentePreferida` sólo desempata cuando existen las dos. Si hay una sola, esa se usa,
+        // sin importar lo que diga la preferencia: preferir lo oficial no puede dejar sin datos
+        // a un partido que sólo tiene planilla.
+        let fuenteEfectiva = 'sin_datos';
+        if (tieneOficial && tienePlanilla) {
+          fuenteEfectiva = planilla.fuentePreferida === 'planilla' ? 'planilla' : 'oficial';
+        } else if (tieneOficial) {
+          fuenteEfectiva = 'oficial';
+        } else if (tienePlanilla) {
+          fuenteEfectiva = 'planilla';
+        }
+
+        return {
+          _id: pid,
+          fecha: partido.fecha,
+          estado: partido.estado,
+          // Del partido, NO de la competencia: son campos propios y obligatorios del partido, y
+          // los amistosos no tienen competencia de la cual heredarlos.
+          modalidad: partido.modalidad,
+          categoria: partido.categoria,
+          ubicacion: partido.ubicacion ?? null,
+          jornada: partido.jornada ?? null,
+          etapa: partido.etapa ?? null,
+          nombrePartido: partido.nombrePartido ?? null,
+          esLocal,
+          marcadorEquipo: esLocal ? partido.marcadorLocal ?? 0 : partido.marcadorVisitante ?? 0,
+          marcadorRival: esLocal ? partido.marcadorVisitante ?? 0 : partido.marcadorLocal ?? 0,
+          rival: rival ? { _id: String(rival._id), nombre: rival.nombre, escudo: rival.escudo ?? null } : null,
+          competencia: partido.competencia
+            ? {
+                _id: String(partido.competencia._id),
+                nombre: partido.competencia.nombre,
+                modalidad: partido.competencia.modalidad,
+                categoria: partido.competencia.categoria,
+                organizacion: partido.competencia.organizacion
+                  ? {
+                      _id: String(partido.competencia.organizacion._id),
+                      nombre: partido.competencia.organizacion.nombre,
+                    }
+                  : null,
+              }
+            : null,
+          temporada: partido.temporada
+            ? { _id: String(partido.temporada._id), nombre: partido.temporada.nombre }
+            : null,
+          fase: partido.fase ? { _id: String(partido.fase._id), nombre: partido.fase.nombre } : null,
+          datos: {
+            oficial: {
+              existe: tieneOficial,
+              porSets: acc.conSets,
+              directa: acc.conManual,
+              verificada: acc.verificada,
+            },
+            planilla: planilla
+              ? {
+                  _id: String(planilla._id),
+                  estado: planilla.estado,
+                  modo: planilla.modo,
+                  fuentePreferida: planilla.fuentePreferida ?? 'oficial',
+                }
+              : null,
+            fuenteEfectiva,
+          },
+        };
+      });
+
+      return res.json({ partidos: resultado });
+    } catch (error) {
+      console.error('Error armando la línea temporal de partidos:', error);
+      return res.status(500).json({ message: 'Error al armar la línea temporal' });
+    }
+  }
+);
 
 // GET /api/partidos - Listar partidos, opcionalmente filtrados por fase o competencia
 /**

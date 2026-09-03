@@ -582,9 +582,15 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
 
     // Obtener sets del partido
     const SetPartido = (await import('../../models/Partido/SetPartido.js')).default;
+    // Nada de `.populate('ganadorSet')`: es un String con enum ('local' | 'visitante' |
+    // 'empate' | 'pendiente'), no una referencia. Desde Mongoose 6 `strictPopulate` está
+    // activo por defecto y poblar un campo que no es ref lanza StrictPopulateError, así que
+    // esta ruta devolvía 500 en todas sus llamadas. `.lean()` porque abajo se hace spread de
+    // cada documento: sobre un Document de Mongoose el spread no copia los campos —quedan en
+    // `_doc`— y la respuesta salía con la basura interna del ODM en vez de las estadísticas.
     const setsDelPartido = await SetPartido.find({ partido: partidoId })
-      .populate('ganadorSet', 'nombre')
-      .sort({ numeroSet: 1 });
+      .sort({ numeroSet: 1 })
+      .lean();
 
     // Para cada set, obtener estadísticas de jugadores
     const setsConEstadisticas = await Promise.all(
@@ -613,14 +619,15 @@ router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
               select: 'nombre escudo'
             }
           ]
-        });
+        })
+        .lean();
 
         return {
-          ...set.toObject(),
+          ...set,
           estadisticas: estadisticasSet.map(stat => ({
             ...stat,
-            jugador: stat.jugadorPartido?.jugador || null,
-            equipo: stat.jugadorPartido?.equipo || null
+            jugador: stat.jugadorPartido?.jugador || stat.jugador || null,
+            equipo: stat.jugadorPartido?.equipo || stat.equipo || null
           }))
         };
       })

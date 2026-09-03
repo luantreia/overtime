@@ -464,6 +464,21 @@ PartidoSchema.post('save', async function () {
 });
 
 
+/**
+ * Hasta acá la colección no tenía ningún índice más allá de `_id`: toda consulta por equipo,
+ * por competencia o por fecha escaneaba la colección entera. No se notaba con pocos partidos,
+ * pero la línea temporal del panel de DT filtra justamente por eso —"todos los de foam contra
+ * Marvin en 2026"— y hace un rango de fechas sobre los partidos de un equipo.
+ *
+ * Un equipo aparece como local O como visitante, y Mongo no puede usar un índice para las dos
+ * ramas de un `$or` con un solo índice compuesto, así que van dos: cada rama usa el suyo, con
+ * `fecha` de segunda clave para que el ordenamiento y el rango salgan del mismo índice.
+ */
+PartidoSchema.index({ equipoLocal: 1, fecha: -1 });
+PartidoSchema.index({ equipoVisitante: 1, fecha: -1 });
+PartidoSchema.index({ competencia: 1, fecha: -1 });
+PartidoSchema.index({ fecha: -1 });
+
 PartidoSchema.set('toJSON', { virtuals: true });
 PartidoSchema.set('toObject', { virtuals: true });
 

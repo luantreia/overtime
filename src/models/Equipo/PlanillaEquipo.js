@@ -42,6 +42,25 @@ const planillaEquipoSchema = new Schema({
 
   solicitudOficializacion: { type: Schema.Types.ObjectId, ref: 'SolicitudEdicion' },
 
+  /**
+   * Cuando un partido tiene estadísticas oficiales Y esta planilla, cuál de las dos alimenta
+   * el análisis PROPIO del equipo (totales, análisis cruzado, rankings). No toca el dato
+   * oficial ni lo que ve nadie más: es una lente privada del equipo sobre su propia historia,
+   * para cuando la organización cargó un partido mal o incompleto y la planilla es la buena.
+   *
+   * Ojo con no confundirlo con `Partido.modoVisualizacion`, que es del organizador, decide si
+   * lo oficial sale de los sets o de la carga directa, y aplica a todo el mundo.
+   *
+   * Default 'oficial': mientras el equipo no diga lo contrario, el registro de la competencia
+   * manda. Si el partido no tiene estadísticas oficiales, la planilla se usa igual — este
+   * campo sólo desempata cuando existen las dos.
+   */
+  fuentePreferida: {
+    type: String,
+    enum: ['oficial', 'planilla'],
+    default: 'oficial',
+  },
+
   notas: { type: String },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },

@@ -383,8 +383,8 @@ router.get(
         Partido.find({ _id: { $in: planillas.map((p) => p.partido) } })
           .populate('equipoLocal', 'nombre')
           .populate('equipoVisitante', 'nombre')
-          .populate('competencia', 'categoria modalidad')
-          .select('fecha equipoLocal equipoVisitante competencia')
+          .populate('competencia', 'categoria modalidad nombre')
+          .select('fecha equipoLocal equipoVisitante competencia modalidad categoria')
           .lean(),
       ]);
 
@@ -424,8 +424,14 @@ router.get(
           partidoId: String(planilla.partido),
           fecha: partido?.fecha ?? null,
           rival: rival || 'Rival',
-          categoria: partido?.competencia?.categoria ?? 'Amistoso',
-          modalidad: partido?.competencia?.modalidad ?? 'Sin modalidad',
+          // Del partido primero: `modalidad` y `categoria` son campos propios y obligatorios
+          // del Partido. Leerlos de la competencia —como se hacía— dejaba a TODOS los
+          // amistosos como 'Sin modalidad'/'Amistoso' aunque fueran de foam, así que un
+          // filtro por modalidad los perdía enteros. La competencia queda de respaldo para
+          // datos viejos anteriores a que esos campos fueran obligatorios.
+          categoria: partido?.categoria ?? partido?.competencia?.categoria ?? 'Sin categoría',
+          modalidad: partido?.modalidad ?? partido?.competencia?.modalidad ?? 'Sin modalidad',
+          competencia: partido?.competencia?.nombre ?? 'Amistoso',
           numeroSet: setDoc?.numeroSet ?? null,
           resultadoSet,
           throws: stat.throws || 0,
@@ -1018,6 +1024,43 @@ router.post(
  *       204: { description: Planilla eliminada }
  *       409: { description: La planilla ya fue oficializada }
  */
+/**
+ * PUT /api/planillas-equipo/:id/fuente-preferida
+ *
+ * Cuando el partido tiene estadísticas oficiales Y esta planilla, elige cuál de las dos
+ * alimenta el análisis propio del equipo. No modifica ningún dato: es una preferencia de
+ * lectura, y por eso se puede cambiar en cualquier estado de la planilla —incluida una ya
+ * oficializada, donde además da lo mismo porque las dos fuentes dicen lo mismo.
+ */
+router.put(
+  '/:id/fuente-preferida',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  requirePermisoSobrePlanilla('stats.edit'),
+  async (req, res) => {
+    try {
+      const { fuentePreferida } = req.body ?? {};
+      if (fuentePreferida !== 'oficial' && fuentePreferida !== 'planilla') {
+        return res.status(400).json({ error: "fuentePreferida debe ser 'oficial' o 'planilla'" });
+      }
+
+      const planilla = await PlanillaEquipo.findByIdAndUpdate(
+        req.params.id,
+        { $set: { fuentePreferida } },
+        { new: true, runValidators: true },
+      ).lean();
+
+      if (!planilla) return res.status(404).json({ error: 'Planilla no encontrada' });
+
+      return res.json({ _id: String(planilla._id), fuentePreferida: planilla.fuentePreferida });
+    } catch (error) {
+      console.error('Error cambiando la fuente preferida de la planilla:', error);
+      return res.status(500).json({ error: 'Error interno cambiando la fuente' });
+    }
+  },
+);
+
 router.delete(
   '/:id',
   validarObjectId,
