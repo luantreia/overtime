@@ -7,6 +7,8 @@ import { requireTeamPermission } from '../../middleware/requireTeamPermission.js
 import Entrenamiento from '../../models/Equipo/Entrenamiento.js';
 import AsistenciaEntrenamiento from '../../models/Equipo/AsistenciaEntrenamiento.js';
 import JugadorEquipo from '../../models/Jugador/JugadorEquipo.js';
+import Jugador from '../../models/Jugador/Jugador.js';
+import { vigenteEn } from '../../services/jugadoresElegiblesService.js';
 
 const router = express.Router();
 
@@ -42,6 +44,30 @@ const permisoPorEntrenamiento = (permission) =>
 const nombreDe = (j) => {
   if (!j || typeof j === 'string') return 'Jugador';
   return j.alias || [j.nombre, j.apellido].filter(Boolean).join(' ').trim() || 'Jugador';
+};
+
+/**
+ * Los jugadores con contrato vigente en una fecha dada, sin repetidos.
+ *
+ * Dos cosas que parecen detalles y no lo son:
+ *
+ * 1. La referencia temporal es la fecha DEL ENTRENAMIENTO, no `new Date()`. Cargar en marzo la
+ *    asistencia de un entrenamiento de enero tiene que convocar al plantel de enero, no al de
+ *    hoy. Es la misma regla que ya usa la convocatoria de un partido, y por eso comparten el
+ *    helper `vigenteEn` en vez de tener cada una su copia.
+ *
+ * 2. Se deduplica por jugador. No hay índice único {jugador, equipo} en JugadorEquipo: un
+ *    jugador que se fue y volvió tiene DOS contratos aceptados. Sin este `Set`, el insertMany
+ *    de la convocatoria chocaba contra el índice único {entrenamiento, jugador} y la creación
+ *    entera fallaba con un 500 — que es exactamente el error que se veía al crear.
+ */
+const plantelVigenteEn = async (equipoId, fecha) => {
+  const contratos = await JugadorEquipo.find({ equipo: equipoId, estado: 'aceptado' })
+    .select('jugador desde hasta')
+    .lean();
+
+  const vigentes = contratos.filter((c) => vigenteEn(c, fecha));
+  return [...new Set(vigentes.map((c) => String(c.jugador)))];
 };
 
 /**
@@ -132,24 +158,27 @@ router.get(
         .select('_id')
         .lean();
 
-      const contratos = await JugadorEquipo.find({ equipo: equipoId, estado: 'aceptado' })
-        .select('jugador')
-        .populate('jugador', 'nombre apellido alias')
+      // El resumen es sobre el plantel de HOY: es la pregunta "cómo viene mi equipo", no el
+      // archivo histórico. Los que ya no están quedan afuera, aunque tengan asistencias viejas.
+      const jugadorIds = await plantelVigenteEn(equipoId, new Date());
+      const fichas = await Jugador.find({ _id: { $in: jugadorIds } })
+        .select('nombre apellido alias')
         .lean();
+
+      const vacio = (j) => ({
+        jugadorId: String(j._id),
+        jugador: nombreDe(j),
+        presente: 0,
+        tarde: 0,
+        ausente: 0,
+        justificado: 0,
+        convocado: 0,
+      });
 
       if (entrenamientos.length === 0) {
         return res.json({
           totalEntrenamientos: 0,
-          jugadores: contratos.map((c) => ({
-            jugadorId: String(c.jugador?._id ?? c.jugador),
-            jugador: nombreDe(c.jugador),
-            presente: 0,
-            tarde: 0,
-            ausente: 0,
-            justificado: 0,
-            convocado: 0,
-            porcentaje: null,
-          })),
+          jugadores: fichas.map((j) => ({ ...vacio(j), porcentaje: null })),
         });
       }
 
@@ -159,19 +188,7 @@ router.get(
         .select('jugador estado')
         .lean();
 
-      const porJugador = new Map();
-      for (const c of contratos) {
-        const id = String(c.jugador?._id ?? c.jugador);
-        porJugador.set(id, {
-          jugadorId: id,
-          jugador: nombreDe(c.jugador),
-          presente: 0,
-          tarde: 0,
-          ausente: 0,
-          justificado: 0,
-          convocado: 0,
-        });
-      }
+      const porJugador = new Map(fichas.map((j) => [String(j._id), vacio(j)]));
 
       for (const a of asistencias) {
         const item = porJugador.get(String(a.jugador));
@@ -232,21 +249,39 @@ router.post(
         creadoPor: req.user.uid,
       });
 
-      // Convocar al plantel entero por defecto: lo normal es que entrenen todos, y marcar
-      // las excepciones es mucho menos trabajo que cargar veinte jugadores a mano cada vez.
+      // Convocar al plantel por defecto: lo normal es que entrenen todos, y marcar las
+      // excepciones es mucho menos trabajo que cargar veinte jugadores a mano cada vez.
+      //
+      // El try/catch NO es decorativo. El entrenamiento ya está creado en este punto: si la
+      // convocatoria falla y dejamos propagar el error, el cliente recibe un 500 y cree que no
+      // se creó nada, cuando en realidad quedó guardado. Eso es exactamente lo que pasaba y por
+      // eso aparecían entrenamientos "fantasma" después de un error. Convocar es un extra
+      // conveniente, no parte del contrato de crear.
+      let convocados = 0;
+      let avisoConvocatoria = null;
       if (convocarPlantel) {
-        const contratos = await JugadorEquipo.find({ equipo: equipoId, estado: 'aceptado' })
-          .select('jugador')
-          .lean();
-        if (contratos.length > 0) {
-          await AsistenciaEntrenamiento.insertMany(
-            contratos.map((c) => ({ entrenamiento: entrenamiento._id, jugador: c.jugador })),
-            { ordered: false }
-          );
+        try {
+          const jugadorIds = await plantelVigenteEn(equipoId, cuando);
+          if (jugadorIds.length > 0) {
+            await AsistenciaEntrenamiento.insertMany(
+              jugadorIds.map((jugador) => ({ entrenamiento: entrenamiento._id, jugador })),
+              { ordered: false }
+            );
+          }
+          convocados = jugadorIds.length;
+        } catch (error) {
+          console.error('Entrenamiento creado pero falló la convocatoria automática:', error);
+          avisoConvocatoria =
+            'El entrenamiento se creó, pero no pudimos convocar al plantel automáticamente. Podés marcar la asistencia a mano.';
         }
       }
 
-      return res.status(201).json({ ...entrenamiento.toObject(), _id: String(entrenamiento._id) });
+      return res.status(201).json({
+        ...entrenamiento.toObject(),
+        _id: String(entrenamiento._id),
+        convocados,
+        aviso: avisoConvocatoria,
+      });
     } catch (error) {
       console.error('Error creando entrenamiento:', error);
       return res.status(500).json({ error: 'Error al crear el entrenamiento' });
@@ -277,20 +312,43 @@ router.get(
         .populate('jugador', 'nombre apellido alias')
         .lean();
 
+      /**
+       * La lista que se devuelve es el plantel vigente A LA FECHA DEL ENTRENAMIENTO, no las
+       * filas que haya en la base.
+       *
+       * Se hace así por dos motivos. Uno: los entrenamientos creados antes de que existiera el
+       * filtro por fecha tienen filas de jugadores que ya no estaban en el equipo, y sin esto
+       * seguirían apareciendo para siempre. Dos: un jugador que se sumó al plantel después de
+       * crear el entrenamiento no tiene fila, y tiene que poder marcarse igual — el guardado
+       * hace upsert justamente para eso.
+       */
+      const delPlantel = new Set(await plantelVigenteEn(entrenamiento.equipo, entrenamiento.fecha));
+      const porJugador = new Map(asistencias.map((a) => [String(a.jugador?._id ?? a.jugador), a]));
+
+      // Se necesitan los nombres de quienes están en el plantel pero todavía no tienen fila.
+      const sinFila = [...delPlantel].filter((id) => !porJugador.has(id));
+      const fichasFaltantes = sinFila.length
+        ? await Jugador.find({ _id: { $in: sinFila } }).select('nombre apellido alias').lean()
+        : [];
+      const fichaPorId = new Map(fichasFaltantes.map((j) => [String(j._id), j]));
+
+      const filas = [...delPlantel].map((jugadorId) => {
+        const a = porJugador.get(jugadorId);
+        return {
+          _id: a ? String(a._id) : null,
+          jugadorId,
+          jugador: nombreDe(a?.jugador ?? fichaPorId.get(jugadorId)),
+          estado: a?.estado ?? 'convocado',
+          minutosTarde: a?.minutosTarde ?? 0,
+          notas: a?.notas ?? '',
+        };
+      });
+
       return res.json({
         ...entrenamiento,
         _id: String(entrenamiento._id),
         equipo: String(entrenamiento.equipo),
-        asistencias: asistencias
-          .map((a) => ({
-            _id: String(a._id),
-            jugadorId: String(a.jugador?._id ?? a.jugador),
-            jugador: nombreDe(a.jugador),
-            estado: a.estado,
-            minutosTarde: a.minutosTarde ?? 0,
-            notas: a.notas ?? '',
-          }))
-          .sort((a, b) => a.jugador.localeCompare(b.jugador, 'es')),
+        asistencias: filas.sort((a, b) => a.jugador.localeCompare(b.jugador, 'es')),
       });
     } catch (error) {
       console.error('Error obteniendo entrenamiento:', error);
@@ -389,6 +447,25 @@ router.put(
       }
 
       await AsistenciaEntrenamiento.bulkWrite(operaciones, { ordered: false });
+
+      /**
+       * Lo que se guarda ES la lista: se borran las filas de jugadores que no vinieron en el
+       * payload.
+       *
+       * Sin esto, un entrenamiento creado antes del filtro por fecha conserva para siempre
+       * filas de gente que ya no está en el equipo. No se ven en la pantalla de asistencia
+       * (que muestra el plantel vigente) pero sí cuentan en el "12/15" de la lista, y ese
+       * desacuerdo entre dos pantallas es peor que el dato de más. Guardar la asistencia
+       * repara el entrenamiento de paso.
+       */
+      const idsEnviados = filas
+        .map((f) => f?.jugadorId)
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+      await AsistenciaEntrenamiento.deleteMany({
+        entrenamiento: req.params.id,
+        jugador: { $nin: idsEnviados },
+      });
 
       // Marcar asistencia es lo que convierte un entrenamiento en "realizado". Es el único
       // momento en que sabemos con certeza que la sesión ocurrió.

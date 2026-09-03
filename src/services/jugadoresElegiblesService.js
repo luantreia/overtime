@@ -57,8 +57,14 @@ const nombresDeJugador = (jugador) => {
   return [jugador.alias, completo, jugador.nombre].filter(Boolean);
 };
 
-/** ¿El contrato estaba vigente en esta fecha? Sin fecha, no filtramos por fecha. */
-function vigenteEn(doc, fecha) {
+/**
+ * ¿El contrato estaba vigente en esta fecha? Sin fecha, no filtramos por fecha.
+ *
+ * Se exporta porque la misma pregunta aparece en más de un lado: la convocatoria de un partido
+ * y la de un entrenamiento necesitan idénticamente "quién tenía contrato ESE día". Duplicar la
+ * regla es garantizar que un día difieran.
+ */
+export function vigenteEn(doc, fecha) {
   if (!fecha) return true;
   if (doc.desde && new Date(doc.desde) > fecha) return false;
   // `hasta` vacío significa contrato abierto, no vencido.
