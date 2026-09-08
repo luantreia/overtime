@@ -784,6 +784,63 @@ router.delete(
 
 /**
  * @swagger
+ * /api/planillas-equipo/{id}/estadisticas/{presenteId}:
+ *   delete:
+ *     summary: Elimina la fila de estadísticas de un presente en un set puntual (o en los totales)
+ *     description: >
+ *       Pensado para cuando se reasigna un slot de la grilla: al reemplazar a un jugador por
+ *       otro en la misma posición, esta fila queda huérfana — nadie la muestra pero sigue
+ *       sumando en los totales. `planillaSet` en query identifica cuál (ausente = modo directa).
+ *     tags: [PlanillaEquipo]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: planillaSet
+ *         schema: { type: string }
+ *     responses:
+ *       204: { description: Fila eliminada (o no existía) }
+ */
+router.delete(
+  '/:id/estadisticas/:presenteId',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  requirePermisoSobrePlanilla('stats.edit'),
+  cargarPlanillaEditable,
+  async (req, res) => {
+    try {
+      const { presenteId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(presenteId)) {
+        return res.status(400).json({ error: 'ID de presente inválido' });
+      }
+
+      const planillaSetId = req.query?.planillaSet || null;
+      if (planillaSetId && !mongoose.Types.ObjectId.isValid(planillaSetId)) {
+        return res.status(400).json({ error: 'planillaSet inválido' });
+      }
+
+      await PlanillaEstadistica.deleteOne({
+        planilla: req.planilla._id,
+        planillaPresente: presenteId,
+        planillaSet: planillaSetId,
+      });
+
+      req.app.get('io')?.to(`planilla:${req.planilla._id}`).emit('planilla:estadistica_eliminada', {
+        planillaId: String(req.planilla._id),
+        planillaSet: planillaSetId,
+        planillaPresente: presenteId,
+      });
+
+      return res.status(204).send();
+    } catch (error) {
+      console.error('Error eliminando fila de estadísticas de planilla:', error);
+      return res.status(500).json({ error: 'Error interno eliminando la fila' });
+    }
+  },
+);
+
+/**
+ * @swagger
  * /api/planillas-equipo/{id}/estadisticas:
  *   put:
  *     summary: Upsert en lote de las estadísticas de un set (o de los totales)
