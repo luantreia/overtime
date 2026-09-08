@@ -11,7 +11,9 @@
     "deploy": "git add . && git commit -m \"Auto deploy\" && git push",
     "dev": "nodemon -r dotenv/config server.js",
     "tipos": "node scripts/generarTipos.js",
-    "tipos:check": "node scripts/generarTipos.js --check --solo-backend"
+    "tipos:check": "node scripts/generarTipos.js --check --solo-backend",
+    "contratos:duplicados": "node -r dotenv/config scripts/contratosDuplicados.js",
+    "contratos:duplicados:arreglar": "node -r dotenv/config scripts/contratosDuplicados.js --commit"
   },
   "keywords": [],
   "author": "",
