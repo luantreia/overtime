@@ -728,6 +728,14 @@ router.post(
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
+      // Para que dos personas cargando la misma planilla a la vez se vean entre sí sin
+      // recargar la página. Se emite a toda la sala, incluido quien lo guardó: el merge del
+      // lado del cliente es idempotente, así que no hace falta excluir al emisor.
+      req.app.get('io')?.to(`planilla:${planilla._id}`).emit('planilla:set_actualizado', {
+        planillaId: String(planilla._id),
+        set,
+      });
+
       return res.json(set);
     } catch (error) {
       console.error('Error guardando set de planilla:', error);
@@ -861,6 +869,13 @@ router.put(
           { upsert: true, new: true, setDefaultsOnInsert: true },
         );
         guardadas.push(guardada);
+      }
+
+      if (guardadas.length) {
+        req.app.get('io')?.to(`planilla:${planilla._id}`).emit('planilla:estadisticas_actualizadas', {
+          planillaId: String(planilla._id),
+          estadisticas: guardadas,
+        });
       }
 
       return res.json(guardadas);
