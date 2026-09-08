@@ -841,6 +841,127 @@ router.delete(
 
 /**
  * @swagger
+ * /api/planillas-equipo/{id}/estadisticas/intercambiar:
+ *   post:
+ *     summary: Intercambia los números de dos presentes en un set (o en los totales)
+ *     description: >
+ *       Cubre dos casos con la misma operación. Si uno de los dos todavía no tenía fila
+ *       (valores cero), esto equivale a "mover los números al otro jugador" — el mal
+ *       identificado en la grilla se corrige sin perder lo cargado. Si los dos ya tenían
+ *       números, es un intercambio genuino ("anoté las de X en Y y viceversa"). El lado que
+ *       termina en cero se borra en vez de dejar una fila huérfana en cero.
+ *     tags: [PlanillaEquipo]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [presenteA, presenteB]
+ *             properties:
+ *               planillaSet: { type: string }
+ *               presenteA: { type: string }
+ *               presenteB: { type: string }
+ *     responses:
+ *       200: { description: Filas intercambiadas }
+ */
+router.post(
+  '/:id/estadisticas/intercambiar',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  requirePermisoSobrePlanilla('stats.edit'),
+  cargarPlanillaEditable,
+  async (req, res) => {
+    try {
+      const { planillaSet, presenteA, presenteB } = req.body || {};
+      if (!presenteA || !presenteB || presenteA === presenteB) {
+        return res.status(400).json({ error: 'Hacen falta dos presentes distintos' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(presenteA) || !mongoose.Types.ObjectId.isValid(presenteB)) {
+        return res.status(400).json({ error: 'presenteA/presenteB inválido' });
+      }
+      const planillaSetId = planillaSet || null;
+      if (planillaSetId && !mongoose.Types.ObjectId.isValid(planillaSetId)) {
+        return res.status(400).json({ error: 'planillaSet inválido' });
+      }
+
+      const { planilla } = req;
+      const VACIO = { throws: 0, hits: 0, outs: 0, catches: 0, survive: false };
+      const esVacio = (v) => !v.throws && !v.hits && !v.outs && !v.catches && !v.survive;
+
+      const [filaA, filaB] = await Promise.all([
+        PlanillaEstadistica.findOne({ planilla: planilla._id, planillaSet: planillaSetId, planillaPresente: presenteA }).lean(),
+        PlanillaEstadistica.findOne({ planilla: planilla._id, planillaSet: planillaSetId, planillaPresente: presenteB }).lean(),
+      ]);
+
+      const valoresA = filaA
+        ? { throws: filaA.throws, hits: filaA.hits, outs: filaA.outs, catches: filaA.catches, survive: filaA.survive }
+        : VACIO;
+      const valoresB = filaB
+        ? { throws: filaB.throws, hits: filaB.hits, outs: filaB.outs, catches: filaB.catches, survive: filaB.survive }
+        : VACIO;
+
+      // presenteA se queda con lo que tenía B, y viceversa — de ahí sale tanto "mover" (un lado
+      // arranca vacío) como el intercambio genuino (los dos ya tenían números).
+      const aplicar = async (presenteId, valoresNuevos) => {
+        if (esVacio(valoresNuevos)) {
+          await PlanillaEstadistica.deleteOne({
+            planilla: planilla._id,
+            planillaSet: planillaSetId,
+            planillaPresente: presenteId,
+          });
+          return null;
+        }
+        return PlanillaEstadistica.findOneAndUpdate(
+          { planilla: planilla._id, planillaSet: planillaSetId, planillaPresente: presenteId },
+          {
+            ...valoresNuevos,
+            planilla: planilla._id,
+            planillaSet: planillaSetId,
+            planillaPresente: presenteId,
+            creadoPor: req.user.uid,
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+      };
+
+      const [resultA, resultB] = await Promise.all([
+        aplicar(presenteA, valoresB),
+        aplicar(presenteB, valoresA),
+      ]);
+
+      const io = req.app.get('io');
+      const actualizadas = [resultA, resultB].filter(Boolean);
+      if (actualizadas.length) {
+        io?.to(`planilla:${planilla._id}`).emit('planilla:estadisticas_actualizadas', {
+          planillaId: String(planilla._id),
+          estadisticas: actualizadas,
+        });
+      }
+      [
+        [resultA, presenteA],
+        [resultB, presenteB],
+      ].forEach(([resultado, presenteId]) => {
+        if (resultado) return;
+        io?.to(`planilla:${planilla._id}`).emit('planilla:estadistica_eliminada', {
+          planillaId: String(planilla._id),
+          planillaSet: planillaSetId,
+          planillaPresente: presenteId,
+        });
+      });
+
+      return res.json({ presenteA: resultA, presenteB: resultB });
+    } catch (error) {
+      console.error('Error intercambiando estadísticas de planilla:', error);
+      return res.status(500).json({ error: 'Error interno intercambiando estadísticas' });
+    }
+  },
+);
+
+/**
+ * @swagger
  * /api/planillas-equipo/{id}/estadisticas:
  *   put:
  *     summary: Upsert en lote de las estadísticas de un set (o de los totales)
