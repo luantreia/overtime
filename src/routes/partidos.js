@@ -736,6 +736,7 @@ router.put(
         'grupo',
         'division',
         'nombrePartido',
+        'posicionBracket',
         // Nuevos campos permitidos a editar
         'modalidad',
         'categoria',
