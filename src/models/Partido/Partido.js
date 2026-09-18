@@ -291,13 +291,31 @@ PartidoSchema.post('save', async function () {
   // 1. Recalcular marcador si es necesario
   await this.recalcularMarcador();
 
-  // 2. Actualizar tabla de posiciones
-  const { actualizarParticipacionFase } = await import('../../services/participacionFaseService.js');
-  if (this.participacionFaseLocal) {
-    await actualizarParticipacionFase(this.participacionFaseLocal.toString(), this.fase.toString());
-  }
-  if (this.participacionFaseVisitante) {
-    await actualizarParticipacionFase(this.participacionFaseVisitante.toString(), this.fase.toString());
+  // 2. Actualizar tabla de posiciones. Solo tiene sentido si el partido pertenece a una fase
+  //    (los amistosos no tienen tabla de posiciones que recalcular).
+  if (this.fase) {
+    const { actualizarParticipacionFase } = await import('../../services/participacionFaseService.js');
+    const faseId = this.fase.toString();
+
+    // En playoffs, las rondas posteriores a la primera se generan sin participacionFaseLocal/
+    // Visitante (todavía no se sabe qué participación juega ahí hasta que se resuelve la ronda
+    // anterior — no hay un paso automático que "avance" al ganador) y muchas veces terminan
+    // cargadas a mano con los equipos directamente. Sin este fallback por equipoId, esos
+    // partidos quedan finalizado pero nunca disparan el recálculo: la ParticipacionFase del
+    // equipo en esa fase se queda en 0 para siempre aunque el partido tenga resultado real.
+    const localRef = this.participacionFaseLocal
+      ? this.participacionFaseLocal.toString()
+      : this.equipoLocal?.toString();
+    const visitanteRef = this.participacionFaseVisitante
+      ? this.participacionFaseVisitante.toString()
+      : this.equipoVisitante?.toString();
+
+    if (localRef) {
+      await actualizarParticipacionFase(localRef, faseId);
+    }
+    if (visitanteRef) {
+      await actualizarParticipacionFase(visitanteRef, faseId);
+    }
   }
 
   // 3. Actualizar EquipoPartido
