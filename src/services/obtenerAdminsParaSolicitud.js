@@ -174,6 +174,7 @@ export async function obtenerAdminsParaSolicitud(tipo, entidadId, datosPropuesto
       case 'estadisticas-partido-propuesta':
       case 'resultadoPartido':
       case 'editarPartidoCompetencia':
+      case 'editarPartidoVideo':
       case 'estadisticasEquipoPartido':
       case 'estadisticasJugadorSet-lote':
       case 'planilla-equipo-oficializacion':

@@ -21,6 +21,10 @@ const PartidoSchema = new Schema({
 
   nombrePartido: { type: String, trim: true },
 
+  // URL de YouTube del partido (en vivo o video final). Se guarda tal cual la pega
+  // el usuario (watch?v=, youtu.be, /live/, etc.); el ID se extrae en el frontend.
+  videoUrl: { type: String, default: '' },
+
   modalidad: {
     type: String,
     enum: ['Foam', 'Cloth'],

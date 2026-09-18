@@ -632,6 +632,14 @@ router.post('/', verificarToken, async (req, res) => {
     if (tipo === 'jugador-equipo-editar' && !entidad) {
       return res.status(400).json({ message: 'entidad (contratoId) requerida para solicitudes de edición' });
     }
+    if (tipo === 'editarPartidoVideo') {
+      if (!entidad) {
+        return res.status(400).json({ message: 'entidad (el id del partido) es requerida' });
+      }
+      if (!datosPropuestos.videoUrl || !datosPropuestos.videoUrl.trim()) {
+        return res.status(400).json({ message: 'videoUrl requerido para solicitudes de video' });
+      }
+    }
 
     // Evitar solicitudes duplicadas pendientes del mismo usuario para la misma entidad y tipo
     const tiposConAntiDuplicado = [
@@ -1607,6 +1615,12 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
                 await jt.save({ session });
               }
             }
+          } else if (solicitud.tipo === 'editarPartidoVideo') {
+            await Partido.findByIdAndUpdate(
+              solicitud.entidad,
+              { videoUrl: solicitud.datosPropuestos?.videoUrl || '' },
+              { session },
+            );
           } else {
             // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
             // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.

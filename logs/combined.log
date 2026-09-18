@@ -4184,3 +4184,4 @@
 {"level":"info","message":{"duration":"125ms","ip":"127.0.0.1","method":"PUT","path":"/6aa11558b553c21e94fcf55a","statusCode":200,"user":"6aa11557b553c21e94fcf52e","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"},"service":"overtime-api","timestamp":"2026-09-09T08:14:53.128Z"}
 {"level":"info","message":{"duration":"85ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"},"service":"overtime-api","timestamp":"2026-09-09T08:14:53.216Z"}
 {"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-09-09T08:15:11.521Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5000","service":"overtime-api","timestamp":"2026-09-09T08:15:13.538Z"}

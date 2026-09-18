@@ -737,6 +737,7 @@ router.put(
         'division',
         'nombrePartido',
         'posicionBracket',
+        'videoUrl',
         // Nuevos campos permitidos a editar
         'modalidad',
         'categoria',
