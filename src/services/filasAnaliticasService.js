@@ -81,7 +81,7 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
       .select('jugadorPartido throws hits outs catches')
       .lean(),
     PlanillaPresente.find({ planilla: { $in: planillaIds } })
-      .select('_id planilla jugador')
+      .select('_id planilla jugador equipo')
       .populate('jugador', 'nombre apellido alias')
       .lean(),
     PlanillaSet.find({ planilla: { $in: planillaIds } })
@@ -109,9 +109,22 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
     return mapa;
   };
 
+  // Sólo los presentes DEL EQUIPO CONSULTADO: desde que una planilla puede tener también
+  // presentes del rival (captura del rival dentro de tu propio partido, o una planilla de
+  // scouting con los dos lados), hay que excluirlos acá — si no, sus números se mezclarían en
+  // el análisis "propio" de este equipo, justo lo que la superficie única de estadísticas
+  // existe para evitar. Un presente sin `equipo` (documentos de antes de este campo) se trata
+  // como propio, que era la única posibilidad antes de que la planilla pudiera capturar al
+  // rival.
+  const presentesPropios = presentes.filter(
+    (p) => !p.equipo || String(p.equipo) === String(equipoId),
+  );
+  const idsPresentesPropios = new Set(presentesPropios.map((p) => String(p._id)));
+  const planillaStatsPropias = planillaStats.filter((s) => idsPresentesPropios.has(String(s.planillaPresente)));
+
   const setPorId = porId(sets);
   const jpPorId = porId(jugadorPartidos);
-  const presentePorId = porId(presentes);
+  const presentePorId = porId(presentesPropios);
   const planillaSetPorId = porId(planillaSets);
 
   const setsPorPartido = agrupar(sets, 'partido');
@@ -119,7 +132,7 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
   const jpPorPartido = agrupar(jugadorPartidos, 'partido');
   const statsManualPorJp = agrupar(statsManual, 'jugadorPartido');
   const planillaPorPartido = new Map(planillas.map((pl) => [String(pl.partido), pl]));
-  const statsPlanillaPorPlanilla = agrupar(planillaStats, 'planilla');
+  const statsPlanillaPorPlanilla = agrupar(planillaStatsPropias, 'planilla');
 
   /** 'local'/'visitante' del dato crudo, traducido a la óptica del equipo que consulta. */
   const resultadoDesdeGanador = (ganador, esLocal) => {
