@@ -199,8 +199,18 @@ router.get(
       const filtro = { equipo: req.equipoIdPermisos };
       if (req.query.partido) filtro.partido = req.query.partido;
 
+      // `equipoLocal`/`equipoVisitante` con nombre: el listado alimenta "tus partidos
+      // scouteados" en el frontend, que necesita mostrar quién jugó sin una consulta aparte
+      // por cada planilla.
       const planillas = await PlanillaEquipo.find(filtro)
-        .populate('partido', 'fecha estado equipoLocal equipoVisitante competencia marcadorLocal marcadorVisitante')
+        .populate({
+          path: 'partido',
+          select: 'fecha estado equipoLocal equipoVisitante competencia marcadorLocal marcadorVisitante',
+          populate: [
+            { path: 'equipoLocal', select: 'nombre escudo' },
+            { path: 'equipoVisitante', select: 'nombre escudo' },
+          ],
+        })
         .sort({ createdAt: -1 })
         .lean();
 
