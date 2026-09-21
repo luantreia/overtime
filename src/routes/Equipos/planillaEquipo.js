@@ -20,6 +20,7 @@ import { obtenerJugadoresElegibles } from '../../services/jugadoresElegiblesServ
 import {
   getEquipoIdFromPlanilla,
   validarEquipoJuegaElPartido,
+  validarPresenteEquipoValido,
   obtenerPlanillaCompleta,
   eliminarPlanillaEnCascada,
   planillaEstaCerrada,
@@ -526,11 +527,21 @@ router.get(
 
       const completa = await obtenerPlanillaCompleta(planilla._id);
 
-      // Contraparte oficial: solo la del equipo de la planilla, que es lo único que
-      // la oficialización puede llegar a tocar.
+      // Contraparte oficial de LOS DOS equipos del partido, no sólo el de la planilla:
+      // desde que una planilla puede tener presentes del rival (o, en modo scouting,
+      // de los dos equipos de un partido ajeno), sus filas necesitan poder cruzarse
+      // contra la convocatoria oficial de cualquiera de los dos lados.
+      const partidoDoc = await Partido.findById(planilla.partido)
+        .select('equipoLocal equipoVisitante')
+        .populate('equipoLocal', 'nombre escudo')
+        .populate('equipoVisitante', 'nombre escudo')
+        .lean();
+      const equiposDelPartidoDocs = [partidoDoc?.equipoLocal, partidoDoc?.equipoVisitante].filter(Boolean);
+      const equiposDelPartido = equiposDelPartidoDocs.map((eq) => eq._id);
+
       const [setsOficiales, convocatoria] = await Promise.all([
         SetPartido.find({ partido: planilla.partido }).sort({ numeroSet: 1 }).lean(),
-        JugadorPartido.find({ partido: planilla.partido, equipo: planilla.equipo })
+        JugadorPartido.find({ partido: planilla.partido, equipo: { $in: equiposDelPartido } })
           .populate('jugador', 'nombre apellido alias')
           .lean(),
       ]);
@@ -543,9 +554,19 @@ router.get(
 
       return res.json({
         planilla: completa,
+        // Nombres de los dos equipos del partido, para que la UI de revisión los muestre sin
+        // tener que resolverlos por su cuenta a partir de ids sueltos.
+        equiposDelPartido: equiposDelPartidoDocs.map((eq) => ({ _id: String(eq._id), nombre: eq.nombre })),
         oficial: {
           sets: setsOficiales,
-          convocatoria,
+          // Agrupadas por equipo para que la UI de revisión (Overtime-Organizaciones)
+          // muestre cada lado por separado en vez de asumir un único equipo dueño.
+          convocatoriaPorEquipo: Object.fromEntries(
+            equiposDelPartido.map((eq) => [
+              String(eq),
+              convocatoria.filter((jp) => String(jp.equipo) === String(eq)),
+            ]),
+          ),
           estadisticas: estadisticasOficiales,
         },
       });
@@ -578,6 +599,7 @@ router.get(
  *                   required: [jugador]
  *                   properties:
  *                     jugador: { type: string, format: ObjectId }
+ *                     equipo: { type: string, format: ObjectId, description: 'De qué plantel sale — local o visitante del partido. Default el equipo dueño de la planilla.' }
  *                     numero: { type: integer }
  *                     rol: { type: string, enum: [jugador, entrenador] }
  *     responses:
@@ -598,21 +620,41 @@ router.post(
       }
 
       const { planilla } = req;
+      const partidoDoc = await Partido.findById(planilla.partido)
+        .select('equipoLocal equipoVisitante')
+        .lean();
+      if (!partidoDoc) return res.status(404).json({ error: 'Partido de la planilla no encontrado' });
+
+      // `equipo` por fila (default el dueño de la planilla, para no romper llamadores viejos que
+      // no lo mandan): cada presente puede ser del plantel propio o del rival, nunca de un
+      // tercero ajeno a este partido.
+      const equiposUsados = new Set();
+      for (const fila of filas) {
+        const equipoFila = fila?.equipo || planilla.equipo;
+        const validacion = validarPresenteEquipoValido(partidoDoc, equipoFila);
+        if (!validacion.ok) return res.status(validacion.status).json({ error: validacion.message });
+        equiposUsados.add(String(equipoFila));
+      }
+
       const convocatoria = await JugadorPartido.find({
         partido: planilla.partido,
-        equipo: planilla.equipo,
-      }).select('jugador').lean();
-      const porJugador = new Map(convocatoria.map((jp) => [String(jp.jugador), jp._id]));
+        equipo: { $in: [...equiposUsados] },
+      }).select('jugador equipo').lean();
+      const porJugadorYEquipo = new Map(
+        convocatoria.map((jp) => [`${jp.jugador}|${jp.equipo}`, jp._id]),
+      );
 
       for (const fila of filas) {
         if (!fila?.jugador || !mongoose.Types.ObjectId.isValid(fila.jugador)) continue;
+        const equipoFila = fila.equipo || planilla.equipo;
 
         await PlanillaPresente.findOneAndUpdate(
           { planilla: planilla._id, jugador: fila.jugador },
           {
             planilla: planilla._id,
             jugador: fila.jugador,
-            jugadorPartido: porJugador.get(String(fila.jugador)) || null,
+            equipo: equipoFila,
+            jugadorPartido: porJugadorYEquipo.get(`${fila.jugador}|${equipoFila}`) || null,
             numero: Number.isFinite(Number(fila.numero)) ? Number(fila.numero) : undefined,
             rol: fila.rol === 'entrenador' ? 'entrenador' : 'jugador',
             creadoPor: req.user.uid,
@@ -626,6 +668,85 @@ router.post(
     } catch (error) {
       console.error('Error guardando presentes de planilla:', error);
       return res.status(500).json({ error: 'Error interno guardando presentes' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/{id}/presentes/autocompletar-equipo:
+ *   post:
+ *     summary: Trae de un tiro todo el plantel elegible de un equipo (propio, rival, o un tercero
+ *       inscripto en la competencia) y lo agrega como presentes.
+ *     tags: [PlanillaEquipo]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [equipo]
+ *             properties:
+ *               equipo: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Planilla con los presentes agregados }
+ */
+router.post(
+  '/:id/presentes/autocompletar-equipo',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  requirePermisoSobrePlanilla('stats.capture'),
+  cargarPlanillaEditable,
+  async (req, res) => {
+    try {
+      const equipoId = req.body?.equipo;
+      if (!equipoId || !mongoose.Types.ObjectId.isValid(equipoId)) {
+        return res.status(400).json({ error: 'equipo inválido' });
+      }
+
+      const { planilla } = req;
+      const partidoDoc = await Partido.findById(planilla.partido)
+        .select('equipoLocal equipoVisitante')
+        .lean();
+      if (!partidoDoc) return res.status(404).json({ error: 'Partido de la planilla no encontrado' });
+
+      const validacion = validarPresenteEquipoValido(partidoDoc, equipoId);
+      if (!validacion.ok) return res.status(validacion.status).json({ error: validacion.message });
+
+      const elegibles = await obtenerJugadoresElegibles({
+        partidoId: String(planilla.partido),
+        equipoId: String(equipoId),
+      });
+      const candidatos = elegibles?.jugadores ?? [];
+
+      if (candidatos.length) {
+        const ops = candidatos.map((c) => ({
+          updateOne: {
+            filter: { planilla: planilla._id, jugador: c.jugadorId },
+            update: {
+              $setOnInsert: {
+                planilla: planilla._id,
+                jugador: c.jugadorId,
+                equipo: equipoId,
+                jugadorPartido: c.jugadorPartidoId || null,
+                numero: c.numero,
+                rol: 'jugador',
+                creadoPor: req.user.uid,
+              },
+            },
+            upsert: true,
+          },
+        }));
+        await PlanillaPresente.bulkWrite(ops, { ordered: false });
+      }
+
+      const completa = await obtenerPlanillaCompleta(planilla._id);
+      return res.json(completa);
+    } catch (error) {
+      console.error('Error autocompletando presentes por equipo:', error);
+      return res.status(500).json({ error: 'Error interno autocompletando presentes' });
     }
   },
 );

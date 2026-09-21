@@ -367,9 +367,7 @@ if (!fs.existsSync('logs')) {
 }
 
 import TimerManager from './src/services/TimerManager.js';
-import { verifyAccessToken } from './src/utils/jwt.js';
-import { hasTeamPermission } from './src/services/teamPermissionService.js';
-import { getEquipoIdFromPlanilla } from './src/services/planillaEquipoService.js';
+import { registerPlanillaSockets } from './src/sockets/planillaSockets.js';
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -408,33 +406,9 @@ io.on('connection', (socket) => {
     logger.info(`Socket ${socket.id} joined room ${roomId} (matchId: ${current.matchId})`);
   });
 
-  // Captura simultánea de "Mi planilla": sala por planilla para que dos personas con permiso
-  // sobre el mismo equipo vean en vivo lo que el otro va cargando. No hay auth global de socket
-  // (`io.use`) todavía, así que acá adentro se valida el token igual que haría el middleware
-  // HTTP `verificarToken` + `requirePermisoSobrePlanilla('stats.capture')`.
-  socket.on('planilla:join', async ({ planillaId, token } = {}) => {
-    if (!planillaId || !token) return;
-    try {
-      const decoded = verifyAccessToken(token);
-      const equipoId = await getEquipoIdFromPlanilla(planillaId);
-      const permitido = await hasTeamPermission({
-        equipoId,
-        usuarioId: decoded.sub,
-        rolGlobal: decoded.rol,
-        permission: 'stats.capture',
-      });
-      if (!permitido) return;
-      socket.join(`planilla:${planillaId}`);
-      logger.info(`Socket ${socket.id} joined planilla:${planillaId}`);
-    } catch (error) {
-      logger.warn(`planilla:join rechazado para socket ${socket.id}: ${error.message}`);
-    }
-  });
-
-  socket.on('planilla:leave', ({ planillaId } = {}) => {
-    if (!planillaId) return;
-    socket.leave(`planilla:${planillaId}`);
-  });
+  // Captura simultánea de "Mi planilla" y de la captura oficial por set — ver
+  // src/sockets/planillaSockets.js para el detalle de cada evento.
+  registerPlanillaSockets(socket);
 
   socket.on('join_match', (matchId) => {
     socket.join(matchId);

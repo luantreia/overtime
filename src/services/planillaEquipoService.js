@@ -10,8 +10,16 @@ import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import PlanillaPresente from '../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
+import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
 
 const { Types } = mongoose;
+
+/** ¿El equipo jugó este partido, como local o visitante? */
+function equipoEsParticipante(partido, equipoId) {
+  return [partido.equipoLocal, partido.equipoVisitante]
+    .filter(Boolean)
+    .some((id) => String(id) === String(equipoId));
+}
 
 /** Estados en los que la planilla ya no admite ediciones del equipo. */
 const ESTADOS_CERRADOS = new Set(['pendiente_oficializacion', 'oficializada']);
@@ -28,10 +36,17 @@ export async function getEquipoIdFromPlanilla(planillaId) {
 }
 
 /**
- * El equipo tiene que ser uno de los dos que juegan el partido.
+ * El equipo tiene que ser uno de los dos que juegan el partido, O (scouting) estar
+ * inscripto y aceptado en la competencia del partido.
  *
- * Sin esto, cualquiera con stats.capture en su propio club abre planillas sobre
- * partidos ajenos y después pide oficializarlas.
+ * Sin la primera parte, cualquiera con stats.capture en su propio club abre planillas
+ * sobre partidos ajenos y después pide oficializarlas. La segunda parte es lo que
+ * habilita el scouting: un equipo puede reconstruir un partido de su propia competencia
+ * aunque no lo haya jugado, para tener con qué compararse. Un amistoso no tiene
+ * competencia en la que "estar inscripto" — ahí sólo entra el primer caso.
+ *
+ * Devuelve `modo: 'propio'|'scouting'` para que el caller sepa si el equipo jugó de
+ * verdad este partido o lo está scouteando.
  */
 export async function validarEquipoJuegaElPartido(partidoId, equipoId) {
   if (!partidoId || !Types.ObjectId.isValid(partidoId)) {
@@ -49,11 +64,11 @@ export async function validarEquipoJuegaElPartido(partidoId, equipoId) {
     return { ok: false, status: 404, message: 'Partido no encontrado' };
   }
 
-  const juega = [partido.equipoLocal, partido.equipoVisitante]
-    .filter(Boolean)
-    .some((id) => String(id) === String(equipoId));
+  if (equipoEsParticipante(partido, equipoId)) {
+    return { ok: true, partido, modo: 'propio' };
+  }
 
-  if (!juega) {
+  if (!partido.competencia) {
     return {
       ok: false,
       status: 403,
@@ -61,7 +76,40 @@ export async function validarEquipoJuegaElPartido(partidoId, equipoId) {
     };
   }
 
-  return { ok: true, partido };
+  const inscripto = await EquipoCompetencia.findOne({
+    equipo: equipoId,
+    competencia: partido.competencia,
+    estado: 'aceptado',
+  })
+    .select('_id')
+    .lean();
+
+  if (!inscripto) {
+    return {
+      ok: false,
+      status: 403,
+      message: 'El equipo no participa de este partido ni está inscripto en su competencia',
+    };
+  }
+
+  return { ok: true, partido, modo: 'scouting' };
+}
+
+/**
+ * El equipo de un PRESENTE (no el dueño de la planilla) tiene que ser uno de los dos
+ * que jugaron el partido. Un presente siempre es "alguien que estuvo en esta cancha",
+ * sea de tu plantel o del rival — nunca de un tercero ajeno al partido, ni siquiera si
+ * ese tercero está inscripto en la misma competencia (eso lo cubre el scouting a nivel
+ * de planilla, no a nivel de presente individual).
+ */
+export function validarPresenteEquipoValido(partido, equipoId) {
+  if (!equipoId || !Types.ObjectId.isValid(equipoId)) {
+    return { ok: false, status: 400, message: 'equipo del presente inválido' };
+  }
+  if (!equipoEsParticipante(partido, equipoId)) {
+    return { ok: false, status: 403, message: 'El equipo del presente no jugó este partido' };
+  }
+  return { ok: true };
 }
 
 /**

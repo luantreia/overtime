@@ -8,8 +8,10 @@
 // Dos reglas de no colisión, para que las planillas de los dos equipos puedan
 // oficializarse sin pisarse:
 //
-//   1. Cada planilla escribe estadísticas SOLO de sus propios jugadores. La partición
-//      es natural: un PlanillaPresente pertenece al equipo dueño de la planilla.
+//   1. Cada fila escribe a nombre de `presente.equipo`, no de `planilla.equipo`: desde
+//      que una planilla puede tener presentes del rival (o, en modo scouting, de los
+//      dos equipos de un partido ajeno), un presente ya no es siempre "del dueño de la
+//      planilla" — la partición real es por equipo individual de cada presente.
 //   2. Los sets y la convocatoria se CREAN, nunca se sobreescriben. Si ya existen, la
 //      planilla los referencia y deja su contenido intacto: el resultado de un set
 //      sigue siendo del organizador aunque la planilla del equipo diga otra cosa.
@@ -63,13 +65,19 @@ export async function aplicarPlanillaOficializada({
   // 1) Convocatoria. Se crea solo lo que falta; una fila oficial existente no se toca.
   const jugadorPartidoPorPresente = new Map();
   for (const presente of presentes) {
+    // `presente.equipo` y no `planilla.equipo`: el presente puede ser del rival o, en
+    // modo scouting, de cualquiera de los dos equipos del partido. Si un presente viejo
+    // no tiene `equipo` seteado (documentos de antes del backfill), cae a
+    // `planilla.equipo` — que es correcto para ese caso, ya que antes sólo existía esa
+    // opción.
+    const equipoDelPresente = presente.equipo || planilla.equipo;
     const jp = await JugadorPartido.findOneAndUpdate(
       { partido: planilla.partido, jugador: presente.jugador },
       {
         $setOnInsert: {
           partido: planilla.partido,
           jugador: presente.jugador,
-          equipo: planilla.equipo,
+          equipo: equipoDelPresente,
           numero: presente.numero,
           rol: presente.rol || 'jugador',
           estado: 'aceptado',
@@ -120,6 +128,8 @@ export async function aplicarPlanillaOficializada({
 
     const presente = presentes.find((p) => String(p._id) === String(stat.planillaPresente));
     if (!presente) continue;
+    // Mismo criterio que en la convocatoria: el equipo es del presente, no de la planilla.
+    const equipoDeLaFila = presente.equipo || planilla.equipo;
 
     if (planilla.modo === 'sets') {
       const setId = setPartidoPorPlanillaSet.get(String(stat.planillaSet));
@@ -131,7 +141,7 @@ export async function aplicarPlanillaOficializada({
           set: setId,
           jugadorPartido: jugadorPartidoId,
           jugador: presente.jugador,
-          equipo: planilla.equipo,
+          equipo: equipoDeLaFila,
           throws: stat.throws || 0,
           hits: stat.hits || 0,
           outs: stat.outs || 0,
