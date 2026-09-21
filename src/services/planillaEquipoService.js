@@ -11,6 +11,7 @@ import PlanillaPresente from '../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
 import EquipoCompetencia from '../models/Equipo/EquipoCompetencia.js';
+import ParticipacionTemporada from '../models/Equipo/ParticipacionTemporada.js';
 
 const { Types } = mongoose;
 
@@ -37,13 +38,22 @@ export async function getEquipoIdFromPlanilla(planillaId) {
 
 /**
  * El equipo tiene que ser uno de los dos que juegan el partido, O (scouting) estar
- * inscripto y aceptado en la competencia del partido.
+ * inscripto en la competencia del partido.
  *
  * Sin la primera parte, cualquiera con stats.capture en su propio club abre planillas
  * sobre partidos ajenos y después pide oficializarlas. La segunda parte es lo que
  * habilita el scouting: un equipo puede reconstruir un partido de su propia competencia
  * aunque no lo haya jugado, para tener con qué compararse. Un amistoso no tiene
  * competencia en la que "estar inscripto" — ahí sólo entra el primer caso.
+ *
+ * La inscripción se rastrea por DOS caminos que no se pisan — `equipos-competencia`
+ * (Overtime-Organizaciones/equipoCompetenciaService.ts los junta y por eso el frontend
+ * puede mostrar una competencia como "inscripta" sin que exista fila en el primero):
+ *   1. `EquipoCompetencia` — equipo↔competencia directo, estado 'aceptado'.
+ *   2. `ParticipacionTemporada` — equipo↔temporada, estado 'activo'. Es el camino real
+ *      hoy (la plataforma administra por Competencia → Temporada → Fase), así que se
+ *      valida contra `partido.temporada` en vez de resolver la competencia de esa
+ *      temporada — el partido ya tiene los dos ids propios.
  *
  * Devuelve `modo: 'propio'|'scouting'` para que el caller sepa si el equipo jugó de
  * verdad este partido o lo está scouteando.
@@ -57,7 +67,7 @@ export async function validarEquipoJuegaElPartido(partidoId, equipoId) {
   }
 
   const partido = await Partido.findById(partidoId)
-    .select('equipoLocal equipoVisitante competencia estado')
+    .select('equipoLocal equipoVisitante competencia temporada estado')
     .lean();
 
   if (!partido) {
@@ -76,15 +86,26 @@ export async function validarEquipoJuegaElPartido(partidoId, equipoId) {
     };
   }
 
-  const inscripto = await EquipoCompetencia.findOne({
-    equipo: equipoId,
-    competencia: partido.competencia,
-    estado: 'aceptado',
-  })
-    .select('_id')
-    .lean();
+  const [porCompetencia, porTemporada] = await Promise.all([
+    EquipoCompetencia.findOne({
+      equipo: equipoId,
+      competencia: partido.competencia,
+      estado: 'aceptado',
+    })
+      .select('_id')
+      .lean(),
+    partido.temporada
+      ? ParticipacionTemporada.findOne({
+          equipo: equipoId,
+          temporada: partido.temporada,
+          estado: 'activo',
+        })
+          .select('_id')
+          .lean()
+      : null,
+  ]);
 
-  if (!inscripto) {
+  if (!porCompetencia && !porTemporada) {
     return {
       ok: false,
       status: 403,
