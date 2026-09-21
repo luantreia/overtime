@@ -17,6 +17,8 @@ import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
+import SolicitudEdicion from '../models/SolicitudEdicion.js';
+import { AuditoriaService } from '../services/auditoriaService.js';
 
 
 const router = express.Router();
@@ -889,7 +891,59 @@ router.delete('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (
       }
     }
 
+    // Las PlanillaEquipo de este partido (y lo que cuelga de ellas) nunca se cascadean
+    // acá a propósito: son el análisis privado de un equipo y tienen que sobrevivir al
+    // borrado del partido oficial para poder reasignarse a otro partido después (ver
+    // PUT /planillas-equipo/:id/partido). Si alguna estaba esperando oficialización, esa
+    // solicitud ya no tiene con qué materializarse — se cancela y la planilla vuelve a
+    // borrador para que su dueño la pueda reasignar en vez de quedar huérfana y bloqueada.
+    try {
+      const planillasAfectadas = await PlanillaEquipo.find({ partido: req.params.id })
+        .select('_id estado solicitudOficializacion')
+        .lean();
+
+      const pendientes = planillasAfectadas.filter(
+        (p) => p.estado === 'pendiente_oficializacion' && p.solicitudOficializacion,
+      );
+
+      if (pendientes.length) {
+        await Promise.all([
+          SolicitudEdicion.updateMany(
+            { _id: { $in: pendientes.map((p) => p.solicitudOficializacion) }, estado: 'pendiente' },
+            {
+              $set: {
+                estado: 'cancelado',
+                motivoRechazo: 'El partido fue eliminado antes de resolverse la solicitud',
+              },
+            },
+          ),
+          PlanillaEquipo.updateMany(
+            { _id: { $in: pendientes.map((p) => p._id) } },
+            { $set: { estado: 'borrador' }, $unset: { solicitudOficializacion: 1 } },
+          ),
+        ]);
+      }
+    } catch (planillaErr) {
+      console.warn('Error liberando planillas del partido eliminado:', planillaErr.message);
+    }
+
     await partido.deleteOne();
+
+    // Registrar auditoría. A diferencia del resto de las rutas de este archivo (que no
+    // la tienen), el borrado es irreversible y hoy no pasa por SolicitudEdicion, así que
+    // esta es la única traza de quién lo hizo.
+    try {
+      await AuditoriaService.registrar(
+        req.user.uid,
+        'Partido',
+        req.params.id,
+        'DELETE',
+        { before: partido.toObject(), after: null },
+        req,
+      );
+    } catch (auditErr) {
+      console.warn('Error registrando auditoría de borrado de partido:', auditErr.message);
+    }
 
     // Limpieza de colecciones relacionadas
     try {

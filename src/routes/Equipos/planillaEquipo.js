@@ -11,8 +11,10 @@ import PlanillaEstadistica from '../../models/Equipo/PlanillaEstadistica.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import SetPartido from '../../models/Partido/SetPartido.js';
 import Partido from '../../models/Partido/Partido.js';
+import Equipo from '../../models/Equipo/Equipo.js';
 import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.js';
 import SolicitudEdicion from '../../models/SolicitudEdicion.js';
+import { AuditoriaService } from '../../services/auditoriaService.js';
 import { normalizarVisibilidadObjetivo } from '../../services/statsApprovalService.js';
 import { hasTeamPermission } from '../../services/teamPermissionService.js';
 import { hasMatchPermission } from '../../services/matchPermissionService.js';
@@ -347,6 +349,63 @@ router.get(
     } catch (error) {
       console.error('Error armando resumen de planillas:', error);
       return res.status(500).json({ error: 'Error interno armando el resumen' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/huerfanas:
+ *   get:
+ *     summary: Planillas del equipo cuyo partido ya no existe
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Borrar un Partido nunca cascadea sus PlanillaEquipo (para no destruir el
+ *       análisis propio de un equipo), así que quedan apuntando a un partido que ya
+ *       no existe. Esta lista es cómo el dueño las encuentra para reasignarlas a otro
+ *       partido con PUT /:id/partido en vez de perder el trabajo sin enterarse.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: equipo
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Listado de planillas huérfanas }
+ */
+router.get(
+  '/huerfanas',
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.view_private',
+    resolveEquipoId: (req) => req.query?.equipo,
+    missingMessage: 'Se requiere el parámetro equipo para validar permisos de lectura',
+  }),
+  async (req, res) => {
+    try {
+      const equipoId = req.equipoIdPermisos;
+
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId })
+        .select('_id partido estado modo createdAt updatedAt')
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      if (!planillas.length) return res.json([]);
+
+      const partidoIds = [...new Set(planillas.map((p) => String(p.partido)))];
+      const existentes = new Set(
+        (await Partido.find({ _id: { $in: partidoIds } }).select('_id').lean()).map((p) => String(p._id)),
+      );
+
+      const huerfanas = planillas
+        .filter((p) => !existentes.has(String(p.partido)))
+        .map((p) => ({ ...p, _id: String(p._id), partidoEliminado: String(p.partido) }));
+
+      return res.json(huerfanas);
+    } catch (error) {
+      console.error('Error listando planillas huérfanas:', error);
+      return res.status(500).json({ error: 'Error interno listando planillas huérfanas' });
     }
   },
 );
@@ -1387,6 +1446,140 @@ router.put(
     } catch (error) {
       console.error('Error cambiando la fuente preferida de la planilla:', error);
       return res.status(500).json({ error: 'Error interno cambiando la fuente' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/{id}/partido:
+ *   put:
+ *     summary: Reasigna la planilla a otro partido
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Para cuando el partido de origen se borró y se recreó distinto (otra fase,
+ *       otra fecha) o el equipo se dio cuenta de que anotó un partido que no era el
+ *       que creía. Mueve la planilla entera — presentes, sets, estadísticas — sin
+ *       volver a tipear nada.
+ *
+ *       Sólo se permite en estado 'borrador'. Valida el equipo dueño contra el
+ *       partido destino con la misma regla que crear una planilla (propio o
+ *       scouting), y además exige que cualquier equipo rival ya capturado en los
+ *       presentes coincida con los dos equipos del partido destino: si no, esas
+ *       filas quedarían sin nada oficial contra qué compararse y se bloquea.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [partido]
+ *             properties:
+ *               partido: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Planilla reasignada }
+ *       400: { description: partido inválido o es el mismo que ya tenía }
+ *       403: { description: El equipo no participa del partido destino ni está inscripto en su competencia }
+ *       409: { description: Ya hay una planilla del equipo en el destino, o quedarían datos huérfanos }
+ */
+router.put(
+  '/:id/partido',
+  validarObjectId,
+  verificarToken,
+  cargarRolDesdeBD,
+  requirePermisoSobrePlanilla('stats.edit'),
+  cargarPlanillaEditable,
+  async (req, res) => {
+    try {
+      const { planilla } = req;
+      const nuevoPartidoId = req.body?.partido;
+
+      if (!nuevoPartidoId || !mongoose.Types.ObjectId.isValid(nuevoPartidoId)) {
+        return res.status(400).json({ error: 'partido inválido' });
+      }
+
+      if (String(nuevoPartidoId) === String(planilla.partido)) {
+        return res.status(400).json({ error: 'La planilla ya pertenece a ese partido' });
+      }
+
+      const validacion = await validarEquipoJuegaElPartido(nuevoPartidoId, planilla.equipo);
+      if (!validacion.ok) {
+        return res.status(validacion.status).json({ error: validacion.message });
+      }
+
+      const yaExiste = await PlanillaEquipo.findOne({
+        partido: nuevoPartidoId,
+        equipo: planilla.equipo,
+      }).select('_id').lean();
+      if (yaExiste) {
+        return res.status(409).json({
+          error: 'Ya tenés una planilla de este equipo en el partido destino',
+          planillaId: yaExiste._id,
+        });
+      }
+
+      // Cualquier equipo rival ya capturado en los presentes tiene que seguir siendo
+      // uno de los dos que juegan el partido destino — si no, esas filas quedan sin
+      // nada oficial contra qué compararse y nadie se entera (mismo patrón silencioso
+      // que ?estado=proximamente en /partidos: no falla, se vacía).
+      const equiposDestino = new Set(
+        [validacion.partido.equipoLocal, validacion.partido.equipoVisitante]
+          .filter(Boolean)
+          .map((id) => String(id)),
+      );
+
+      const presentes = await PlanillaPresente.find({ planilla: planilla._id }).select('equipo').lean();
+      const equiposRivalesEnPlanilla = [...new Set(
+        presentes
+          .map((p) => (p.equipo ? String(p.equipo) : null))
+          .filter((eq) => eq && eq !== String(planilla.equipo)),
+      )];
+
+      const equiposHuerfanos = equiposRivalesEnPlanilla.filter((eq) => !equiposDestino.has(eq));
+      if (equiposHuerfanos.length) {
+        const nombres = await Equipo.find({ _id: { $in: equiposHuerfanos } }).select('nombre').lean();
+        return res.status(409).json({
+          error: 'Esta planilla tiene jugadores de un equipo que no participa del partido destino',
+          equipos: nombres.map((e) => ({ _id: String(e._id), nombre: e.nombre })),
+        });
+      }
+
+      const partidoAnterior = String(planilla.partido);
+      planilla.partido = nuevoPartidoId;
+      await planilla.save();
+
+      // Los presentes/sets podían estar enlazados a la convocatoria/sets OFICIALES
+      // del partido anterior (jugadorPartido/setPartido). Esos bridges ya no
+      // significan nada en el partido nuevo.
+      await Promise.all([
+        PlanillaPresente.updateMany({ planilla: planilla._id }, { $set: { jugadorPartido: null } }),
+        PlanillaSet.updateMany({ planilla: planilla._id }, { $set: { setPartido: null } }),
+      ]);
+
+      try {
+        await AuditoriaService.registrar(
+          req.user.uid,
+          'PlanillaEquipo',
+          planilla._id,
+          'UPDATE',
+          { before: { partido: partidoAnterior }, after: { partido: String(nuevoPartidoId) } },
+          req,
+        );
+      } catch (auditErr) {
+        console.warn('Error registrando auditoría de reasignación de planilla:', auditErr.message);
+      }
+
+      const completa = await obtenerPlanillaCompleta(planilla._id);
+      return res.json(completa);
+    } catch (error) {
+      console.error('Error reasignando planilla a otro partido:', error);
+      return res.status(500).json({ error: 'Error interno reasignando la planilla' });
     }
   },
 );
