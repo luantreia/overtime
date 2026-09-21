@@ -148,6 +148,12 @@ router.post(
             candidatos.map((c) => ({
               planilla: planilla._id,
               jugador: c.jugadorId,
+              // Sin esto los presentes del autocompletado inicial quedaban sin `equipo` — el
+              // único lugar donde el campo importa de verdad es al mezclarlos con los del
+              // rival (agregados aparte vía /presentes/autocompletar-equipo, que sí lo setea):
+              // sin `equipo` acá, el frontend no podía distinguir "estos son los míos" de "sin
+              // dato" y la grilla terminaba mostrando sólo el grupo del rival.
+              equipo,
               jugadorPartido: c.jugadorPartidoId || null,
               numero: c.numero,
               rol: 'jugador',
