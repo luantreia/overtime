@@ -19,6 +19,7 @@ import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJuga
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import { AuditoriaService } from '../services/auditoriaService.js';
+import { resolverAlcanceEquipo } from '../services/alcanceEquipoAnaliticoService.js';
 
 
 const router = express.Router();
@@ -106,6 +107,12 @@ router.get('/admin', verificarToken, cargarRolDesdeBD, async (req, res) => {
  *
  * Devuelve datos privados del equipo (la existencia y el estado de sus planillas), así que
  * pide `stats.view_private` sobre el equipo consultado.
+ *
+ * `?perspectiva=<equipoId>` arma la línea temporal a través de otro equipo (un rival, o uno de
+ * los dos lados de un partido que `equipo` scouteó sin jugar) en vez de `equipo`. La respuesta
+ * agrega `equiposDisponibles`: los equipos sobre los que `equipo` tiene algún dato propio, para
+ * poblar el selector. Ver `resolverAlcanceEquipo` y `filasAnaliticasService.js`, que comparten
+ * exactamente este mecanismo.
  */
 router.get(
   '/timeline',
@@ -120,21 +127,16 @@ router.get(
     try {
       const equipoId = req.equipoIdPermisos;
       const { desde, hasta } = req.query;
+      const perspectivaId = req.query.perspectiva || equipoId;
 
-      const filtro = {
-        $or: [{ equipoLocal: equipoId }, { equipoVisitante: equipoId }],
-      };
+      const { partidoIds: idsEnAlcance, equiposDisponibles } = await resolverAlcanceEquipo(
+        equipoId,
+        { desde, hasta },
+      );
 
-      // El rango es opcional y cada extremo lo es por separado: "desde 2026" sin tope superior
-      // es una consulta legítima. Una fecha inválida se ignora en vez de romper la pantalla.
-      const rango = {};
-      const desdeFecha = desde ? new Date(desde) : null;
-      const hastaFecha = hasta ? new Date(hasta) : null;
-      if (desdeFecha && !Number.isNaN(desdeFecha.getTime())) rango.$gte = desdeFecha;
-      if (hastaFecha && !Number.isNaN(hastaFecha.getTime())) rango.$lte = hastaFecha;
-      if (Object.keys(rango).length > 0) filtro.fecha = rango;
+      if (idsEnAlcance.length === 0) return res.json({ partidos: [], equiposDisponibles: [] });
 
-      const partidos = await Partido.find(filtro)
+      const partidosTodos = await Partido.find({ _id: { $in: idsEnAlcance } })
         .select(
           'fecha estado modalidad categoria ubicacion cancha jornada etapa nombrePartido ' +
             'marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia temporada fase'
@@ -151,16 +153,25 @@ router.get(
         .sort({ fecha: -1 })
         .lean();
 
-      if (partidos.length === 0) return res.json({ partidos: [] });
+      // Sólo los partidos donde la perspectiva pedida jugó: un partido scouteado entre dos
+      // terceros no dice nada sobre un cuarto equipo.
+      const partidos = partidosTodos.filter((p) =>
+        [p.equipoLocal?._id, p.equipoVisitante?._id].some(
+          (id) => String(id) === String(perspectivaId),
+        ),
+      );
+
+      if (partidos.length === 0) return res.json({ partidos: [], equiposDisponibles });
 
       const partidoIds = partidos.map((p) => p._id);
 
       // Las cuatro fuentes de "este partido tiene datos", todas en lote.
       const [sets, jugadorPartidos, planillas] = await Promise.all([
         SetPartido.find({ partido: { $in: partidoIds } }).select('_id partido').lean(),
-        JugadorPartido.find({ partido: { $in: partidoIds }, equipo: equipoId })
+        JugadorPartido.find({ partido: { $in: partidoIds }, equipo: perspectivaId })
           .select('_id partido')
           .lean(),
+        // Siempre las planillas de `equipoId` (tus propias), nunca las del equipo consultado.
         PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId })
           .select('_id partido estado modo fuentePreferida')
           .lean(),
@@ -169,7 +180,7 @@ router.get(
       const [statsSet, statsManual] = await Promise.all([
         EstadisticasJugadorSet.find({
           set: { $in: sets.map((s) => s._id) },
-          equipo: equipoId,
+          equipo: perspectivaId,
         })
           .select('set estadoPublicacion')
           .lean(),
@@ -216,7 +227,7 @@ router.get(
         const acc = porPartido.get(pid) ?? { conSets: false, verificada: false, conManual: false };
         const planilla = planillaDePartido.get(pid) ?? null;
 
-        const esLocal = String(partido.equipoLocal?._id) === String(equipoId);
+        const esLocal = String(partido.equipoLocal?._id) === String(perspectivaId);
         const rival = esLocal ? partido.equipoVisitante : partido.equipoLocal;
 
         const tieneOficial = acc.conSets || acc.conManual;
@@ -288,7 +299,7 @@ router.get(
         };
       });
 
-      return res.json({ partidos: resultado });
+      return res.json({ partidos: resultado, equiposDisponibles });
     } catch (error) {
       console.error('Error armando la línea temporal de partidos:', error);
       return res.status(500).json({ message: 'Error al armar la línea temporal' });

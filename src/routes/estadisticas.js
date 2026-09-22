@@ -74,6 +74,11 @@ router.get('/equipo/:equipoId/resumen', verificarToken, cargarRolDesdeBD, obtene
  * resuelta partido por partido. El razonamiento completo está en `filasAnaliticasService.js`.
  *
  * Incluye datos privados del equipo (sus planillas), así que pide `stats.view_private`.
+ *
+ * `?perspectiva=<equipoId>` arma las filas a través de otro equipo en vez de `equipoId` — para
+ * ver, con el mismo motor de análisis, lo que este equipo capturó sobre un rival (o sobre un
+ * partido scouteado a terceros). Sigue leyendo sólo las planillas de `equipoId`, nunca las de
+ * otro: no es un permiso nuevo, sólo deja de descartar presentes del otro lado.
  */
 router.get(
   '/equipo/:equipoId/filas',
@@ -86,7 +91,11 @@ router.get(
   }),
   async (req, res) => {
     try {
-      const filas = await obtenerFilasAnaliticas(req.equipoIdPermisos, req.query);
+      const filas = await obtenerFilasAnaliticas(req.equipoIdPermisos, {
+        desde: req.query.desde,
+        hasta: req.query.hasta,
+        perspectiva: req.query.perspectiva,
+      });
       return res.json({ filas });
     } catch (error) {
       console.error('Error armando filas analiticas:', error);

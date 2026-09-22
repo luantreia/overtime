@@ -7,6 +7,7 @@ import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import PlanillaPresente from '../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../models/Equipo/PlanillaSet.js';
 import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
+import { resolverAlcanceEquipo } from './alcanceEquipoAnaliticoService.js';
 
 /**
  * Filas analíticas de un equipo: una por jugador y por set (o por partido, en captura directa),
@@ -24,18 +25,21 @@ import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
  * Cada partido aporta filas de UNA sola fuente. Si tiene estadísticas oficiales y planilla
  * propia, manda `PlanillaEquipo.fuentePreferida`; si sólo tiene una, esa. Nunca se mezclan las
  * dos en el mismo partido: sumarían al mismo jugador dos veces.
+ *
+ * `perspectiva` (default `equipoId`) es a través de qué equipo se arma cada fila — quién es
+ * "local", quién ganó, y de qué plantel filtrar los presentes de la planilla. `equipoId` sigue
+ * siendo de quién son los datos que se leen (tus propias planillas, gateadas por
+ * `stats.view_private` en la ruta): pedir `perspectiva` distinto no abre ninguna planilla
+ * ajena, sólo deja de descartar lo que tu propia planilla ya capturó sobre el otro equipo. Ver
+ * `resolverAlcanceEquipo` para de dónde sale el conjunto de partidos elegibles.
  */
-export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
-  const filtro = { $or: [{ equipoLocal: equipoId }, { equipoVisitante: equipoId }] };
+export async function obtenerFilasAnaliticas(equipoId, { desde, hasta, perspectiva } = {}) {
+  const perspectivaId = perspectiva || equipoId;
 
-  const rango = {};
-  const desdeFecha = desde ? new Date(desde) : null;
-  const hastaFecha = hasta ? new Date(hasta) : null;
-  if (desdeFecha && !Number.isNaN(desdeFecha.getTime())) rango.$gte = desdeFecha;
-  if (hastaFecha && !Number.isNaN(hastaFecha.getTime())) rango.$lte = hastaFecha;
-  if (Object.keys(rango).length > 0) filtro.fecha = rango;
+  const { partidoIds: idsEnAlcance } = await resolverAlcanceEquipo(equipoId, { desde, hasta });
+  if (idsEnAlcance.length === 0) return [];
 
-  const partidos = await Partido.find(filtro)
+  const partidosTodos = await Partido.find({ _id: { $in: idsEnAlcance } })
     .select(
       'fecha estado modalidad categoria equipoLocal equipoVisitante competencia temporada fase ' +
         'marcadorLocal marcadorVisitante'
@@ -52,6 +56,12 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
     .sort({ fecha: -1 })
     .lean();
 
+  // Sólo los partidos donde la perspectiva pedida jugó de verdad: un partido scouteado entre
+  // dos terceros no dice nada sobre un cuarto equipo.
+  const esParticipante = (partido, id) =>
+    [partido.equipoLocal?._id, partido.equipoVisitante?._id].some((x) => String(x) === String(id));
+  const partidos = partidosTodos.filter((p) => esParticipante(p, perspectivaId));
+
   if (partidos.length === 0) return [];
 
   const partidoIds = partidos.map((p) => p._id);
@@ -60,10 +70,12 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
     SetPartido.find({ partido: { $in: partidoIds } })
       .select('_id partido numeroSet ganadorSet')
       .lean(),
-    JugadorPartido.find({ partido: { $in: partidoIds }, equipo: equipoId })
+    JugadorPartido.find({ partido: { $in: partidoIds }, equipo: perspectivaId })
       .select('_id partido jugador')
       .populate('jugador', 'nombre apellido alias')
       .lean(),
+    // Siempre tus propias planillas (`equipoId`), nunca las del equipo consultado: es el único
+    // origen de datos privados al que tenés acceso.
     PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId })
       .select('_id partido modo fuentePreferida')
       .lean(),
@@ -72,7 +84,7 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
   const planillaIds = planillas.map((p) => p._id);
 
   const [statsSet, statsManual, presentes, planillaSets, planillaStats] = await Promise.all([
-    EstadisticasJugadorSet.find({ set: { $in: sets.map((s) => s._id) }, equipo: equipoId })
+    EstadisticasJugadorSet.find({ set: { $in: sets.map((s) => s._id) }, equipo: perspectivaId })
       .select('set jugadorPartido throws hits outs catches survive')
       .lean(),
     EstadisticasJugadorPartidoManual.find({
@@ -109,15 +121,15 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
     return mapa;
   };
 
-  // Sólo los presentes DEL EQUIPO CONSULTADO: desde que una planilla puede tener también
-  // presentes del rival (captura del rival dentro de tu propio partido, o una planilla de
-  // scouting con los dos lados), hay que excluirlos acá — si no, sus números se mezclarían en
-  // el análisis "propio" de este equipo, justo lo que la superficie única de estadísticas
-  // existe para evitar. Un presente sin `equipo` (documentos de antes de este campo) se trata
-  // como propio, que era la única posibilidad antes de que la planilla pudiera capturar al
-  // rival.
-  const presentesPropios = presentes.filter(
-    (p) => !p.equipo || String(p.equipo) === String(equipoId),
+  // Sólo los presentes DE LA PERSPECTIVA CONSULTADA: una planilla puede tener también presentes
+  // del rival (captura del rival dentro de tu propio partido, o una planilla de scouting con
+  // los dos lados), y hay que quedarse sólo con los que corresponden a través de qué equipo se
+  // está mirando — si no, sus números se mezclarían con los del otro lado. Con `perspectiva`
+  // por defecto (tu propio equipo) esto filtra exactamente igual que antes. Un presente sin
+  // `equipo` (documentos de antes de este campo) se trata como propio del dueño de la planilla,
+  // que era la única posibilidad antes de que pudiera capturar al rival.
+  const presentesPropios = presentes.filter((p) =>
+    p.equipo ? String(p.equipo) === String(perspectivaId) : perspectivaId === equipoId,
   );
   const idsPresentesPropios = new Set(presentesPropios.map((p) => String(p._id)));
   const planillaStatsPropias = planillaStats.filter((s) => idsPresentesPropios.has(String(s.planillaPresente)));
@@ -146,7 +158,7 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta } = {}) {
 
   for (const partido of partidos) {
     const pid = String(partido._id);
-    const esLocal = String(partido.equipoLocal?._id) === String(equipoId);
+    const esLocal = String(partido.equipoLocal?._id) === String(perspectivaId);
     const rival = esLocal ? partido.equipoVisitante : partido.equipoLocal;
 
     const marcadorEquipo = (esLocal ? partido.marcadorLocal : partido.marcadorVisitante) ?? 0;
