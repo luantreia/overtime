@@ -456,6 +456,189 @@ router.put(
 
 /**
  * @swagger
+ * /api/estadisticas/jugador-set/set/{setId}/jugador-partido/{jugadorPartidoId}:
+ *   put:
+ *     summary: Guarda (crea o actualiza) la fila de un jugador en un set, en una sola operación
+ *     description: >
+ *       Upsert por la clave real del dato, {set, jugadorPartido}, que es la que lleva el índice
+ *       único. Existe porque el autoguardado por fila no tiene cómo saber si la fila ya está
+ *       creada: con sólo POST (crear) y PUT por id (actualizar), el cliente tenía que hacer un
+ *       GET para averiguarlo y recién después escribir. Ese read-then-write es una condición de
+ *       carrera con la captura simultánea que el socket habilita — dos personas cargando el
+ *       mismo set pueden no encontrar la fila a la vez, las dos terminar en POST, y el índice
+ *       único rechazar a la segunda con un error de duplicado en la cara de quien cargaba.
+ *     tags: [EstadisticasJugadorSet]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: setId
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *       - in: path
+ *         name: jugadorPartidoId
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               throws: { type: number }
+ *               hits: { type: number }
+ *               outs: { type: number }
+ *               catches: { type: number }
+ *               survive: { type: boolean }
+ *               visibilidadObjetivo: { type: string, enum: [organizacion, publica] }
+ *     responses:
+ *       200: { description: Fila guardada }
+ *       400: { description: Datos inválidos }
+ *       403: { description: Sin permisos sobre el equipo }
+ *       404: { description: JugadorPartido no encontrado }
+ */
+router.put(
+  '/set/:setId/jugador-partido/:jugadorPartidoId',
+  // `validarObjectId` valida `req.params.id`, y esta ruta no tiene ese param — se validan a mano.
+  verificarToken,
+  cargarRolDesdeBD,
+  requireTeamPermission({
+    permission: 'stats.capture',
+    // Mismo criterio que el POST: el equipo sale del JugadorPartido, nunca del body ni de la
+    // URL. Si se tomara de lo que declara el cliente, quien tenga stats.capture en su propio
+    // equipo podría apuntar la fila al jugador de cualquier otro.
+    resolveEquipoId: async (req) => getEquipoIdFromJugadorPartido(req.params?.jugadorPartidoId),
+    missingMessage: 'Se requiere un jugadorPartido válido para validar permisos de captura',
+  }),
+  async (req, res) => {
+    try {
+      const { setId, jugadorPartidoId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(setId) || !mongoose.Types.ObjectId.isValid(jugadorPartidoId)) {
+        return res.status(400).json({ error: 'set o jugadorPartido inválido' });
+      }
+
+      const jugPartido = await JugadorPartido.findById(jugadorPartidoId).select('jugador partido').lean();
+      if (!jugPartido) return res.status(404).json({ error: 'JugadorPartido no encontrado' });
+
+      // El equipo del registro es el del JugadorPartido, ya resuelto al validar permisos.
+      const equipo = req.equipoIdPermisos;
+
+      const existente = await EstadisticasJugadorSet.findOne({
+        set: setId,
+        jugadorPartido: jugadorPartidoId,
+      }).select('estadoPublicacion visibilidadObjetivo').lean();
+
+      // Editar una fila que YA pasó por aprobación es otra operación que crearla: pide
+      // `stats.edit` y vuelve a encolar, igual que el PUT por id. Mientras la fila sigue
+      // 'privada' o 'rechazada' es autoguardado puro y alcanza con `stats.capture`.
+      const yaPasoPorAprobacion =
+        !!existente &&
+        ['pendiente_aprobacion', 'organizacion', 'publica'].includes(existente.estadoPublicacion);
+
+      if (yaPasoPorAprobacion) {
+        const puedeEditar = await hasTeamPermission({
+          equipoId: equipo,
+          usuarioId: req.user.uid,
+          rolGlobal: req.user.rol,
+          permission: 'stats.edit',
+        });
+        if (!puedeEditar) {
+          return res.status(403).json({ error: 'No tienes permisos para editar estadísticas de este equipo' });
+        }
+      }
+
+      const cambios = {};
+      for (const campo of ['throws', 'hits', 'outs', 'catches', 'survive']) {
+        if (Object.prototype.hasOwnProperty.call(req.body, campo)) cambios[campo] = req.body[campo];
+      }
+
+      const update = {
+        $setOnInsert: {
+          set: setId,
+          jugadorPartido: jugadorPartidoId,
+          jugador: jugPartido.jugador,
+          equipo,
+          creadoPor: req.user.uid,
+        },
+      };
+      // Mongo rechaza un `$set` vacío, y un guardado sin ningún campo numérico es válido: es el
+      // "asigné el jugador al slot pero todavía no cargué nada" del autoguardado por fila.
+      if (Object.keys(cambios).length > 0) update.$set = cambios;
+
+      const guardarUpsert = () =>
+        EstadisticasJugadorSet.findOneAndUpdate(
+          { set: setId, jugadorPartido: jugadorPartidoId },
+          update,
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+
+      let guardado;
+      try {
+        guardado = await guardarUpsert();
+      } catch (err) {
+        // Un upsert contra un índice único puede chocar igual si dos clientes insertan a la vez:
+        // el segundo se topa con la fila que acaba de nacer. Reintentar una sola vez lo convierte
+        // en el update que siempre tendría que haber sido.
+        if (err?.code === 11000) guardado = await guardarUpsert();
+        else throw err;
+      }
+
+      // Igual que en el PUT por id: si la fila ya era visible, el cambio vuelve a pasar por el
+      // organizador en vez de modificar en silencio un dato ya publicado.
+      if (yaPasoPorAprobacion) {
+        const setDoc = await SetPartido.findById(setId).select('partido').lean();
+        if (setDoc?.partido) {
+          const visibilidadObjetivo = normalizarVisibilidadObjetivo(
+            req.body?.visibilidadObjetivo ?? guardado.visibilidadObjetivo,
+          );
+          const solicitud = await encolarSolicitudStatsLoteSet({
+            setId,
+            statId: guardado._id,
+            partidoId: setDoc.partido,
+            equipoId: equipo,
+            creadoPor: req.user.uid,
+            visibilidadObjetivo,
+          });
+
+          if (solicitud.queued) {
+            guardado.estadoPublicacion = 'pendiente_aprobacion';
+            guardado.visibilidadObjetivo = visibilidadObjetivo;
+            guardado.solicitudPublicacion = solicitud.solicitudId;
+            await guardado.save();
+          } else if (solicitud.autoEstado) {
+            // Amistoso: sin organizador que apruebe, la visibilidad se aplica directo.
+            guardado.estadoPublicacion = solicitud.autoEstado;
+            guardado.visibilidadObjetivo = visibilidadObjetivo;
+            await guardado.save();
+          }
+        }
+      }
+
+      try {
+        await actualizarEstadisticasJugadorPartido(jugadorPartidoId, req.user.uid, false);
+        await actualizarEstadisticasEquipoPartido(jugPartido.partido, equipo, req.user.uid);
+      } catch (aggError) {
+        console.error('⚠️ Error actualizando estadísticas agregadas:', aggError);
+        // No falla la petición principal, igual que en POST/PUT.
+      }
+
+      // Colaboración en vivo: quien tenga este {set, equipo} abierto en otra pestaña ve la fila
+      // sin refrescar. Mismo patrón que `planilla:estadisticas_actualizadas`.
+      req.app.get('io')?.to(`set:${setId}:${equipo}`).emit('set:estadisticas_actualizadas', {
+        setId: String(setId),
+        equipoId: String(equipo),
+        estadisticas: [guardado],
+      });
+
+      return res.json(guardado);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'Error al guardar estadísticas de set' });
+    }
+  }
+);
+
+/**
+ * @swagger
  * /api/estadisticas/jugador-set/{id}:
  *   delete:
  *     summary: Elimina estadísticas de set de un jugador
