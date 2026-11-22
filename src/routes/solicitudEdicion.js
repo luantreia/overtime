@@ -245,15 +245,24 @@ router.get('/', verificarToken, async (req, res) => {
       .populate('creadoPor', 'nombre email')
       .lean();
 
+    // ¿El usuario aprueba esta solicitud? Misma firma y forma de resultado que usan la
+    // aprobación y la notificación: (tipo, entidad, datosPropuestos) → { all, grupos }.
+    // Antes se llamaba con la solicitud entera y se recorría el resultado como si fueran
+    // arrays: tiraba siempre, el catch descartaba la fila y ningún aprobador que no fuera
+    // admin global veía nada en scope=aprobables.
+    const esAprobador = async (s) => {
+      const { all } = await obtenerAdminsParaSolicitud(s.tipo, s.entidad, s.datosPropuestos || {});
+      return all.some((adminId) => String(adminId) === String(uid));
+    };
+
     // Post-filtrado para scope=related: mantener creadas por el usuario o donde sea aprobador dinámico
     if (!esAdminGlobal && scope === 'related') {
       const visibles = [];
       for (const s of solicitudes) {
-        if (s.creadoPor?.toString() === uid) { visibles.push(s); continue; }
+        // creadoPor viene populado: comparar el _id, no el objeto.
+        if (String(s.creadoPor?._id ?? s.creadoPor) === String(uid)) { visibles.push(s); continue; }
         try {
-          const aprobadores = await obtenerAdminsParaSolicitud(s);
-          const puede = Object.values(aprobadores).some(grupo => grupo.some(adminId => adminId.toString() === uid));
-          if (puede) visibles.push(s);
+          if (await esAprobador(s)) visibles.push(s);
         } catch {/* ignorar */}
       }
       solicitudes = visibles;
@@ -263,11 +272,7 @@ router.get('/', verificarToken, async (req, res) => {
       const filtradas = [];
       for (const s of solicitudes) {
         try {
-          const aprobadores = await obtenerAdminsParaSolicitud(s);
-          const puede = Object.values(aprobadores).some(grupo =>
-            grupo.some(adminId => adminId.toString() === uid)
-          );
-          if (puede) filtradas.push(s);
+          if (await esAprobador(s)) filtradas.push(s);
         } catch (e) {
           continue;
         }
