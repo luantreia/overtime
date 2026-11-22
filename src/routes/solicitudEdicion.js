@@ -6,6 +6,7 @@ import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 // import validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js'; // TODO: Implementar
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
+import { camposAltaFaltantes } from '../utils/camposAltaFaltantes.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -628,6 +629,10 @@ router.post('/', verificarToken, async (req, res) => {
     }
 
     // Validar estructura de datosPropuestos según el tipo
+    const faltantesAlta = camposAltaFaltantes(tipo, datosPropuestos);
+    if (faltantesAlta.length > 0) {
+      return res.status(400).json({ message: `Faltan datos para la solicitud: ${faltantesAlta.join(', ')}` });
+    }
     if (tipo === 'jugador-equipo-crear' && !datosPropuestos.jugadorId) {
       return res.status(400).json({ message: 'jugadorId requerido para solicitudes de creación' });
     }
