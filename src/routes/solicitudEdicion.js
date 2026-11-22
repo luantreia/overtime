@@ -8,6 +8,7 @@ import { validarObjectId } from '../middleware/validacionObjectId.js';
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { camposAltaFaltantes } from '../utils/camposAltaFaltantes.js';
 import { agregarContexto } from '../services/contextoSolicitudes.js';
+import { explicarAprobacion } from '../utils/explicarAprobacion.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -542,7 +543,7 @@ router.get('/:id', verificarToken, validarObjectId, async (req, res) => {
  *       500:
  *         description: Error al obtener los aprobadores
  */
-router.get('/:id/aprobadores', verificarToken, validarObjectId, async (req, res) => {
+router.get('/:id/aprobadores', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
     const solicitud = await SolicitudEdicion.findById(req.params.id);
     if (!solicitud) return res.status(404).json({ message: 'Solicitud no encontrada' });
@@ -551,15 +552,18 @@ router.get('/:id/aprobadores', verificarToken, validarObjectId, async (req, res)
     const aprobadoresResult = await obtenerAdminsParaSolicitud(solicitud.tipo, solicitud.entidad, solicitud.datosPropuestos);
     const aprobadores = aprobadoresResult.grupos || {};
 
-    // Verificar si el usuario actual puede aprobar
-    const uid = req.user.uid;
-    const puedeAprobar = Object.values(aprobadores).some(grupo =>
-      grupo.some(adminId => adminId.toString() === uid)
-    );
+    // Misma regla que el PUT de aprobación: el admin global siempre puede.
+    const { puedeAprobar, motivo } = explicarAprobacion({
+      estado: solicitud.estado,
+      esAdminGlobal: req.user.rol === 'admin',
+      uid: req.user.uid,
+      grupos: aprobadores,
+    });
 
     res.status(200).json({
       aprobadores,
-      puedeAprobar
+      puedeAprobar,
+      motivo,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener aprobadores', error: error.message });
