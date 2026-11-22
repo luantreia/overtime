@@ -203,7 +203,8 @@ mongoose.connection.once('open', async () => {
       { $set: { tipoDuenio: 'equipo' } },
     );
     if (modifiedCount) console.log(`[DB] PlanillaEquipo: ${modifiedCount} planillas marcadas tipoDuenio='equipo'`);
-    const indexes = await collection.indexes();
+    // En una base nueva la colección todavía no existe y indexes() tira "ns does not exist".
+    const indexes = await collection.indexes().catch(() => []);
     if (indexes.some((i) => i.name === 'partido_1_equipo_1')) {
       await collection.dropIndex('partido_1_equipo_1');
       console.log('[DB] Dropped old PlanillaEquipo index partido_1_equipo_1');
