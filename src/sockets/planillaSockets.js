@@ -10,7 +10,11 @@
 // HTTP `verificarToken` + el chequeo de permiso correspondiente.
 import { verifyAccessToken } from '../utils/jwt.js';
 import { hasTeamPermission } from '../services/teamPermissionService.js';
-import { getEquipoIdFromPlanilla } from '../services/planillaEquipoService.js';
+import mongoose from 'mongoose';
+import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
+import { puedeAccederPlanilla } from '../services/planillaEquipoService.js';
+
+const { Types } = mongoose;
 import logger from '../utils/logger.js';
 
 /** Registra los eventos de colaboración en vivo sobre un socket recién conectado. */
@@ -19,12 +23,15 @@ export function registerPlanillaSockets(socket) {
     if (!planillaId || !token) return;
     try {
       const decoded = verifyAccessToken(token);
-      const equipoId = await getEquipoIdFromPlanilla(planillaId);
-      const permitido = await hasTeamPermission({
-        equipoId,
-        usuarioId: decoded.sub,
-        rolGlobal: decoded.rol,
-        permission: 'stats.capture',
+      // Mismo resolver que REST: la sala es de captura en vivo, así que pide 'editar'.
+      if (!Types.ObjectId.isValid(planillaId)) return;
+      const planilla = await PlanillaEquipo.findById(planillaId)
+        .select('tipoDuenio estado partido equipo jugador organizacion')
+        .lean();
+      const { permitido } = await puedeAccederPlanilla({
+        planilla,
+        usuario: { uid: decoded.sub, rol: decoded.rol },
+        accion: 'editar',
       });
       if (!permitido) return;
       socket.join(`planilla:${planillaId}`);

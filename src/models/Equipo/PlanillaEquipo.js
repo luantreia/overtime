@@ -21,7 +21,28 @@ const { Schema, model } = mongoose;
  */
 const planillaEquipoSchema = new Schema({
   partido: { type: Schema.Types.ObjectId, ref: 'Partido', required: true, index: true },
-  equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true, index: true },
+
+  /**
+   * Quién es dueño de la planilla. Nació siendo sólo de equipos; ahora también puede ser
+   * de un jugador ("mis números", sólo sus propias filas) o de una organización
+   * (reconciliar las planillas de los dos equipos, preparar una fecha, importar).
+   *
+   * Campos explícitos por tipo en vez de un `dueño: { tipo, id }` polimórfico: así
+   * `planilla.equipo` sigue donde estaba para las lecturas existentes, `populate` anda sin
+   * refPath y el generador de tipos emite `Ref<Equipo>` limpio. Va cargada exactamente
+   * una de las tres refs, la que corresponde a `tipoDuenio` (ver el pre-validate).
+   *
+   * Sin ñ a propósito: viaja en queries, URLs y tipos generados.
+   */
+  tipoDuenio: {
+    type: String,
+    enum: ['equipo', 'jugador', 'organizacion'],
+    default: 'equipo',
+    index: true,
+  },
+  equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', index: true },
+  jugador: { type: Schema.Types.ObjectId, ref: 'Jugador', index: true },
+  organizacion: { type: Schema.Types.ObjectId, ref: 'Organizacion', index: true },
 
   // 'sets' replica la captura granular set a set; 'directa' son totales del partido
   // sin desglose, el equivalente de EstadisticasJugadorPartidoManual.
@@ -66,6 +87,26 @@ const planillaEquipoSchema = new Schema({
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });
 
-planillaEquipoSchema.index({ partido: 1, equipo: 1 }, { unique: true });
+/** Qué campo lleva la ref del dueño, según `tipoDuenio`. */
+export const CAMPO_DUENIO = { equipo: 'equipo', jugador: 'jugador', organizacion: 'organizacion' };
+
+planillaEquipoSchema.pre('validate', function validarDuenio(next) {
+  const tipo = this.tipoDuenio || 'equipo';
+  const cargados = Object.values(CAMPO_DUENIO).filter((campo) => this[campo]);
+  if (cargados.length !== 1 || cargados[0] !== CAMPO_DUENIO[tipo]) {
+    return next(new Error(`Una planilla de tipo '${tipo}' lleva cargado sólo el campo '${CAMPO_DUENIO[tipo]}'`));
+  }
+  return next();
+});
+
+// Una planilla por partido y por dueño. Índices parciales por tipo: el viejo
+// { partido, equipo } sin filtro trataría `equipo: null` como un valor más y rechazaría
+// la segunda planilla sin equipo de un mismo partido. server.js dropea el viejo al arrancar.
+for (const [tipo, campo] of Object.entries(CAMPO_DUENIO)) {
+  planillaEquipoSchema.index(
+    { partido: 1, [campo]: 1 },
+    { unique: true, name: `partido_1_${campo}_1_${tipo}`, partialFilterExpression: { tipoDuenio: tipo } },
+  );
+}
 
 export default model('PlanillaEquipo', planillaEquipoSchema);

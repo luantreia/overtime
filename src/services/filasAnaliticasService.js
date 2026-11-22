@@ -76,7 +76,7 @@ export async function obtenerFilasAnaliticas(equipoId, { desde, hasta, perspecti
       .lean(),
     // Siempre tus propias planillas (`equipoId`), nunca las del equipo consultado: es el único
     // origen de datos privados al que tenés acceso.
-    PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId })
+    PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId, tipoDuenio: 'equipo' })
       .select('_id partido modo fuentePreferida')
       .lean(),
   ]);

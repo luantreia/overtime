@@ -95,6 +95,7 @@ export type PartidoVisitante = 'rojo' | 'azul';
 export type PlanillaEquipoEstado = 'borrador' | 'pendiente_oficializacion' | 'oficializada' | 'rechazada';
 export type PlanillaEquipoFuentePreferida = 'oficial' | 'planilla';
 export type PlanillaEquipoModo = 'sets' | 'directa';
+export type PlanillaEquipoTipoDuenio = 'equipo' | 'jugador' | 'organizacion';
 export type PlanillaEquipoVisibilidadObjetivo = 'organizacion' | 'publica';
 export type PlanillaPresenteRol = 'jugador' | 'entrenador';
 export type PlanillaSetGanadorSet = 'local' | 'visitante' | 'empate' | 'pendiente';
@@ -815,7 +816,10 @@ export interface Partido {
 
 export interface PlanillaEquipo {
   partido: Ref<Partido>;
-  equipo: Ref<Equipo>;
+  tipoDuenio: PlanillaEquipoTipoDuenio;
+  equipo?: Ref<Equipo>;
+  jugador?: Ref<Jugador>;
+  organizacion?: Ref<Organizacion>;
   modo: PlanillaEquipoModo;
   estado: PlanillaEquipoEstado;
   visibilidadObjetivo: PlanillaEquipoVisibilidadObjetivo;

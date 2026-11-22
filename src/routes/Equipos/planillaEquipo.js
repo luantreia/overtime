@@ -16,8 +16,6 @@ import EstadisticasJugadorSet from '../../models/Jugador/EstadisticasJugadorSet.
 import SolicitudEdicion from '../../models/SolicitudEdicion.js';
 import { AuditoriaService } from '../../services/auditoriaService.js';
 import { normalizarVisibilidadObjetivo } from '../../services/statsApprovalService.js';
-import { hasTeamPermission } from '../../services/teamPermissionService.js';
-import { hasMatchPermission } from '../../services/matchPermissionService.js';
 import { obtenerJugadoresElegibles } from '../../services/jugadoresElegiblesService.js';
 import {
   getEquipoIdFromPlanilla,
@@ -26,6 +24,8 @@ import {
   obtenerPlanillaCompleta,
   eliminarPlanillaEnCascada,
   planillaEstaCerrada,
+  puedeAccederPlanilla,
+  recortarPlanillaSegunAcceso,
 } from '../../services/planillaEquipoService.js';
 
 const router = express.Router();
@@ -118,7 +118,7 @@ router.post(
         return res.status(validacion.status).json({ error: validacion.message });
       }
 
-      const existente = await PlanillaEquipo.findOne({ partido, equipo }).lean();
+      const existente = await PlanillaEquipo.findOne({ partido, equipo, tipoDuenio: 'equipo' }).lean();
       if (existente) {
         return res.status(409).json({
           error: 'Este equipo ya tiene una planilla de este partido',
@@ -204,7 +204,7 @@ router.get(
   }),
   async (req, res) => {
     try {
-      const filtro = { equipo: req.equipoIdPermisos };
+      const filtro = { equipo: req.equipoIdPermisos, tipoDuenio: 'equipo' };
       if (req.query.partido) filtro.partido = req.query.partido;
 
       // `equipoLocal`/`equipoVisitante` con nombre: el listado alimenta "tus partidos
@@ -263,7 +263,7 @@ router.get(
     try {
       const equipoId = req.equipoIdPermisos;
 
-      const planillas = await PlanillaEquipo.find({ equipo: equipoId })
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId, tipoDuenio: 'equipo' })
         .populate('partido', 'fecha estado equipoLocal equipoVisitante competencia')
         .sort({ createdAt: -1 })
         .lean();
@@ -386,7 +386,7 @@ router.get(
     try {
       const equipoId = req.equipoIdPermisos;
 
-      const planillas = await PlanillaEquipo.find({ equipo: equipoId })
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId, tipoDuenio: 'equipo' })
         .select('_id partido estado modo createdAt updatedAt')
         .sort({ updatedAt: -1 })
         .lean();
@@ -445,7 +445,7 @@ router.get(
     try {
       const equipoId = req.equipoIdPermisos;
 
-      const planillas = await PlanillaEquipo.find({ equipo: equipoId }).lean();
+      const planillas = await PlanillaEquipo.find({ equipo: equipoId, tipoDuenio: 'equipo' }).lean();
       if (!planillas.length) return res.json({ filas: [] });
 
       const planillaIds = planillas.map((p) => p._id);
@@ -542,12 +542,21 @@ router.get(
   validarObjectId,
   verificarToken,
   cargarRolDesdeBD,
-  requirePermisoSobrePlanilla('stats.view_private'),
   async (req, res) => {
     try {
       const completa = await obtenerPlanillaCompleta(req.params.id);
       if (!completa) return res.status(404).json({ error: 'Planilla no encontrada' });
-      return res.json(completa);
+
+      // `equipo` viene populado; el resolver necesita el id.
+      const acceso = await puedeAccederPlanilla({
+        planilla: { ...completa, equipo: completa.equipo?._id || completa.equipo },
+        usuario: req.user,
+        accion: 'leer',
+      });
+      if (!acceso.permitido) {
+        return res.status(403).json({ error: 'No tenés permisos para ver esta planilla' });
+      }
+      return res.json(recortarPlanillaSegunAcceso(completa, acceso));
     } catch (error) {
       console.error('Error obteniendo planilla:', error);
       return res.status(500).json({ error: 'Error interno obteniendo la planilla' });
@@ -578,25 +587,20 @@ router.get(
   cargarRolDesdeBD,
   async (req, res) => {
     try {
-      const planilla = await PlanillaEquipo.findById(req.params.id).select('partido equipo').lean();
+      const planilla = await PlanillaEquipo.findById(req.params.id)
+        .select('partido equipo jugador organizacion tipoDuenio estado')
+        .lean();
       if (!planilla) return res.status(404).json({ error: 'Planilla no encontrada' });
 
-      const puedeRevisar = await hasMatchPermission({
-        partidoId: String(planilla.partido),
-        usuarioId: req.user?.uid,
-        rolGlobal: req.user?.rol,
-        permission: 'match.view_private',
-      });
+      // Mismo resolver que GET /:id: el dueño entra siempre (para comparar con lo
+      // oficial) y la organización del partido recién cuando se pidió oficializar —
+      // nunca sobre un borrador. Sin pasar por el resolver, match.view_private alcanzaba
+      // para ver cualquier planilla del partido en cualquier estado.
+      const acceso = await puedeAccederPlanilla({ planilla, usuario: req.user, accion: 'leer' });
 
-      // El propio equipo también entra por acá, para ver la comparación con lo oficial.
-      const esDelEquipo = puedeRevisar ? false : await hasTeamPermission({
-        equipoId: String(planilla.equipo),
-        usuarioId: req.user?.uid,
-        rolGlobal: req.user?.rol,
-        permission: 'stats.view_private',
-      });
-
-      if (!puedeRevisar && !esDelEquipo) {
+      // El plantel lee la planilla de su equipo por GET /:id, pero la revisión es la vista
+      // de trabajo del cuerpo técnico y de quien aprueba: el acceso recortado no alcanza.
+      if (!acceso.permitido || acceso.ocultarNotas) {
         return res.status(403).json({ error: 'No tenés permisos para revisar esta planilla' });
       }
 
@@ -1516,6 +1520,7 @@ router.put(
       const yaExiste = await PlanillaEquipo.findOne({
         partido: nuevoPartidoId,
         equipo: planilla.equipo,
+        tipoDuenio: 'equipo',
       }).select('_id').lean();
       if (yaExiste) {
         return res.status(409).json({

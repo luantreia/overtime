@@ -190,6 +190,29 @@ mongoose.connection.once('open', async () => {
   }
 });
 
+// PlanillaEquipo: el único { partido, equipo } se reemplaza por índices únicos parciales
+// por tipoDuenio (ver models/Equipo/PlanillaEquipo.js). Primero se marca tipoDuenio en las
+// planillas viejas (el default de Mongoose no aplica a lo ya guardado, y sin el campo el
+// filtro parcial no las cubriría), después se dropea el índice viejo y se crean los nuevos.
+mongoose.connection.once('open', async () => {
+  try {
+    const collection = mongoose.connection.collection('planillaequipos');
+    const { modifiedCount } = await collection.updateMany(
+      { tipoDuenio: { $exists: false } },
+      { $set: { tipoDuenio: 'equipo' } },
+    );
+    if (modifiedCount) console.log(`[DB] PlanillaEquipo: ${modifiedCount} planillas marcadas tipoDuenio='equipo'`);
+    const indexes = await collection.indexes();
+    if (indexes.some((i) => i.name === 'partido_1_equipo_1')) {
+      await collection.dropIndex('partido_1_equipo_1');
+      console.log('[DB] Dropped old PlanillaEquipo index partido_1_equipo_1');
+    }
+    await mongoose.model('PlanillaEquipo').createIndexes();
+  } catch (err) {
+    console.error('[DB] PlanillaEquipo index migration failed:', err?.message || err);
+  }
+});
+
 // Middleware
 // Configurar CORS para aceptar solicitudes desde cualquier origen
 const allowedOrigins = [

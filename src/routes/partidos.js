@@ -172,7 +172,7 @@ router.get(
           .select('_id partido')
           .lean(),
         // Siempre las planillas de `equipoId` (tus propias), nunca las del equipo consultado.
-        PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId })
+        PlanillaEquipo.find({ partido: { $in: partidoIds }, equipo: equipoId, tipoDuenio: 'equipo' })
           .select('_id partido estado modo fuentePreferida')
           .lean(),
       ]);

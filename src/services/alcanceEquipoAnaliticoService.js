@@ -33,7 +33,7 @@ export async function resolverAlcanceEquipo(miEquipoId, { desde, hasta } = {}) {
 
   const idsPropios = new Set(propios.map((p) => String(p._id)));
 
-  const misPlanillas = await PlanillaEquipo.find({ equipo: miEquipoId }).select('partido').lean();
+  const misPlanillas = await PlanillaEquipo.find({ equipo: miEquipoId, tipoDuenio: 'equipo' }).select('partido').lean();
   const idsScouteadosCandidatos = [
     ...new Set(misPlanillas.map((pl) => String(pl.partido))),
   ].filter((id) => !idsPropios.has(id));

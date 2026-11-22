@@ -516,7 +516,7 @@ async function main() {
       // script no lo hacía: un equipo que ya había empezado a cargar la planilla desde
       // la app se encontró con sus valores sobrescritos, y el dry-run no lo había
       // anticipado. El ensayo tiene que mostrar exactamente lo que va a pasar.
-      let planilla = await PlanillaEquipo.findOne({ partido: partido._id, equipo: args.equipo });
+      let planilla = await PlanillaEquipo.findOne({ partido: partido._id, equipo: args.equipo, tipoDuenio: 'equipo' });
       let estadisticasPrevias = 0;
 
       if (planilla) {
