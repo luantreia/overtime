@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { validarObjectId } from '../../middleware/validacionObjectId.js';
 import verificarToken from '../../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../../middleware/cargarRolDesdeBD.js';
@@ -613,6 +614,91 @@ router.delete(
  *       500:
  *         description: Error del servidor
  */
+/**
+ * @swagger
+ * /api/estadisticas/jugador-partido-manual/publico/partido/{partidoId}:
+ *   get:
+ *     summary: Totales manuales de un partido, sólo los publicados — sin autenticación
+ *     description: >
+ *       Par de `/publico/partido/:partidoId` en jugador-set, para los partidos cargados sin
+ *       desglose por set. Mismo criterio: el estado de publicación está fijo en el código.
+ *     tags: [EstadisticasJugadorPartidoManual]
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Totales por jugador y por equipo, públicos }
+ *       400: { description: partido inválido }
+ */
+router.get('/publico/partido/:partidoId', async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(partidoId)) {
+      return res.status(400).json({ error: 'partido inválido' });
+    }
+
+    const convocados = await JugadorPartido.find({ partido: partidoId }).select('_id').lean();
+    if (convocados.length === 0) return res.json({ jugadores: [], equipos: [] });
+
+    const jugadores = await EstadisticasJugadorPartidoManual.find({
+      jugadorPartido: { $in: convocados.map((jp) => jp._id) },
+      // Fijo, nunca desde `req.query` — mismo motivo que en la ruta pública de jugador-set.
+      estadoPublicacion: 'publica',
+    })
+      .select('jugadorPartido throws hits outs catches')
+      .populate({
+        path: 'jugadorPartido',
+        select: 'jugador equipo',
+        populate: [
+          { path: 'jugador', select: 'nombre apellido alias numero' },
+          { path: 'equipo', select: 'nombre escudo' },
+        ],
+      })
+      .lean();
+
+    const porEquipo = new Map();
+    for (const stat of jugadores) {
+      const equipo = stat.jugadorPartido?.equipo;
+      if (!equipo?._id) continue;
+      const clave = String(equipo._id);
+      let acumulado = porEquipo.get(clave);
+      if (!acumulado) {
+        acumulado = {
+          _id: equipo._id,
+          nombre: equipo.nombre,
+          escudo: equipo.escudo,
+          throws: 0,
+          hits: 0,
+          outs: 0,
+          catches: 0,
+          jugadores: 0,
+        };
+        porEquipo.set(clave, acumulado);
+      }
+      acumulado.throws += stat.throws || 0;
+      acumulado.hits += stat.hits || 0;
+      acumulado.outs += stat.outs || 0;
+      acumulado.catches += stat.catches || 0;
+      acumulado.jugadores += 1;
+    }
+
+    // `efectividad` como número y no como string: el cliente la tipa `number`, y la ruta
+    // autenticada de más abajo devuelve el `toFixed` crudo, que es un string.
+    const equipos = [...porEquipo.values()].map((equipo) => ({
+      ...equipo,
+      efectividad:
+        equipo.throws > 0 ? Number(((equipo.hits / equipo.throws) * 100).toFixed(1)) : 0,
+    }));
+
+    return res.json({ jugadores, equipos });
+  } catch (error) {
+    console.error('Error en estadísticas manuales públicas:', error);
+    return res.status(500).json({ error: 'Error al obtener estadísticas manuales del partido' });
+  }
+});
+
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;

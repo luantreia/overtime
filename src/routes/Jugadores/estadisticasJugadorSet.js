@@ -771,6 +771,84 @@ router.delete(
  *       500:
  *         description: Error del servidor
  */
+/**
+ * @swagger
+ * /api/estadisticas/jugador-set/publico/partido/{partidoId}:
+ *   get:
+ *     summary: Estadísticas por set de un partido, sólo las publicadas — sin autenticación
+ *     description: >
+ *       Es el único camino por el que Overtime-Public puede mostrar estadísticas por jugador.
+ *       El GET general de este router exige token y, sin rol, su filtro por defecto incluye las
+ *       filas privadas; abrirlo sin más habría publicado las planillas que un equipo todavía no
+ *       quiso publicar. Esta ruta existe aparte justamente para que el filtro no dependa de
+ *       quién llame: 'publica' está fijo en el código y no se puede pedir otra cosa por query.
+ *
+ *       Devuelve todos los sets del partido en UNA respuesta. El cliente antes pedía los sets y
+ *       después una consulta por cada uno: en un partido de Cloth, con una mediana de 16 sets,
+ *       eran 17 pedidos para pintar una pantalla.
+ *     tags: [EstadisticasJugadorSet]
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Sets del partido con sus estadísticas públicas }
+ *       400: { description: partido inválido }
+ */
+router.get('/publico/partido/:partidoId', async (req, res) => {
+  try {
+    const { partidoId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(partidoId)) {
+      return res.status(400).json({ error: 'partido inválido' });
+    }
+
+    const sets = await SetPartido.find({ partido: partidoId })
+      .select('numeroSet estadoSet ganadorSet')
+      .sort({ numeroSet: 1 })
+      .lean();
+
+    if (sets.length === 0) return res.json({ partido: partidoId, sets: [] });
+
+    const estadisticas = await EstadisticasJugadorSet.find({
+      set: { $in: sets.map((s) => s._id) },
+      // Fijo, nunca desde `req.query`: si el estado viniera del cliente, cualquiera podría
+      // pedir las privadas y esta ruta no tiene con qué negárselo.
+      estadoPublicacion: 'publica',
+    })
+      .select('set jugadorPartido throws hits outs catches survive')
+      .populate({
+        path: 'jugadorPartido',
+        select: 'jugador equipo',
+        populate: [
+          // Sin `email`: la respuesta es anónima y el mail del jugador no tiene por qué salir.
+          { path: 'jugador', select: 'nombre apellido alias numero' },
+          { path: 'equipo', select: 'nombre escudo' },
+        ],
+      })
+      .lean();
+
+    const porSet = new Map(sets.map((s) => [String(s._id), []]));
+    for (const stat of estadisticas) {
+      porSet.get(String(stat.set))?.push({
+        ...stat,
+        jugador: stat.jugadorPartido?.jugador || null,
+        equipo: stat.jugadorPartido?.equipo || null,
+      });
+    }
+
+    // Los sets van siempre, incluso sin estadísticas públicas: el marcador por set es
+    // información del partido, no de la planilla de nadie.
+    return res.json({
+      partido: partidoId,
+      sets: sets.map((s) => ({ ...s, estadisticas: porSet.get(String(s._id)) ?? [] })),
+    });
+  } catch (error) {
+    console.error('Error en estadísticas públicas por set:', error);
+    return res.status(500).json({ error: 'Error al obtener estadísticas del partido' });
+  }
+});
+
 router.get('/resumen-partido/:partidoId', verificarToken, async (req, res) => {
   try {
     const { partidoId } = req.params;
