@@ -7,6 +7,7 @@ import { validarObjectId } from '../middleware/validacionObjectId.js';
 // import validarDobleConfirmacion from '../utils/validarDobleConfirmacion.js'; // TODO: Implementar
 import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { camposAltaFaltantes } from '../utils/camposAltaFaltantes.js';
+import { agregarContexto } from '../services/contextoSolicitudes.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -289,6 +290,14 @@ router.get('/', verificarToken, async (req, res) => {
       total = await SolicitudEdicion.countDocuments(filtro);
     }
     const totalPages = Math.ceil(total / limitNum);
+
+    // Nombres de partido/set/equipo/jugador para que el detalle se entienda sin IDs. Es ayuda
+    // para leer: si falla, la lista sale igual, sin contexto.
+    try {
+      await agregarContexto(solicitudes);
+    } catch (e) {
+      console.error('No se pudo armar el contexto de las solicitudes:', e.message);
+    }
 
     res.status(200).json({
       solicitudes,
