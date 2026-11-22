@@ -78,6 +78,13 @@ describe('compararFuentes', () => {
     expect(hayDiferencias).toBe(true);
   });
 
+  it('una planilla de totales no cuenta para comparar sets', () => {
+    const oficialConSet = { id: FUENTE_OFICIAL, modo: 'sets', porJugador: {}, sets: { 1: 'local' } };
+    const directa = { ...fuenteDesdePlanilla({ ...deVisita, id: 'plD', modo: 'directa' }), id: 'plD' };
+    const r = compararFuentes({ fuentes: [oficialConSet, directa] });
+    expect(r.sets).toEqual([{ numeroSet: 1, valores: { [FUENTE_OFICIAL]: 'local' }, difiere: false }]);
+  });
+
   it('dos fuentes iguales no difieren', () => {
     const r = compararFuentes({ fuentes: [fuenteDesdePlanilla(deLocal), { ...fuenteDesdePlanilla(deLocal), id: 'copia' }] });
     expect(r.hayDiferencias).toBe(false);

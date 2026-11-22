@@ -115,12 +115,16 @@ export function compararFuentes({ fuentes }) {
     return { ...fila, ausenteEn, difiere: distintos || ausenteEn.length > 0 };
   });
 
-  const numerosDeSet = [...new Set(fuentes.flatMap((f) => Object.keys(f.sets).map(Number)))].sort((a, b) => a - b);
+  // Sets: sólo entre las fuentes que cargan sets. Una planilla de totales ('directa') no
+  // tiene sets, y que no tenga el set 1 no es una discrepancia — compararla marcaba
+  // "difiere" en todos los sets de cualquier partido con una planilla de totales.
+  const conSets = fuentes.filter((f) => f.modo === 'sets');
+  const numerosDeSet = [...new Set(conSets.flatMap((f) => Object.keys(f.sets).map(Number)))].sort((a, b) => a - b);
   const sets = numerosDeSet.map((numeroSet) => {
     const valores = {};
-    for (const f of fuentes) if (numeroSet in f.sets) valores[f.id] = f.sets[numeroSet];
+    for (const f of conSets) if (numeroSet in f.sets) valores[f.id] = f.sets[numeroSet];
     const distintos = new Set(Object.values(valores));
-    return { numeroSet, valores, difiere: distintos.size > 1 || Object.keys(valores).length < fuentes.length };
+    return { numeroSet, valores, difiere: distintos.size > 1 || Object.keys(valores).length < conSets.length };
   });
 
   return {
