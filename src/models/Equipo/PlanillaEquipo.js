@@ -82,6 +82,24 @@ const planillaEquipoSchema = new Schema({
     default: 'oficial',
   },
 
+  /**
+   * Sólo planillas de jugador: el jugador ofrece sus números a la planilla de su equipo.
+   * No es una oficialización: el DT acepta (se copian a la planilla del equipo, que
+   * después sigue su propio flujo) o descarta. La planilla del jugador nunca escribe
+   * directo en lo oficial — es la fuente menos confiable (cada uno se anota sus hits).
+   */
+  aporte: {
+    type: new Schema({
+      estado: { type: String, enum: ['pendiente', 'aceptado', 'descartado'], required: true },
+      equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
+      fecha: { type: Date, default: Date.now },
+      resueltoPor: { type: String, ref: 'Usuario' },
+      fechaResolucion: { type: Date },
+      motivo: { type: String },
+    }, { _id: false }),
+    default: undefined,
+  },
+
   notas: { type: String },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
@@ -98,6 +116,8 @@ planillaEquipoSchema.pre('validate', function validarDuenio(next) {
   }
   return next();
 });
+
+planillaEquipoSchema.index({ 'aporte.equipo': 1, 'aporte.estado': 1 }, { sparse: true });
 
 // Una planilla por partido y por dueño. Índices parciales por tipo: el viejo
 // { partido, equipo } sin filtro trataría `equipo: null` como un valor más y rechazaría

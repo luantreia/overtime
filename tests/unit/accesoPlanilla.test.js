@@ -70,6 +70,16 @@ describe('acceso a planilla de jugador', () => {
     expect(decidir(deJugador(), 'leer', { esCuerpoTecnico: true, esJugadorDelPlantel: true })).toEqual(NO);
   });
 
+  it('el cuerpo técnico la ve si el jugador se la aportó, pero no la edita', () => {
+    const aportada = { ...deJugador(), aporte: { estado: 'pendiente', equipo: 'eq' } };
+    expect(decidir(aportada, 'leer', { esCuerpoTecnicoDelAporte: true })).toEqual(COMPLETO);
+    expect(decidir(aportada, 'editar', { esCuerpoTecnicoDelAporte: true })).toEqual(NO);
+  });
+
+  it('sin aporte, el permiso sobre el equipo no alcanza', () => {
+    expect(decidir(deJugador(), 'leer', { esCuerpoTecnicoDelAporte: true })).toEqual(NO);
+  });
+
   it('la organización sólo la ve tras pedir oficializar', () => {
     expect(decidir(deJugador('borrador'), 'leer', { esOrganizacionDelPartido: true })).toEqual(NO);
     expect(decidir(deJugador('pendiente_oficializacion'), 'leer', { esOrganizacionDelPartido: true })).toEqual(COMPLETO);

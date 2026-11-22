@@ -95,6 +95,7 @@ import participacionTemporadaRoutes from './src/routes/Equipos/participacionTemp
 import participacionFaseRoutes from './src/routes/Equipos/participacionFase.js';
 import equipoPartidoRoutes from './src/routes/Equipos/equipoPartido.js';
 import planillaEquipoRoutes from './src/routes/Equipos/planillaEquipo.js';
+import planillaJugadorRoutes from './src/routes/Jugadores/planillaJugador.js';
 import entrenamientoRoutes from './src/routes/Equipos/entrenamientos.js';
 import testRoutes from './src/routes/Equipos/tests.js';
 
@@ -295,6 +296,7 @@ app.use('/api/participacion-temporada', participacionTemporadaRoutes);
 app.use('/api/participacion-fase', participacionFaseRoutes);
 app.use('/api/equipo-partido', equipoPartidoRoutes); // Asegúrate de que este modelo esté correctamente definido
 app.use('/api/planillas-equipo', planillaEquipoRoutes);
+app.use('/api/planillas-jugador', planillaJugadorRoutes);
 app.use('/api/entrenamientos', entrenamientoRoutes);
 app.use('/api/tests', testRoutes);
 

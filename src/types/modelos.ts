@@ -50,6 +50,7 @@ export type EstadisticasJugadorPartidoManualVisibilidadObjetivo = 'organizacion'
 export type EstadisticasJugadorPartidoVisibilidadObjetivo = 'organizacion' | 'publica';
 export type EstadisticasJugadorSetEstadoPublicacion = 'privada' | 'pendiente_aprobacion' | 'organizacion' | 'publica' | 'rechazada';
 export type EstadisticasJugadorSetVisibilidadObjetivo = 'organizacion' | 'publica';
+export type Estado = 'pendiente' | 'aceptado' | 'descartado';
 export type FaseCriterio = 'global' | 'por_grupo';
 export type FaseCriteriosDesempate = 'PUNTOS' | 'DIF_SETS' | 'SETS_FAVOR' | 'PUNTOS_FAVOR' | 'DIF_PUNTOS' | 'CARA_A_CARA' | 'MENOS_TARJETAS';
 export type FaseEstado = 'programada' | 'en_curso' | 'finalizada';
@@ -825,6 +826,14 @@ export interface PlanillaEquipo {
   visibilidadObjetivo: PlanillaEquipoVisibilidadObjetivo;
   solicitudOficializacion?: Ref<SolicitudEdicion>;
   fuentePreferida: PlanillaEquipoFuentePreferida;
+  aporte?: {
+    estado: Estado;
+    equipo: Ref<Equipo>;
+    fecha: string;
+    resueltoPor?: string;
+    fechaResolucion?: string;
+    motivo?: string;
+    };
   notas?: string;
   creadoPor: string;
   _id: string;

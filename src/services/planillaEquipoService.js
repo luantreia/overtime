@@ -56,6 +56,7 @@ const ESTADOS_VISIBLES_PARA_ORGANIZACION = new Set(['pendiente_oficializacion', 
  * @param {boolean} [p.hechos.esCuerpoTecnico]   permiso de equipo sobre `planilla.equipo` (stats.view_private para leer, stats.capture para editar)
  * @param {boolean} [p.hechos.esJugadorDelPlantel] contrato con `planilla.equipo` vigente a la fecha del partido
  * @param {boolean} [p.hechos.esJugadorDuenio]   el usuario es (o administra) `planilla.jugador`
+ * @param {boolean} [p.hechos.esCuerpoTecnicoDelAporte] stats.capture sobre `planilla.aporte.equipo`
  * @param {boolean} [p.hechos.esAdminOrganizacionDuenia] administra `planilla.organizacion`
  * @param {boolean} [p.hechos.esOrganizacionDelPartido]  match.view_private sobre el partido
  * @returns {{ permitido: boolean, ocultarNotas: boolean }}
@@ -83,6 +84,9 @@ export function decidirAccesoPlanilla({ planilla, accion, hechos = {} }) {
     if (hechos.esJugadorDelPlantel) return { permitido: true, ocultarNotas: true };
   }
   if (tipo === 'jugador' && hechos.esJugadorDuenio) return COMPLETO;
+  // El cuerpo técnico ve la planilla de un jugador sólo si él se la aportó a su equipo
+  // (en cualquier estado del aporte: también tiene que poder ver lo que ya resolvió).
+  if (tipo === 'jugador' && planilla?.aporte && hechos.esCuerpoTecnicoDelAporte) return COMPLETO;
   if (tipo === 'organizacion' && hechos.esAdminOrganizacionDuenia) return COMPLETO;
 
   // La organización del partido entra recién cuando se pidió oficializar. Ve las notas:
@@ -99,7 +103,7 @@ export function decidirAccesoPlanilla({ planilla, accion, hechos = {} }) {
 }
 
 /** ¿El usuario es el jugador (o administra la ficha del jugador)? */
-async function usuarioEsJugador(jugadorId, usuarioId) {
+export async function usuarioEsJugador(jugadorId, usuarioId) {
   if (!jugadorId) return false;
   const jugador = await Jugador.findById(jugadorId).select('userId administradores').lean();
   if (!jugador) return false;
@@ -180,6 +184,14 @@ export async function puedeAccederPlanilla({ planilla, usuario, accion }) {
     hechos.esJugadorDelPlantel = await usuarioEsDelPlantel(planilla.equipo, planilla.partido, usuarioId);
   } else if (tipo === 'jugador') {
     hechos.esJugadorDuenio = await usuarioEsJugador(planilla.jugador, usuarioId);
+    if (!hechos.esJugadorDuenio && accion === 'leer' && planilla.aporte?.equipo) {
+      hechos.esCuerpoTecnicoDelAporte = await hasTeamPermission({
+        equipoId: String(planilla.aporte.equipo),
+        usuarioId,
+        rolGlobal: usuario.rol,
+        permission: 'stats.capture',
+      });
+    }
   } else if (tipo === 'organizacion') {
     hechos.esAdminOrganizacionDuenia = await usuarioAdministraOrganizacion(planilla.organizacion, usuarioId);
   }
