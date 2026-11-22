@@ -28,6 +28,20 @@ const asistenciaEntrenamientoSchema = new Schema(
       index: true,
     },
 
+    /**
+     * Lo que el JUGADOR dijo antes del entrenamiento ("voy / no voy"). Va separado de `estado`
+     * a propósito: `estado` es lo que el staff marca después (lo que pasó), `respuesta` es lo
+     * que el jugador anticipó. Mezclarlos haría que un "voy" pise un "ausente" real, o que
+     * marcar asistencia borre la intención — y comparar las dos cosas es justamente útil.
+     */
+    respuesta: {
+      type: String,
+      enum: ['sin_respuesta', 'voy', 'no_voy'],
+      default: 'sin_respuesta',
+    },
+    respuestaMotivo: { type: String, trim: true, default: '', maxlength: 200 },
+    respondidoEn: { type: Date, default: null },
+
     /** Minutos de demora, cuando el estado es 'tarde'. */
     minutosTarde: { type: Number, default: 0, min: 0 },
 

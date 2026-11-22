@@ -103,15 +103,20 @@ router.get(
       const asistencias = await AsistenciaEntrenamiento.find({
         entrenamiento: { $in: entrenamientos.map((e) => e._id) },
       })
-        .select('entrenamiento estado')
+        .select('entrenamiento estado respuesta')
         .lean();
 
       const conteos = new Map();
+      const respuestas = new Map();
       for (const a of asistencias) {
         const clave = String(a.entrenamiento);
         const acc = conteos.get(clave) ?? { convocado: 0, presente: 0, tarde: 0, ausente: 0, justificado: 0 };
         acc[a.estado] = (acc[a.estado] ?? 0) + 1;
         conteos.set(clave, acc);
+        // Aparte del recuento de asistencia: lo que anticiparon los jugadores ("voy / no voy").
+        const r = respuestas.get(clave) ?? { voy: 0, no_voy: 0 };
+        if (a.respuesta === 'voy' || a.respuesta === 'no_voy') r[a.respuesta] += 1;
+        respuestas.set(clave, r);
       }
 
       return res.json({
@@ -119,6 +124,7 @@ router.get(
           ...e,
           _id: String(e._id),
           equipo: String(e.equipo),
+          respuestas: respuestas.get(String(e._id)) ?? { voy: 0, no_voy: 0 },
           asistencia: conteos.get(String(e._id)) ?? {
             convocado: 0,
             presente: 0,
@@ -214,6 +220,130 @@ router.get(
     }
   }
 );
+
+/**
+ * Lado del JUGADOR. Todo lo de arriba es para el staff (pide permisos de equipo); estas dos
+ * rutas resuelven al jugador desde el token (`Jugador.userId`) y sólo dejan ver/responder los
+ * entrenamientos de equipos donde tiene contrato vigente a la fecha de la sesión — la misma
+ * regla con la que se lo convoca, así que "me convocaron" y "puedo responder" no divergen.
+ */
+const RESPUESTAS = new Set(['sin_respuesta', 'voy', 'no_voy']);
+
+/**
+ * @swagger
+ * /api/entrenamientos/mios:
+ *   get:
+ *     summary: Entrenamientos de los equipos del jugador logueado, con su respuesta y asistencia
+ *     tags: [Entrenamientos]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/mios', verificarToken, async (req, res) => {
+  try {
+    const jugador = await Jugador.findOne({ userId: req.user.uid }).select('_id').lean();
+    if (!jugador) return res.json({ entrenamientos: [] });
+
+    const contratos = await JugadorEquipo.find({ jugador: jugador._id, estado: 'aceptado' })
+      .select('equipo desde hasta')
+      .lean();
+    if (contratos.length === 0) return res.json({ entrenamientos: [] });
+
+    // Por defecto: desde hace 30 días. Lo pasado reciente sirve para ver "cómo me marcaron".
+    const d = req.query.desde ? new Date(req.query.desde) : new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const desde = Number.isNaN(d.getTime()) ? new Date(Date.now() - 30 * 24 * 3600 * 1000) : d;
+
+    const equipoIds = [...new Set(contratos.map((c) => String(c.equipo)))];
+    const candidatos = await Entrenamiento.find({ equipo: { $in: equipoIds }, fecha: { $gte: desde } })
+      .populate('equipo', 'nombre escudo')
+      .sort({ fecha: 1 })
+      .lean();
+
+    const propios = candidatos.filter((e) =>
+      contratos.some((c) => String(c.equipo) === String(e.equipo?._id ?? e.equipo) && vigenteEn(c, e.fecha))
+    );
+    if (propios.length === 0) return res.json({ entrenamientos: [] });
+
+    const filas = await AsistenciaEntrenamiento.find({
+      entrenamiento: { $in: propios.map((e) => e._id) },
+      jugador: jugador._id,
+    }).lean();
+    const filaPor = new Map(filas.map((f) => [String(f.entrenamiento), f]));
+
+    return res.json({
+      entrenamientos: propios.map((e) => {
+        const f = filaPor.get(String(e._id));
+        return {
+          _id: String(e._id),
+          fecha: e.fecha,
+          duracionMinutos: e.duracionMinutos,
+          lugar: e.lugar,
+          tipo: e.tipo,
+          titulo: e.titulo,
+          estado: e.estado,
+          equipo: e.equipo ? { _id: String(e.equipo._id), nombre: e.equipo.nombre, escudo: e.equipo.escudo } : null,
+          respuesta: f?.respuesta ?? 'sin_respuesta',
+          respuestaMotivo: f?.respuestaMotivo ?? '',
+          asistencia: f?.estado ?? 'convocado',
+        };
+      }),
+    });
+  } catch (error) {
+    console.error('Error listando entrenamientos del jugador:', error);
+    return res.status(500).json({ error: 'Error al listar tus entrenamientos' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/entrenamientos/{id}/respuesta:
+ *   put:
+ *     summary: El jugador logueado responde si va o no a un entrenamiento
+ *     tags: [Entrenamientos]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/:id/respuesta', validarObjectId, verificarToken, async (req, res) => {
+  try {
+    const { respuesta, motivo } = req.body ?? {};
+    if (!RESPUESTAS.has(respuesta)) {
+      return res.status(400).json({ error: "respuesta debe ser 'voy', 'no_voy' o 'sin_respuesta'" });
+    }
+
+    const jugador = await Jugador.findOne({ userId: req.user.uid }).select('_id').lean();
+    if (!jugador) return res.status(403).json({ error: 'Tu usuario no tiene una ficha de jugador' });
+
+    const entrenamiento = await Entrenamiento.findById(req.params.id).select('equipo fecha estado').lean();
+    if (!entrenamiento) return res.status(404).json({ error: 'Entrenamiento no encontrado' });
+
+    // Responder es anticipar: una vez que la sesión pasó (o el staff ya cargó asistencia) la
+    // respuesta deja de significar algo y sólo serviría para "corregir" lo que pasó.
+    if (entrenamiento.estado !== 'programado' || new Date(entrenamiento.fecha) < new Date()) {
+      return res.status(409).json({ error: 'Este entrenamiento ya no admite respuestas' });
+    }
+
+    const plantel = await plantelVigenteEn(entrenamiento.equipo, entrenamiento.fecha);
+    if (!plantel.includes(String(jugador._id))) {
+      return res.status(403).json({ error: 'No estás en el plantel de este entrenamiento' });
+    }
+
+    // upsert: quien se sumó al plantel después de creado el entrenamiento no tiene fila todavía.
+    // `estado` no se toca: lo sigue decidiendo el staff.
+    await AsistenciaEntrenamiento.updateOne(
+      { entrenamiento: entrenamiento._id, jugador: jugador._id },
+      {
+        $set: {
+          respuesta,
+          respuestaMotivo: respuesta === 'no_voy' && typeof motivo === 'string' ? motivo.slice(0, 200) : '',
+          respondidoEn: respuesta === 'sin_respuesta' ? null : new Date(),
+        },
+      },
+      { upsert: true, runValidators: true }
+    );
+
+    return res.json({ ok: true, respuesta });
+  } catch (error) {
+    console.error('Error guardando respuesta de entrenamiento:', error);
+    return res.status(500).json({ error: 'Error al guardar tu respuesta' });
+  }
+});
 
 /**
  * @swagger
@@ -341,6 +471,8 @@ router.get(
           estado: a?.estado ?? 'convocado',
           minutosTarde: a?.minutosTarde ?? 0,
           notas: a?.notas ?? '',
+          respuesta: a?.respuesta ?? 'sin_respuesta',
+          respuestaMotivo: a?.respuestaMotivo ?? '',
         };
       });
 
