@@ -9,18 +9,14 @@ export const cargarRolDesdeBD = async (req, res, next) => {
     }
 
     const usuario = await Usuario.findById(uid);
-    console.log('Usuario obtenido para permisos:', usuario);
 
     if (!usuario) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    // Conservar el rol de mayor privilegio entre el token y la BD
-    const rolToken = (req.user.rol || '').toLowerCase?.() || 'lector';
-    const rolDB = (usuario.rol || '').toLowerCase?.() || 'lector';
-    const niveles = { lector: 0, editor: 1, admin: 2 };
-    const finalRol = (niveles[rolToken] ?? 0) >= (niveles[rolDB] ?? 0) ? rolToken : rolDB;
-    req.user.rol = finalRol;
+    // La BD es la única fuente de verdad del rol: un token viejo o forjado
+    // no puede conservar privilegios que la BD ya no le da.
+    req.user.rol = (usuario.rol || '').toLowerCase() || 'lector';
 
     next();
   } catch (error) {
