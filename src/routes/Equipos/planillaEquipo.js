@@ -27,6 +27,7 @@ import {
   puedeAccederPlanilla,
   recortarPlanillaSegunAcceso,
 } from '../../services/planillaEquipoService.js';
+import { obtenerReconciliacion, publicarReconciliacion } from '../../services/reconciliacionPlanillasService.js';
 
 const router = express.Router();
 
@@ -522,6 +523,107 @@ router.get(
     } catch (error) {
       console.error('Error armando filas de planillas:', error);
       return res.status(500).json({ error: 'Error interno armando las filas' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/reconciliacion/{partidoId}:
+ *   get:
+ *     summary: Todas las versiones de un partido lado a lado, para que la organización las reconcilie
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Lo oficial más cada planilla que el usuario puede leer completa (las de equipo,
+ *       recién desde que se pidió oficializarlas). Totales por jugador y ganador por set
+ *       en cada fuente, con las diferencias marcadas.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: partidoId
+ *         required: true
+ *         schema: { type: string, format: ObjectId }
+ *     responses:
+ *       200: { description: Fuentes, comparación por jugador y por set, y si el usuario puede publicar }
+ *       403: { description: Sin permisos sobre el partido }
+ */
+router.get(
+  '/reconciliacion/:partidoId',
+  verificarToken,
+  cargarRolDesdeBD,
+  async (req, res) => {
+    try {
+      const r = await obtenerReconciliacion(req.params.partidoId, req.user);
+      if (r.status !== 200) return res.status(r.status).json({ error: r.error });
+      return res.json(r.data);
+    } catch (error) {
+      console.error('Error armando la reconciliación:', error);
+      return res.status(500).json({ error: 'Error interno armando la reconciliación' });
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /api/planillas-equipo/reconciliacion/{partidoId}/publicar:
+ *   post:
+ *     summary: Publica la versión reconciliada eligiendo qué fuente manda para cada equipo
+ *     tags: [PlanillaEquipo]
+ *     description: >
+ *       Reemplaza las estadísticas oficiales de los equipos elegidos con las de la planilla
+ *       elegida (los ganadores de set no se tocan). Si hay filas oficiales que se
+ *       reemplazan, responde 409 con el detalle hasta que se reenvíe con
+ *       confirmarSobrescritura. Cierra las solicitudes de oficialización pendientes del partido.
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fuentePorEquipo]
+ *             properties:
+ *               fuentePorEquipo:
+ *                 type: object
+ *                 description: equipoId → planillaId u 'oficial'
+ *               visibilidad: { type: string, enum: [organizacion, publica] }
+ *               confirmarSobrescritura: { type: boolean }
+ *     responses:
+ *       200: { description: Publicada }
+ *       409: { description: Requiere confirmar la sobrescritura de estadísticas oficiales }
+ */
+router.post(
+  '/reconciliacion/:partidoId/publicar',
+  verificarToken,
+  cargarRolDesdeBD,
+  async (req, res) => {
+    try {
+      const r = await publicarReconciliacion({
+        partidoId: req.params.partidoId,
+        fuentePorEquipo: req.body?.fuentePorEquipo || {},
+        visibilidad: normalizarVisibilidadObjetivo(req.body?.visibilidad),
+        confirmarSobrescritura: req.body?.confirmarSobrescritura === true,
+        usuario: req.user,
+      });
+      if (r.status !== 200) return res.status(r.status).json({ error: r.error, ...(r.data || {}) });
+
+      try {
+        await AuditoriaService.registrar(
+          req.user.uid,
+          'PlanillaEquipo',
+          r.data.planillaOrganizacion,
+          'CREATE',
+          { after: { reconciliacion: req.params.partidoId, fuentePorEquipo: req.body?.fuentePorEquipo } },
+          req,
+        );
+      } catch (auditErr) {
+        console.error('No se pudo auditar la reconciliación:', auditErr);
+      }
+
+      return res.json(r.data);
+    } catch (error) {
+      console.error('Error publicando la reconciliación:', error);
+      return res.status(500).json({ error: 'Error interno publicando la reconciliación' });
     }
   },
 );
