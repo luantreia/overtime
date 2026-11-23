@@ -527,6 +527,107 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Error del servidor
  */
+/**
+ * @swagger
+ * /api/partidos/destacados:
+ *   get:
+ *     summary: Partidos finalizados ordenados por cuánta información real tienen
+ *     description: >
+ *       Para la home pública. "Próximo" o "en vivo" no son señales confiables (fixtures con
+ *       fechas de relleno, partidos que nadie cerró), así que se recomiendan partidos ya
+ *       jugados según sus datos: sets, estadísticas publicadas, video, instancia y antigüedad.
+ *       Un finalizado 0-0 sin sets se descarta: es un resultado que nadie cargó.
+ *     tags: [Partidos]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 6, maximum: 30 }
+ *     responses:
+ *       200: { description: Lista de partidos con `destacado.puntaje` y `destacado.senales` }
+ */
+const PESO_ETAPA = { final: 4, semifinal: 3, tercer_puesto: 2, cuartos: 2, octavos: 1 };
+const DIA_MS = 24 * 3600e3;
+
+router.get('/destacados', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 30);
+
+    const candidatos = await Partido.find({
+      estado: 'finalizado',
+      fecha: { $gte: new Date(Date.now() - 365 * DIA_MS), $lte: new Date() },
+      // Los rankeados de LoD se juegan con equipos de color armados en el momento ("Ranked Rojo"
+      // vs "Ranked Azul"): son partidos reales, pero no le dicen nada a un hincha.
+      'rankedMeta.teamColors': { $exists: false },
+    })
+      .select('fecha estado modalidad categoria etapa nombrePartido marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia videoUrl videos')
+      .populate('equipoLocal', 'nombre escudo')
+      .populate('equipoVisitante', 'nombre escudo')
+      .populate('competencia', 'nombre')
+      .sort({ fecha: -1 })
+      .limit(400)
+      .lean();
+    if (candidatos.length === 0) return res.json([]);
+
+    const ids = candidatos.map((p) => p._id);
+    const sets = await SetPartido.find({ partido: { $in: ids } })
+      .select('partido numeroSet ganadorSet estadoSet')
+      .lean();
+    // Sólo estadísticas aprobadas ('organizacion' o 'publica', mismo criterio que /timeline):
+    // las privadas o pendientes de aprobación no cuentan como dato real.
+    const setsConStats = await EstadisticasJugadorSet.distinct('set', {
+      set: { $in: sets.map((s) => s._id) },
+      estadoPublicacion: { $in: ['organizacion', 'publica'] },
+    });
+    const conStats = new Set(setsConStats.map(String));
+
+    const setsPorPartido = new Map();
+    for (const s of sets) {
+      const k = String(s.partido);
+      if (!setsPorPartido.has(k)) setsPorPartido.set(k, []);
+      setsPorPartido.get(k).push(s);
+    }
+
+    const puntuados = [];
+    for (const p of candidatos) {
+      const ss = (setsPorPartido.get(String(p._id)) || []).sort((a, b) => a.numeroSet - b.numeroSet);
+      const setsCerrados = ss.filter((s) => s.estadoSet === 'finalizado').length;
+      const conMarcador = (p.marcadorLocal || 0) + (p.marcadorVisitante || 0) > 0;
+      if (!conMarcador && setsCerrados === 0) continue;
+
+      const senales = {
+        marcador: conMarcador,
+        sets: setsCerrados,
+        estadisticas: ss.some((s) => conStats.has(String(s._id))),
+        video: Boolean(p.videoUrl) || (p.videos?.length ?? 0) > 0,
+        etapa: p.etapa && p.etapa !== 'otro' ? p.etapa : null,
+      };
+      const dias = (Date.now() - new Date(p.fecha).getTime()) / DIA_MS;
+      const puntaje =
+        (senales.marcador ? 1 : 0) +
+        (senales.sets ? 2 + Math.min(senales.sets, 10) * 0.1 : 0) +
+        (senales.estadisticas ? 3 : 0) +
+        (senales.video ? 3 : 0) +
+        (PESO_ETAPA[senales.etapa] || 0) +
+        // Reciente pesa, pero no tapa a un partido con muchos más datos.
+        Math.max(0, 2 - dias / 45);
+
+      const { videoUrl, videos, ...resto } = p;
+      puntuados.push({
+        ...resto,
+        id: String(p._id),
+        sets: ss.map(({ numeroSet, ganadorSet, estadoSet }) => ({ numeroSet, ganadorSet, estadoSet })),
+        destacado: { puntaje: Math.round(puntaje * 10) / 10, senales },
+      });
+    }
+
+    puntuados.sort((a, b) => b.destacado.puntaje - a.destacado.puntaje);
+    res.json(puntuados.slice(0, limit));
+  } catch (error) {
+    console.error('Error en /partidos/destacados:', error);
+    res.status(500).json({ message: 'Error al obtener partidos destacados' });
+  }
+});
+
 router.get('/:id', validarObjectId, async (req, res) => {
   try {
     const partido = await Partido.findById(req.params.id)
