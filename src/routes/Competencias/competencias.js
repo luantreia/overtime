@@ -43,7 +43,7 @@ const router = express.Router();
 router.get('/', 
   async (req, res) => {
   try {
-    const competencias = await Competencia.find().populate('organizacion', 'nombre').lean();
+    const competencias = await Competencia.find().populate('organizacion', 'nombre logo').lean();
     res.json(competencias);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener competencias' });
