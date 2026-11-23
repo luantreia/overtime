@@ -4466,3 +4466,4 @@
 {"level":"info","message":{"duration":"1639ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T21:16:00.968Z"}
 {"level":"info","message":{"duration":"811ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T21:16:02.021Z"}
 {"level":"info","message":{"duration":"103ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T21:16:02.393Z"}
+{"level":"info","message":{"duration":"625ms","ip":"127.0.0.1","method":"GET","path":"/videos","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T21:25:35.034Z"}
