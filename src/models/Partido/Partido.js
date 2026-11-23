@@ -44,6 +44,9 @@ const PartidoSchema = new Schema({
     trim: true
   },
   fecha: { type: Date, required: true },
+  // false cuando la fecha es de relleno (fixture cargado sin día definido). `fecha` es
+  // obligatoria, así que sin este campo un "a confirmar" se ve como un próximo real.
+  fechaConfirmada: { type: Boolean, default: true },
   ubicacion: { type: String, trim: true },
   cancha: { type: String, trim: true, default: null },
   sede: { type: Schema.Types.ObjectId, ref: 'Sede', default: null },

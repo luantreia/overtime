@@ -471,9 +471,9 @@ router.get('/', async (req, res) => {
             ],
           },
           { estado: 'en_juego', updatedAt: { $gte: new Date(ahora - 24 * 3600e3) } },
-          // Los fixtures sin fecha real se cargan con un 31-dic de relleno y la jornada
-          // "(fecha a confirmar)": no son próximos, no se muestran como tales.
-          { estado: 'programado', fecha: { $gte: new Date(ahora - 6 * 3600e3) }, jornada: { $not: /a confirmar/i } },
+          // Fixtures cargados sin día definido: no son próximos. El regex sobre la jornada cubre
+          // los cargados antes de fechaConfirmada (ver scripts/marcarFechasAConfirmar.js).
+          { estado: 'programado', fecha: { $gte: new Date(ahora - 6 * 3600e3) }, fechaConfirmada: { $ne: false }, jornada: { $not: /a confirmar/i } },
         ],
       });
     }
@@ -872,6 +872,7 @@ router.put(
 
       const camposEditables = [
         'fecha',
+        'fechaConfirmada',
         'ubicacion',
         'estado',
         'fase',

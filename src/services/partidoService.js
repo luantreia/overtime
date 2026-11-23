@@ -192,6 +192,7 @@ export class PartidoService {
 
     const camposEditables = [
       'fecha',
+      'fechaConfirmada',
       'ubicacion',
       'estado',
       'fase',
