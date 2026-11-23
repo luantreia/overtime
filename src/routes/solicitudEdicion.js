@@ -9,6 +9,7 @@ import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { camposAltaFaltantes } from '../utils/camposAltaFaltantes.js';
 import { agregarContexto } from '../services/contextoSolicitudes.js';
 import { explicarAprobacion } from '../utils/explicarAprobacion.js';
+import { seleccionLote, seleccionCamposContrato } from '../utils/seleccionAprobacion.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -938,7 +939,9 @@ router.post('/', verificarToken, async (req, res) => {
  */
 router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req, res) => {
   try {
-    const { estado, motivoRechazo, datosPropuestos } = req.body;
+    // `seleccion`: aprobación parcial (utils/seleccionAprobacion.js). Sólo aplica al aprobar
+    // y sólo en planilla, lote de stats y edición de contrato; en el resto se ignora.
+    const { estado, motivoRechazo, datosPropuestos, seleccion } = req.body;
     const uid = req.user.uid;
 
     console.log('PUT /solicitudes-edicion/:id - Request:', {
@@ -1153,6 +1156,8 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       const partidosARecargarEnTimer = new Set();
       // Partidos a los que una oficialización les creó sets: su marcador quedó viejo.
       const partidosConSetsNuevos = new Set();
+      // Qué se incorporó y qué se descartó, si se aprobó sólo una parte.
+      let resumenParcial = null;
 
       // Aplicar cambios a la entidad si corresponde. Hacemos las operaciones que modifican datos
       // dentro de una transacción para asegurar atomicidad entre la solicitud y las entidades.
@@ -1360,10 +1365,25 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
             const datos = solicitud.datosPropuestos || {};
             const visibilidad = normalizarVisibilidadObjetivo(datos.visibilidadObjetivo);
             const statIds = Array.isArray(datos.statIds) ? datos.statIds : [];
+            const loteSel = seleccionLote(seleccion, statIds);
+            resumenParcial = loteSel.resumen;
 
-            if (statIds.length) {
+            // Filas no elegidas: quedan rechazadas, igual que si se rechazara la solicitud
+            // entera, y sus agregados se rehacen porque ya habían sumado esos números.
+            if (loteSel.rechazar.length) {
+              const descartadas = await EstadisticasJugadorSet.find({ _id: { $in: loteSel.rechazar }, set: solicitud.entidad })
+                .select('jugadorPartido').session(session).lean();
               await EstadisticasJugadorSet.updateMany(
-                { _id: { $in: statIds }, set: solicitud.entidad },
+                { _id: { $in: loteSel.rechazar }, set: solicitud.entidad },
+                { estadoPublicacion: 'rechazada', solicitudPublicacion: solicitud._id },
+                { session },
+              );
+              descartadas.forEach((d) => d.jugadorPartido && jugadorPartidosARecalcular.add(String(d.jugadorPartido)));
+            }
+
+            if (loteSel.publicar.length) {
+              await EstadisticasJugadorSet.updateMany(
+                { _id: { $in: loteSel.publicar }, set: solicitud.entidad },
                 {
                   estadoPublicacion: visibilidad,
                   visibilidadObjetivo: visibilidad,
@@ -1386,11 +1406,13 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               uid,
               solicitudId: solicitud._id,
               session,
+              seleccion,
             });
+            resumenParcial = resultado.resumen;
 
             resultado.jugadorPartidosARecalcular.forEach((id) => jugadorPartidosARecalcular.add(id));
             if (resultado.partidoId) partidosARecargarEnTimer.add(String(resultado.partidoId));
-            if (resultado.setsCreados > 0) partidosConSetsNuevos.add(String(resultado.partidoId));
+            if (resultado.marcadorDesactualizado) partidosConSetsNuevos.add(String(resultado.partidoId));
           } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
             const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
             await EstadisticasJugadorPartido.findByIdAndUpdate(
@@ -1489,7 +1511,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               relacion = await JugadorEquipo.findById(solicitud.datosPropuestos.contratoId).session(session);
             }
             if (relacion) {
-              const cambios = solicitud.datosPropuestos || {};
+              const contratoSel = seleccionCamposContrato(seleccion, solicitud.datosPropuestos);
+              const cambios = contratoSel.cambios;
+              resumenParcial = contratoSel.resumen;
               if (cambios.rol !== undefined) relacion.rol = cambios.rol;
               if (cambios.foto !== undefined) relacion.foto = cambios.foto;
 
@@ -1652,6 +1676,11 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
           } else {
             // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
             // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.
+          }
+
+          if (resumenParcial && solicitud.estado === 'aceptado') {
+            solicitud.aprobacionParcial = resumenParcial;
+            await solicitud.save({ session });
           }
         });
       } catch (e) {

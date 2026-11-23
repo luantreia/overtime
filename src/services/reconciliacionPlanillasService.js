@@ -365,6 +365,7 @@ export async function obtenerReconciliacion(partidoId, usuario) {
  * @param {Record<string,string>} p.fuentePorEquipo  equipoId → planillaId | 'oficial'
  * @param {'organizacion'|'publica'} p.visibilidad
  * @param {boolean} [p.confirmarSobrescritura]
+ * @param {number[]} [p.pisarSets] sets existentes que toman el resultado de la planilla combinada
  * @param {{ uid: string, rol?: string }} p.usuario
  */
 /**
@@ -401,7 +402,7 @@ export function rangoDeSets(numeros) {
   return txt.length > 1 ? `${txt.slice(0, -1).join(', ')} y ${txt[txt.length - 1]}` : txt[0] ?? '';
 }
 
-export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, visibilidad, confirmarSobrescritura = false, usuario }) {
+export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, visibilidad, confirmarSobrescritura = false, pisarSets = [], usuario }) {
   const lectura = await obtenerReconciliacion(partidoId, usuario);
   if (lectura.status !== 200) return lectura;
   const { partido, puedePublicar, jugadores } = lectura.data;
@@ -443,7 +444,12 @@ export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, 
     avisos.push('El partido muestra estadísticas por set y la versión reconciliada es de totales: no se va a ver hasta que cambies el modo de estadísticas del partido a manual.');
   }
   if (combinada.modo === 'sets') {
-    const { crear, distintos } = planDeSets({ setsCombinados: combinada.sets, setsComparados: lectura.data.sets });
+    const { crear, distintos: distintosTodos } = planDeSets({ setsCombinados: combinada.sets, setsComparados: lectura.data.sets });
+    const pisados = distintosTodos.filter((n) => pisarSets.includes(n));
+    const distintos = distintosTodos.filter((n) => !pisarSets.includes(n));
+    if (pisados.length) {
+      avisos.push(`${pisados.length === 1 ? "El set" : "Los sets"} ${rangoDeSets(pisados)} ${pisados.length === 1 ? "toma" : "toman"} el resultado de la planilla y se recalcula el marcador del partido.`);
+    }
     if (crear.length) {
       avisos.push(`El partido no tenía ${crear.length === 1 ? 'el set' : 'los sets'} ${rangoDeSets(crear)}: se ${crear.length === 1 ? 'crea' : 'crean'} con el resultado de la planilla y se recalcula el marcador del partido.`);
     }
@@ -511,7 +517,7 @@ export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, 
         creadoPor: usuario.uid,
       })), { session });
 
-      resultado = await aplicarPlanillaOficializada({ planillaId: planillaOrg._id, visibilidad, uid: usuario.uid, session });
+      resultado = await aplicarPlanillaOficializada({ planillaId: planillaOrg._id, visibilidad, uid: usuario.uid, session, seleccion: { pisarSets } });
 
       // Cerrar las solicitudes pendientes de las planillas de equipo del partido.
       const pendientes = await PlanillaEquipo.find({ partido: partido._id, tipoDuenio: { $ne: 'organizacion' }, estado: 'pendiente_oficializacion' })
@@ -539,7 +545,7 @@ export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, 
   for (const jpId of resultado.jugadorPartidosARecalcular) {
     await recalcularAgregadosDeJugadorPartido(jpId, usuario.uid);
   }
-  if (resultado.setsCreados > 0) await recalcularMarcadorDelPartido(partido._id);
+  if (resultado.marcadorDesactualizado) await recalcularMarcadorDelPartido(partido._id);
 
   return {
     status: 200,

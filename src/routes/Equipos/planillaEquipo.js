@@ -603,6 +603,8 @@ router.post(
         fuentePorEquipo: req.body?.fuentePorEquipo || {},
         visibilidad: normalizarVisibilidadObjetivo(req.body?.visibilidad),
         confirmarSobrescritura: req.body?.confirmarSobrescritura === true,
+        // Sets que ya existen en el partido y deben tomar el resultado de la planilla.
+        pisarSets: Array.isArray(req.body?.pisarSets) ? req.body.pisarSets.map(Number).filter(Number.isFinite) : [],
         usuario: req.user,
       });
       if (r.status !== 200) return res.status(r.status).json({ error: r.error, ...(r.data || {}) });

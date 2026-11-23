@@ -25,6 +25,7 @@ import SetPartido from '../models/Partido/SetPartido.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
+import { seleccionPlanilla } from '../utils/seleccionAprobacion.js';
 
 /**
  * @param {object} params
@@ -33,7 +34,7 @@ import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggreg
  * @param {string} params.uid quien ejecuta (aprobador, o el propio equipo en amistoso)
  * @param {string} [params.solicitudId]
  * @param {import('mongoose').ClientSession} [params.session]
- * @returns {Promise<{ jugadorPartidosARecalcular: string[], partidoId: string, equipoId: string, setsCreados: number }>}
+ * @returns {Promise<{ jugadorPartidosARecalcular: string[], partidoId: string, equipoId: string, setsCreados: number, setsPisados: number, marcadorDesactualizado: boolean, resumen: object|null }>}
  *   Los agregados NO se recalculan acá cuando hay sesión: el aggregator no la recibe
  *   y adentro de la transacción leería datos que todavía no están visibles. El caller
  *   recalcula después de commitear, igual que hace routes/solicitudEdicion.js.
@@ -44,6 +45,9 @@ export async function aplicarPlanillaOficializada({
   uid,
   solicitudId = null,
   session = null,
+  // Aprobación parcial (utils/seleccionAprobacion.js): qué jugadores, si los sets, y qué sets
+  // existentes toman el resultado de la planilla. null = todo, como siempre.
+  seleccion = null,
 }) {
   const q = (query) => (session ? query.session(session) : query);
   const opts = session ? { session } : {};
@@ -61,10 +65,13 @@ export async function aplicarPlanillaOficializada({
   const partidoId = String(planilla.partido);
   const equipoId = String(planilla.equipo);
   const jugadorPartidosARecalcular = new Set();
+  const sel = seleccionPlanilla(seleccion, { presentes, sets });
 
   // 1) Convocatoria. Se crea solo lo que falta; una fila oficial existente no se toca.
+  // Un presente no elegido no entra, y por eso tampoco sus estadísticas (paso 3 las salta).
   const jugadorPartidoPorPresente = new Map();
   for (const presente of presentes) {
+    if (!sel.presentes.has(String(presente._id))) continue;
     // `presente.equipo` y no `planilla.equipo`: el presente puede ser del rival o, en
     // modo scouting, de cualquiera de los dos equipos del partido. Si un presente viejo
     // no tiene `equipo` seteado (documentos de antes del backfill), cae a
@@ -94,18 +101,36 @@ export async function aplicarPlanillaOficializada({
     }
   }
 
-  // 2) Sets. Mismo criterio: crear los que falten, no pisar los que estén.
+  // 2) Sets. Por defecto: crear los que falten, no pisar los que estén. Con selección:
+  //    - sets no elegidos: no se crea nada; las estadísticas se cuelgan de los sets oficiales
+  //      que ya existan con ese número, y las de sets inexistentes se descartan.
+  //    - pisarSets: un set existente toma el resultado de la planilla (sólo si la planilla
+  //      trae un ganador; "pendiente" no reabre un set cerrado).
   const setPartidoPorPlanillaSet = new Map();
   let setsCreados = 0;
+  let setsPisados = 0;
   if (planilla.modo === 'sets') {
-    // Cuáles ya existen, para saber si esta oficialización creó alguno: en ese caso el
-    // marcador del partido quedó desactualizado y el caller lo recalcula tras commitear.
-    const existentes = new Set(
-      (await q(SetPartido.find({ partido: planilla.partido }).select('numeroSet')).lean()).map((x) => x.numeroSet),
+    const existentePorNumero = new Map(
+      (await q(SetPartido.find({ partido: planilla.partido }))).map((x) => [x.numeroSet, x]),
     );
-    setsCreados = sets.filter((ps) => !existentes.has(ps.numeroSet)).length;
     for (const ps of sets) {
       const esFinalizado = ps.ganadorSet && ps.ganadorSet !== 'pendiente';
+      const existente = existentePorNumero.get(ps.numeroSet);
+
+      if (existente) {
+        if (sel.incluirSets && sel.pisarSets.has(ps.numeroSet) && esFinalizado && existente.ganadorSet !== ps.ganadorSet) {
+          existente.ganadorSet = ps.ganadorSet;
+          existente.estadoSet = 'finalizado';
+          await existente.save(opts);
+          setsPisados += 1;
+        }
+        setPartidoPorPlanillaSet.set(String(ps._id), existente._id);
+        if (!ps.setPartido) await q(PlanillaSet.updateOne({ _id: ps._id }, { setPartido: existente._id }));
+        continue;
+      }
+      if (!sel.incluirSets) continue;
+
+      setsCreados += 1;
       const setDoc = await SetPartido.findOneAndUpdate(
         { partido: planilla.partido, numeroSet: ps.numeroSet },
         {
@@ -226,9 +251,11 @@ export async function aplicarPlanillaOficializada({
     }
   }
 
-  if (!session && setsCreados > 0) await recalcularMarcadorDelPartido(partidoId);
+  // Crear o pisar sets deja el marcador del partido viejo: el caller lo recalcula tras commitear.
+  const marcadorDesactualizado = setsCreados + setsPisados > 0;
+  if (!session && marcadorDesactualizado) await recalcularMarcadorDelPartido(partidoId);
 
-  return { jugadorPartidosARecalcular: ids, partidoId, equipoId, setsCreados };
+  return { jugadorPartidosARecalcular: ids, partidoId, equipoId, setsCreados, setsPisados, marcadorDesactualizado, resumen: sel.resumen };
 }
 
 /**

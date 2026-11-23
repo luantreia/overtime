@@ -42,6 +42,11 @@ const SolicitudEdicionSchema = new Schema({
     creadoPor: { type: String, ref: 'Usuario', required: true },
     aprobadoPor: { type: String, ref: 'Usuario' },
 
+    // Aprobación parcial: quien aprueba eligió incorporar sólo una parte de lo propuesto
+    // (utils/seleccionAprobacion.js). Lo no elegido se descarta y la solicitud se cierra.
+    // { incorporado: {...}, descartado: {...} }; null si se aprobó todo.
+    aprobacionParcial: { type: Schema.Types.Mixed, default: null },
+
 }, { timestamps: true });
 
 export default model('SolicitudEdicion', SolicitudEdicionSchema);
