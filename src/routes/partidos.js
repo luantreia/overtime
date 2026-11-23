@@ -350,6 +350,12 @@ router.get(
  *         schema:
  *           type: string
  *           format: ObjectId
+ *       - in: query
+ *         name: conVideo
+ *         description: Con "true", sólo partidos que tienen videoUrl cargado
+ *         schema:
+ *           type: string
+ *           enum: ['true']
  *     responses:
  *       200:
  *         description: Lista de partidos
@@ -364,7 +370,7 @@ router.get(
  */
 router.get('/', async (req, res) => {
   try {
-    const { fase, competencia, competenciaId, tipo, equipo, temporadaId, estado, jugador, sede } = req.query;
+    const { fase, competencia, competenciaId, tipo, equipo, temporadaId, estado, jugador, sede, conVideo } = req.query;
     const filtro = {};
     const andConditions = [];
 
@@ -440,6 +446,12 @@ router.get('/', async (req, res) => {
       } else {
         return res.json({ items: [], total: 0, page, limit, pages: 0 });
       }
+    }
+
+    // Overtime TV (Public /tv) sólo necesita los partidos con link de video: son unas decenas
+    // entre miles, así que filtrar acá evita bajar el listado entero para descartarlo.
+    if (conVideo === 'true') {
+      filtro.videoUrl = { $nin: ['', null] };
     }
 
     if (andConditions.length > 0) {
