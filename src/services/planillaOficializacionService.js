@@ -280,25 +280,34 @@ const mismosTramos = (a = [], b = []) =>
  * en ese caso no se trasladan (`relojesDistintos`) y lo resuelve una persona. La alineación no
  * depende del reloj y se copia igual.
  */
+/**
+ * Cámaras de la planilla contra las del partido: cuáles se suman y si los relojes cuadran.
+ * Lo usan el traspaso y la vista previa de la revisión, para que digan lo mismo.
+ */
+export function compararCamaras(propias = [], delPartido = []) {
+  if (!propias.length) return { nuevas: [], relojesDistintos: false };
+  const porId = new Map(delPartido.map((v) => [v.youtubeId, v]));
+  const distinta = propias.some((v) => porId.has(v.youtubeId) && !mismosTramos(v.tramos, porId.get(v.youtubeId).tramos));
+  // Si el partido ya tiene cámaras y ninguna coincide, no hay forma de saber que los relojes cuadren.
+  const ninguna = delPartido.length > 0 && !propias.some((v) => porId.has(v.youtubeId));
+  const nuevas = propias.filter((v) => !porId.has(v.youtubeId)).map(({ _id, ...v }) => v);
+  return { nuevas, relojesDistintos: distinta || ninguna };
+}
+
 async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incluirSets, uid, q, opts }) {
   const out = { camarasAgregadas: 0, tiemposCopiados: 0, alineacionesCopiadas: 0, marcasCopiadas: 0, relojesDistintos: false };
   const propias = (planilla.videos || []).map((v) => (v.toObject ? v.toObject() : v));
   const partido = await q(Partido.findById(planilla.partido).select('videos videoUrl')).lean();
   const delPartido = partido?.videos || [];
 
-  if (propias.length) {
-    const porId = new Map(delPartido.map((v) => [v.youtubeId, v]));
-    out.relojesDistintos = propias.some((v) => porId.has(v.youtubeId) && !mismosTramos(v.tramos, porId.get(v.youtubeId).tramos));
-    // Si el partido ya tiene cámaras y ninguna coincide, no hay forma de saber que los relojes cuadren.
-    if (delPartido.length && !propias.some((v) => porId.has(v.youtubeId))) out.relojesDistintos = true;
-    const nuevas = propias.filter((v) => !porId.has(v.youtubeId)).map(({ _id, ...v }) => v);
-    if (nuevas.length) {
-      const $set = { videos: [...delPartido, ...nuevas] };
-      if (!partido.videoUrl) $set.videoUrl = `https://www.youtube.com/watch?v=${(delPartido[0] || nuevas[0]).youtubeId}`;
-      // updateOne: el post('save') de Partido recalcula marcador y tabla, y esto no lo amerita.
-      await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
-      out.camarasAgregadas = nuevas.length;
-    }
+  const { nuevas, relojesDistintos } = compararCamaras(propias, delPartido);
+  out.relojesDistintos = relojesDistintos;
+  if (nuevas.length) {
+    const $set = { videos: [...delPartido, ...nuevas] };
+    if (!partido.videoUrl) $set.videoUrl = `https://www.youtube.com/watch?v=${(delPartido[0] || nuevas[0]).youtubeId}`;
+    // updateOne: el post('save') de Partido recalcula marcador y tabla, y esto no lo amerita.
+    await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
+    out.camarasAgregadas = nuevas.length;
   }
   if (!incluirSets) return out;
 

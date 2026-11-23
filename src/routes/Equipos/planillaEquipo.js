@@ -7,6 +7,7 @@ import { requireTeamPermission } from '../../middleware/requireTeamPermission.js
 import PlanillaEquipo from '../../models/Equipo/PlanillaEquipo.js';
 import PlanillaPresente from '../../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../../models/Equipo/PlanillaSet.js';
+import EventoSet from '../../models/Partido/EventoSet.js';
 import PlanillaEstadistica from '../../models/Equipo/PlanillaEstadistica.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import SetPartido from '../../models/Partido/SetPartido.js';
@@ -692,7 +693,7 @@ router.get(
   async (req, res) => {
     try {
       const planilla = await PlanillaEquipo.findById(req.params.id)
-        .select('partido equipo jugador organizacion tipoDuenio estado')
+        .select('partido equipo jugador organizacion tipoDuenio estado videos')
         .lean();
       if (!planilla) return res.status(404).json({ error: 'Planilla no encontrada' });
 
@@ -715,7 +716,7 @@ router.get(
       // de los dos equipos de un partido ajeno), sus filas necesitan poder cruzarse
       // contra la convocatoria oficial de cualquiera de los dos lados.
       const partidoDoc = await Partido.findById(planilla.partido)
-        .select('equipoLocal equipoVisitante')
+        .select('equipoLocal equipoVisitante videos')
         .populate('equipoLocal', 'nombre escudo')
         .populate('equipoVisitante', 'nombre escudo')
         .lean();
@@ -735,8 +736,40 @@ router.get(
           }).lean()
         : [];
 
+      // Qué de lo capturado con video pasaría al partido al aprobar (misma regla que
+      // trasladarCaptura en planillaOficializacionService.js).
+      const { compararCamaras } = await import('../../services/planillaOficializacionService.js');
+      const { nuevas, relojesDistintos } = compararCamaras(planilla.videos || [], partidoDoc?.videos || []);
+      const setsPlanilla = await PlanillaSet.find({ planilla: planilla._id }).select('numeroSet tiempo alineacion').sort({ numeroSet: 1 }).lean();
+      const [marcasPlanilla, marcasOficiales] = await Promise.all([
+        EventoSet.aggregate([{ $match: { planillaSet: { $in: setsPlanilla.map((x) => x._id) } } }, { $group: { _id: '$planillaSet', n: { $sum: 1 } } }]),
+        EventoSet.aggregate([{ $match: { setPartido: { $in: setsOficiales.map((x) => x._id) } } }, { $group: { _id: '$setPartido', n: { $sum: 1 } } }]),
+      ]);
+      const nDe = (lista, id) => lista.find((x) => String(x._id) === String(id))?.n ?? 0;
+      const oficialPorNumero = new Map(setsOficiales.map((x) => [x.numeroSet, x]));
+      const captura = {
+        camarasNuevas: nuevas.map((v) => ({ youtubeId: v.youtubeId, etiqueta: v.etiqueta || '' })),
+        relojesDistintos,
+        sets: setsPlanilla
+          .map((ps) => {
+            const of = oficialPorNumero.get(ps.numeroSet);
+            const marcas = nDe(marcasPlanilla, ps._id);
+            const marcasOf = of ? nDe(marcasOficiales, of._id) : 0;
+            const pasa = (tiene, yaOficial) => (!tiene ? null : yaOficial ? 'ya_tiene' : relojesDistintos ? 'reloj' : 'pasa');
+            return {
+              numeroSet: ps.numeroSet,
+              tiempo: pasa(Boolean(ps.tiempo), Boolean(of?.tiempo)),
+              alineacion: !ps.alineacion?.length ? null : of?.alineacion?.length ? 'ya_tiene' : 'pasa',
+              marcas,
+              marcasEstado: pasa(marcas > 0, marcasOf > 0),
+            };
+          })
+          .filter((x) => x.tiempo || x.alineacion || x.marcas),
+      };
+
       return res.json({
         planilla: completa,
+        captura,
         // Nombres de los dos equipos del partido, para que la UI de revisión los muestre sin
         // tener que resolverlos por su cuenta a partir de ids sueltos.
         equiposDelPartido: equiposDelPartidoDocs.map((eq) => ({ _id: String(eq._id), nombre: eq.nombre })),
