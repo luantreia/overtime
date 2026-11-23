@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { tiempoPartidoSchema } from './tiempoVideo.js';
+import { tiempoPartidoSchema, alineacionSetSchema } from './tiempoVideo.js';
 
 const SetPartidoSchema = new mongoose.Schema({
   partido: {
@@ -44,6 +44,9 @@ const SetPartidoSchema = new mongoose.Schema({
 
   // Dónde está el set en el video, en segundos de partido (ver tiempoVideo.js).
   tiempo: { type: tiempoPartidoSchema, default: null },
+
+  // Quiénes arrancan el set en cancha (ver tiempoVideo.js y EventoSet).
+  alineacion: { type: [alineacionSetSchema], default: [] },
 
   meta: { type: mongoose.Schema.Types.Mixed },
 

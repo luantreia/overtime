@@ -108,6 +108,7 @@ import jugadorPartidoRoutes from './src/routes/Jugadores/jugadorPartido.js';
 
 import partidosRoutes from './src/routes/partidos.js';
 import tvRoutes from './src/routes/tv.js';
+import eventosSetRoutes from './src/routes/eventosSet.js';
 import setPartidoRoutes from './src/routes/setPartido.js';
 import estadisticasRoutes from './src/routes/estadisticas.js';
 import estadisticasJugadorPartidoRoutes from './src/routes/Jugadores/estadisticasJugadorPartido.js';
@@ -311,6 +312,7 @@ app.use('/api/jugador-partido', jugadorPartidoRoutes);
 
 app.use('/api/partidos', partidosRoutes);
 app.use('/api/tv', tvRoutes);
+app.use('/api/eventos-set', eventosSetRoutes);
 app.use('/api/set-partido', setPartidoRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/estadisticas/jugador-partido', estadisticasJugadorPartidoRoutes);

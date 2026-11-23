@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { tiempoPartidoSchema } from '../Partido/tiempoVideo.js';
+import { tiempoPartidoSchema, alineacionSetSchema } from '../Partido/tiempoVideo.js';
 const { Schema, model } = mongoose;
 
 /**
@@ -26,6 +26,9 @@ const planillaSetSchema = new Schema({
   // Dónde está el set en el video según esta planilla, en segundos de partido. Puede no
   // coincidir con el oficial: cada fuente marca sus propios tiempos.
   tiempo: { type: tiempoPartidoSchema, default: null },
+
+  // Quiénes arrancan el set en cancha (ver tiempoVideo.js y EventoSet).
+  alineacion: { type: [alineacionSetSchema], default: [] },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });

@@ -57,3 +57,15 @@ export const tiempoPartidoSchema = new Schema(
   },
   { _id: false },
 );
+
+/**
+ * Quiénes arrancan un set en cancha (la alineación del set). Con esto y las marcas
+ * (EventoSet) se arma la línea de "vivos". Vacía = no se cargó: se usan los presentes.
+ */
+export const alineacionSetSchema = new Schema(
+  {
+    jugador: { type: Schema.Types.ObjectId, ref: 'Jugador', required: true },
+    equipo: { type: Schema.Types.ObjectId, ref: 'Equipo', required: true },
+  },
+  { _id: false },
+);
