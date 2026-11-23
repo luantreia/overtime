@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { videoPartidoSchema } from './tiempoVideo.js';
 const Schema = mongoose.Schema;
 
 const PartidoSchema = new Schema({
@@ -24,6 +25,11 @@ const PartidoSchema = new Schema({
   // URL de YouTube del partido (en vivo o video final). Se guarda tal cual la pega
   // el usuario (watch?v=, youtu.be, /live/, etc.); el ID se extrae en el frontend.
   videoUrl: { type: String, default: '' },
+
+  // Videos del partido, uno por cámara, alineados a un reloj de partido común (ver
+  // tiempoVideo.js). Reemplaza a `videoUrl` de a poco: un partido sin `videos` se trata como
+  // una sola cámara con el link de `videoUrl`.
+  videos: { type: [videoPartidoSchema], default: [] },
 
   modalidad: {
     type: String,

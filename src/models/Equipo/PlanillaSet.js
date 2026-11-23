@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { tiempoPartidoSchema } from '../Partido/tiempoVideo.js';
 const { Schema, model } = mongoose;
 
 /**
@@ -21,6 +22,10 @@ const planillaSetSchema = new Schema({
   },
 
   setPartido: { type: Schema.Types.ObjectId, ref: 'SetPartido', default: null },
+
+  // Dónde está el set en el video según esta planilla, en segundos de partido. Puede no
+  // coincidir con el oficial: cada fuente marca sus propios tiempos.
+  tiempo: { type: tiempoPartidoSchema, default: null },
 
   creadoPor: { type: String, ref: 'Usuario', required: true },
 }, { timestamps: true });

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { tiempoPartidoSchema } from './tiempoVideo.js';
 
 const SetPartidoSchema = new mongoose.Schema({
   partido: {
@@ -40,6 +41,9 @@ const SetPartidoSchema = new mongoose.Schema({
   duracionReal: { type: Number, default: null },    // Actual duration in seconds (finalizadoEn - iniciadoEn)
   duracionSetTimer: { type: Number, default: null }, // How much of the 3:00 was used (180 - timerSetValue at finish)
   duracionSuddenDeath: { type: Number, default: null }, // Sudden death duration if applicable
+
+  // Dónde está el set en el video, en segundos de partido (ver tiempoVideo.js).
+  tiempo: { type: tiempoPartidoSchema, default: null },
 
   meta: { type: mongoose.Schema.Types.Mixed },
 
