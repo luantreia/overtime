@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { videoPartidoSchema } from '../Partido/tiempoVideo.js';
 const { Schema, model } = mongoose;
 
 /**
@@ -99,6 +100,13 @@ const planillaEquipoSchema = new Schema({
     }, { _id: false }),
     default: undefined,
   },
+
+  /**
+   * Videos (cámaras) propios de la planilla, misma forma que `Partido.videos`. Los tiempos de
+   * sus sets y marcas están en segundos de partido según ESTOS relojes. Vacío = usa los del
+   * partido. Al oficializar se suman a los del partido.
+   */
+  videos: { type: [videoPartidoSchema], default: [] },
 
   notas: { type: String },
 

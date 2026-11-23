@@ -5,6 +5,7 @@ import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import EventoSet from '../models/Partido/EventoSet.js';
 import SetPartido from '../models/Partido/SetPartido.js';
 import PlanillaSet from '../models/Equipo/PlanillaSet.js';
+import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import Partido from '../models/Partido/Partido.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import { puedeAccederPlanilla, planillaEstaCerrada } from '../services/planillaEquipoService.js';
@@ -211,6 +212,30 @@ router.put('/videos/:partidoId', verificarToken, cargarRolDesdeBD, conErrores(as
   await Partido.updateOne({ _id: partidoId }, { $set: set }, { runValidators: true });
   const p = await Partido.findById(partidoId).select('videos videoUrl').lean();
   res.json(p);
+}));
+
+/**
+ * @swagger
+ * /api/eventos-set/videos-planilla/{planillaId}:
+ *   put:
+ *     summary: Reemplaza los videos (cámaras) propios de una planilla
+ *     description: Mismos permisos que editar la planilla, que tiene que estar abierta. No toca el partido.
+ *     tags: [EventosSet]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/videos-planilla/:planillaId', verificarToken, cargarRolDesdeBD, conErrores(async (req, res) => {
+  const { planillaId } = req.params;
+  if (!esId(planillaId)) return res.status(400).json({ error: 'planillaId inválido' });
+  const planilla = await PlanillaEquipo.findById(planillaId).lean();
+  if (!planilla) return res.status(404).json({ error: 'Planilla no encontrada' });
+  const acceso = await puedeAccederPlanilla({ planilla, usuario: req.user, accion: 'editar' });
+  if (!acceso.permitido) return res.status(403).json({ error: 'No podés editar esta planilla' });
+  if (planillaEstaCerrada(planilla)) return res.status(409).json({ error: 'La planilla está cerrada a ediciones' });
+  const videos = Array.isArray(req.body.videos) ? req.body.videos : null;
+  if (!videos) return res.status(400).json({ error: 'videos debe ser un array' });
+  await PlanillaEquipo.updateOne({ _id: planillaId }, { $set: { videos } }, { runValidators: true });
+  const p = await PlanillaEquipo.findById(planillaId).select('videos').lean();
+  res.json({ videos: p.videos, videoUrl: '' });
 }));
 
 export default router;
