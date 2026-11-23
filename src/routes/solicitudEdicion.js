@@ -369,6 +369,10 @@ router.get('/opciones', verificarToken, async (req, res) => {
     if (!contexto) return res.status(400).json({ message: 'contexto requerido' });
 
     // Mapa básico de tipos por contexto. Se puede refinar por permisos/entidad
+    // Fuera de esta lista: contratoEquipoCompetencia, participacion-temporada-actualizar,
+    // jugador-temporada-actualizar, resultadoPartido y estadisticasEquipoSet. No tienen rama en el
+    // PUT de aprobación (caen en el else vacío): aprobarlos no cambiaba nada. Volver a sumarlos
+    // recién cuando tengan implementación.
     const porContexto = {
       usuario: [
         'usuario-crear-jugador', 'usuario-crear-equipo', 'usuario-crear-organizacion',
@@ -378,28 +382,26 @@ router.get('/opciones', verificarToken, async (req, res) => {
       ],
       equipo: [
         'jugador-equipo-crear', 'jugador-equipo-eliminar', 'jugador-equipo-editar',
-        'contratoEquipoCompetencia',
-        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
-        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+        'participacion-temporada-crear', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-eliminar',
         'usuario-solicitar-admin-equipo',
       ],
       organizacion: [
         'usuario-solicitar-admin-organizacion',
       ],
       competencia: [
-        'contratoEquipoCompetencia',
-        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
-        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+        'participacion-temporada-crear', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-eliminar',
       ],
       temporada: [
-        'participacion-temporada-crear', 'participacion-temporada-actualizar', 'participacion-temporada-eliminar',
-        'jugador-temporada-crear', 'jugador-temporada-actualizar', 'jugador-temporada-eliminar',
+        'participacion-temporada-crear', 'participacion-temporada-eliminar',
+        'jugador-temporada-crear', 'jugador-temporada-eliminar',
       ],
       fase: [
-        'resultadoPartido', 'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+        'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido'
       ],
       partido: [
-        'resultadoPartido', 'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido', 'estadisticasEquipoSet'
+        'editarPartidoCompetencia', 'resultadoSet', 'estadisticasJugadorPartido', 'estadisticasJugadorSet', 'estadisticasEquipoPartido'
       ],
     };
 
