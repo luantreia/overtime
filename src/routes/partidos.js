@@ -471,11 +471,20 @@ router.get('/', async (req, res) => {
             ],
           },
           { estado: 'en_juego', updatedAt: { $gte: new Date(ahora - 24 * 3600e3) } },
-          // Fixtures cargados sin día definido: no son próximos. El regex sobre la jornada cubre
-          // los cargados antes de fechaConfirmada (ver scripts/marcarFechasAConfirmar.js).
-          { estado: 'programado', fecha: { $gte: new Date(ahora - 6 * 3600e3) }, fechaConfirmada: { $ne: false }, jornada: { $not: /a confirmar/i } },
+          { estado: 'programado', fecha: { $gte: new Date(ahora - 6 * 3600e3) } },
         ],
       });
+    }
+
+    // Fecha a confirmar (fixture cargado sin día definido): `excluir` los saca, `solo` deja
+    // únicamente esos. confiables=true implica `excluir` salvo que se pida otra cosa. El regex
+    // sobre la jornada cubre los cargados antes de fechaConfirmada (scripts/marcarFechasAConfirmar.js).
+    const modoAConfirmar = req.query.fechaAConfirmar || (req.query.confiables === 'true' ? 'excluir' : null);
+    const esAConfirmar = { $or: [{ fechaConfirmada: false }, { jornada: /a confirmar/i }] };
+    if (modoAConfirmar === 'solo') {
+      andConditions.push(esAConfirmar);
+    } else if (modoAConfirmar === 'excluir') {
+      andConditions.push({ $nor: [esAConfirmar] });
     }
 
     if (andConditions.length > 0) {
