@@ -4460,3 +4460,5 @@
 {"level":"info","message":{"duration":"1018ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T09:47:24.961Z"}
 {"level":"info","message":{"duration":"125ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T09:47:25.350Z"}
 {"level":"info","message":{"duration":"83ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T09:47:25.673Z"}
+{"level":"info","message":"Servidor corriendo en http://localhost:5058","service":"overtime-api","timestamp":"2026-11-23T19:52:49.976Z"}
+{"level":"info","message":{"duration":"113ms","ip":"127.0.0.1","method":"GET","path":"/","statusCode":200,"user":"anonymous","userAgent":"curl/8.16.0"},"service":"overtime-api","timestamp":"2026-11-23T19:52:52.362Z"}
