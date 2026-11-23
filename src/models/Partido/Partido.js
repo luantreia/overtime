@@ -78,7 +78,7 @@ const PartidoSchema = new Schema({
 
   estado: {
     type: String,
-    enum: ['programado', 'en_juego', 'finalizado', 'cancelado'],
+    enum: ['programado', 'en_juego', 'finalizado', 'suspendido', 'cancelado'],
     default: 'programado'
   },
 

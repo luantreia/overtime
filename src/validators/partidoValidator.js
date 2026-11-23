@@ -44,8 +44,8 @@ export const validatePartidoUpdate = [
     .withMessage('marcadorVisitante debe ser un número entero positivo'),
   body('estado')
     .optional()
-    .isIn(['pendiente', 'en_progreso', 'finalizado', 'cancelado'])
-    .withMessage('estado debe ser uno de: pendiente, en_progreso, finalizado, cancelado'),
+    .isIn(['programado', 'en_juego', 'finalizado', 'suspendido', 'cancelado'])
+    .withMessage('estado debe ser uno de: programado, en_juego, finalizado, suspendido, cancelado'),
   ...validateDate('fecha').map(v => {
     // Make fecha optional for updates
     const validator = { ...v };
