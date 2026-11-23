@@ -33,7 +33,7 @@ import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import { hasCompetenciaPermission } from './competenciaPermissionService.js';
 import { hasMatchPermission } from './matchPermissionService.js';
 import { puedeAccederPlanilla, eliminarPlanillaEnCascada } from './planillaEquipoService.js';
-import { aplicarPlanillaOficializada } from './planillaOficializacionService.js';
+import { aplicarPlanillaOficializada, recalcularMarcadorDelPartido } from './planillaOficializacionService.js';
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
 
 const { Types } = mongoose;
@@ -367,6 +367,40 @@ export async function obtenerReconciliacion(partidoId, usuario) {
  * @param {boolean} [p.confirmarSobrescritura]
  * @param {{ uid: string, rol?: string }} p.usuario
  */
+/**
+ * Qué pasa con cada set al publicar: los que el partido no tiene se crean con el resultado de la
+ * planilla (aplicarPlanillaOficializada nunca pisa sets existentes); los que ya existen con otro
+ * ganador quedan como están. Antes el aviso usaba `difiere` de la comparación, que marca también
+ * los sets que lo oficial simplemente no tiene: decía "no se modifican" sobre sets que sí se creaban.
+ *
+ * @param {{ setsCombinados: { numeroSet: number, ganadorSet: string }[], setsComparados: { numeroSet: number, valores: Record<string,string> }[] }} p
+ */
+export function planDeSets({ setsCombinados, setsComparados }) {
+  const oficial = new Map(
+    setsComparados.filter((x) => FUENTE_OFICIAL in x.valores).map((x) => [x.numeroSet, x.valores[FUENTE_OFICIAL]]),
+  );
+  const crear = [];
+  const distintos = [];
+  for (const set of setsCombinados) {
+    if (!oficial.has(set.numeroSet)) crear.push(set.numeroSet);
+    else if (oficial.get(set.numeroSet) !== set.ganadorSet) distintos.push(set.numeroSet);
+  }
+  return { crear, distintos };
+}
+
+/** [1,2,3,5] → "1 a 3 y 5". */
+export function rangoDeSets(numeros) {
+  const ord = [...numeros].sort((a, b) => a - b);
+  const tramos = [];
+  for (const n of ord) {
+    const ult = tramos[tramos.length - 1];
+    if (ult && n === ult[1] + 1) ult[1] = n;
+    else tramos.push([n, n]);
+  }
+  const txt = tramos.map(([a, b]) => (a === b ? String(a) : b === a + 1 ? `${a}, ${b}` : `${a} a ${b}`));
+  return txt.length > 1 ? `${txt.slice(0, -1).join(', ')} y ${txt[txt.length - 1]}` : txt[0] ?? '';
+}
+
 export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, visibilidad, confirmarSobrescritura = false, usuario }) {
   const lectura = await obtenerReconciliacion(partidoId, usuario);
   if (lectura.status !== 200) return lectura;
@@ -408,9 +442,14 @@ export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, 
   if (combinada.modo === 'directa' && partido.modoEstadisticas !== 'manual' && reemplazos.length) {
     avisos.push('El partido muestra estadísticas por set y la versión reconciliada es de totales: no se va a ver hasta que cambies el modo de estadísticas del partido a manual.');
   }
-  const setsDistintos = lectura.data.sets.filter((s) => s.difiere).map((s) => s.numeroSet);
-  if (setsDistintos.length) {
-    avisos.push(`Los ganadores de set no se modifican desde acá (sets con diferencias: ${setsDistintos.join(', ')}). Si el resultado está mal, corregilo desde el partido.`);
+  if (combinada.modo === 'sets') {
+    const { crear, distintos } = planDeSets({ setsCombinados: combinada.sets, setsComparados: lectura.data.sets });
+    if (crear.length) {
+      avisos.push(`El partido no tenía ${crear.length === 1 ? 'el set' : 'los sets'} ${rangoDeSets(crear)}: se ${crear.length === 1 ? 'crea' : 'crean'} con el resultado de la planilla y se recalcula el marcador del partido.`);
+    }
+    if (distintos.length) {
+      avisos.push(`${distintos.length === 1 ? 'El set' : 'Los sets'} ${rangoDeSets(distintos)} ya ${distintos.length === 1 ? 'existe' : 'existen'} en el partido con otro resultado y no se ${distintos.length === 1 ? 'modifica' : 'modifican'} desde acá. Si el resultado oficial está mal, corregilo desde el partido.`);
+    }
   }
 
   if (reemplazos.length && !confirmarSobrescritura) {
@@ -500,6 +539,7 @@ export async function publicarReconciliacion({ partidoId, fuentePorEquipo = {}, 
   for (const jpId of resultado.jugadorPartidosARecalcular) {
     await recalcularAgregadosDeJugadorPartido(jpId, usuario.uid);
   }
+  if (resultado.setsCreados > 0) await recalcularMarcadorDelPartido(partido._id);
 
   return {
     status: 200,

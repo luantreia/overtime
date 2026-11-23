@@ -32,7 +32,7 @@ import TimerManager from '../services/TimerManager.js';
 import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
-import { aplicarPlanillaOficializada } from '../services/planillaOficializacionService.js';
+import { aplicarPlanillaOficializada, recalcularMarcadorDelPartido } from '../services/planillaOficializacionService.js';
 import { contratoSolapado, mensajeSolapamiento } from '../services/contratoEquipoService.js';
 
 /**
@@ -1151,6 +1151,8 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       // TimerManager guarda el estado del partido en memoria: si se tocan los sets
       // hay que avisarle, igual que hace la ruta directa de sets.
       const partidosARecargarEnTimer = new Set();
+      // Partidos a los que una oficialización les creó sets: su marcador quedó viejo.
+      const partidosConSetsNuevos = new Set();
 
       // Aplicar cambios a la entidad si corresponde. Hacemos las operaciones que modifican datos
       // dentro de una transacción para asegurar atomicidad entre la solicitud y las entidades.
@@ -1388,6 +1390,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
 
             resultado.jugadorPartidosARecalcular.forEach((id) => jugadorPartidosARecalcular.add(id));
             if (resultado.partidoId) partidosARecargarEnTimer.add(String(resultado.partidoId));
+            if (resultado.setsCreados > 0) partidosConSetsNuevos.add(String(resultado.partidoId));
           } else if (solicitud.tipo === 'estadisticasJugadorPartido') {
             const visibilidad = normalizarVisibilidadObjetivo(solicitud.datosPropuestos?.visibilidadObjetivo);
             await EstadisticasJugadorPartido.findByIdAndUpdate(
@@ -1663,6 +1666,10 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       // Fuera de la transacción, ya con las filas visibles.
       for (const jugadorPartidoId of jugadorPartidosARecalcular) {
         await recalcularAgregadosDeJugadorPartido(jugadorPartidoId, uid);
+      }
+
+      for (const partidoId of partidosConSetsNuevos) {
+        await recalcularMarcadorDelPartido(partidoId);
       }
 
       for (const partidoId of partidosARecargarEnTimer) {

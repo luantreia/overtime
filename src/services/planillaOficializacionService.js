@@ -33,7 +33,7 @@ import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggreg
  * @param {string} params.uid quien ejecuta (aprobador, o el propio equipo en amistoso)
  * @param {string} [params.solicitudId]
  * @param {import('mongoose').ClientSession} [params.session]
- * @returns {Promise<{ jugadorPartidosARecalcular: string[], partidoId: string }>}
+ * @returns {Promise<{ jugadorPartidosARecalcular: string[], partidoId: string, equipoId: string, setsCreados: number }>}
  *   Los agregados NO se recalculan acá cuando hay sesión: el aggregator no la recibe
  *   y adentro de la transacción leería datos que todavía no están visibles. El caller
  *   recalcula después de commitear, igual que hace routes/solicitudEdicion.js.
@@ -96,7 +96,14 @@ export async function aplicarPlanillaOficializada({
 
   // 2) Sets. Mismo criterio: crear los que falten, no pisar los que estén.
   const setPartidoPorPlanillaSet = new Map();
+  let setsCreados = 0;
   if (planilla.modo === 'sets') {
+    // Cuáles ya existen, para saber si esta oficialización creó alguno: en ese caso el
+    // marcador del partido quedó desactualizado y el caller lo recalcula tras commitear.
+    const existentes = new Set(
+      (await q(SetPartido.find({ partido: planilla.partido }).select('numeroSet')).lean()).map((x) => x.numeroSet),
+    );
+    setsCreados = sets.filter((ps) => !existentes.has(ps.numeroSet)).length;
     for (const ps of sets) {
       const esFinalizado = ps.ganadorSet && ps.ganadorSet !== 'pendiente';
       const setDoc = await SetPartido.findOneAndUpdate(
@@ -219,5 +226,23 @@ export async function aplicarPlanillaOficializada({
     }
   }
 
-  return { jugadorPartidosARecalcular: ids, partidoId, equipoId };
+  if (!session && setsCreados > 0) await recalcularMarcadorDelPartido(partidoId);
+
+  return { jugadorPartidosARecalcular: ids, partidoId, equipoId, setsCreados };
+}
+
+/**
+ * El marcador del partido no se recalcula solo al crear sets: sólo al finalizar el partido o
+ * con PUT /partidos/:id/recalcular-marcador. Una oficialización que crea sets lo deja en 0 a 0
+ * con todos los sets ganados. Se llama después de commitear (recalcularMarcador hace su propio
+ * save, fuera de la transacción). Respeta un marcador cargado a mano. Si falla, no deshace
+ * nada: los sets ya están y el marcador se puede recalcular desde el partido.
+ */
+export async function recalcularMarcadorDelPartido(partidoId) {
+  try {
+    const partido = await Partido.findById(partidoId);
+    if (partido) await partido.recalcularMarcador();
+  } catch (e) {
+    console.error('No se pudo recalcular el marcador tras oficializar', partidoId, e.message);
+  }
 }
