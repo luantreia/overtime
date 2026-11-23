@@ -22,7 +22,7 @@ const router = express.Router();
 router.get('/videos', async (_req, res) => {
   try {
     const partidos = await Partido.find({ videoUrl: { $nin: ['', null] } })
-      .select('videoUrl fecha marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia fase')
+      .select('videoUrl videos fecha marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia fase')
       .populate('equipoLocal', 'nombre escudo')
       .populate('equipoVisitante', 'nombre escudo')
       .populate('competencia', 'nombre')
@@ -33,7 +33,14 @@ router.get('/videos', async (_req, res) => {
       .map((p) => ({ p, videoId: extraerYoutubeId(p.videoUrl), inicio: extraerInicio(p.videoUrl) }))
       .filter((x) => x.videoId);
 
-    const duraciones = await obtenerDuraciones(conId.map((x) => x.videoId));
+    // Primero la duración guardada en el partido (scripts/guardarDuracionesVideo.js); a YouTube
+    // sólo se le pregunta por lo que falte: desde Render, YouTube suele bloquear esa consulta.
+    const duraciones = new Map();
+    for (const { p } of conId) {
+      for (const v of p.videos || []) if (v.youtubeId && v.duracion > 0) duraciones.set(v.youtubeId, v.duracion);
+    }
+    const faltan = [...new Set(conId.map((x) => x.videoId).filter((id) => !duraciones.has(id)))];
+    if (faltan.length) for (const [id, d] of await obtenerDuraciones(faltan)) duraciones.set(id, d);
 
     const items = conId
       .map(({ p, videoId, inicio }) => {
