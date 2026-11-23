@@ -22,6 +22,7 @@ import PlanillaEstadistica from '../models/Equipo/PlanillaEstadistica.js';
 import JugadorPartido from '../models/Jugador/JugadorPartido.js';
 import Partido from '../models/Partido/Partido.js';
 import SetPartido from '../models/Partido/SetPartido.js';
+import EventoSet from '../models/Partido/EventoSet.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
@@ -153,6 +154,9 @@ export async function aplicarPlanillaOficializada({
     }
   }
 
+  // 2b) Video: cámaras, tiempo de cada set, alineación y marcas (ver trasladarCaptura).
+  const captura = await trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incluirSets: sel.incluirSets, uid, q, opts });
+
   // 3) Estadísticas. Acá sí se sobreescribe: es exactamente lo que se aprobó.
   for (const stat of estadisticas) {
     const jugadorPartidoId = jugadorPartidoPorPresente.get(String(stat.planillaPresente));
@@ -255,7 +259,74 @@ export async function aplicarPlanillaOficializada({
   const marcadorDesactualizado = setsCreados + setsPisados > 0;
   if (!session && marcadorDesactualizado) await recalcularMarcadorDelPartido(partidoId);
 
-  return { jugadorPartidosARecalcular: ids, partidoId, equipoId, setsCreados, setsPisados, marcadorDesactualizado, resumen: sel.resumen };
+  return { jugadorPartidosARecalcular: ids, partidoId, equipoId, setsCreados, setsPisados, marcadorDesactualizado, resumen: sel.resumen, captura };
+}
+
+const mismosTramos = (a = [], b = []) =>
+  a.length === b.length && a.every((t, i) => t.d === b[i].d && t.cam?.[0] === b[i].cam?.[0] && t.cam?.[1] === b[i].cam?.[1]);
+
+/**
+ * Lo capturado con video en la planilla pasa al partido, con la misma regla que los sets:
+ * se completa lo que falta y lo oficial que ya existe no se pisa.
+ *
+ *  - Cámaras: las de la planilla que el partido no tiene se suman (por youtubeId); si el partido
+ *    no tenía `videoUrl`, toma la principal. Una cámara que ya está no se toca.
+ *  - Tiempo y alineación de cada set: sólo si el set oficial no los tiene.
+ *  - Marcas: sólo si el set oficial no tiene ninguna (mezclar dos capturas da una línea de vivos
+ *    sin sentido).
+ *
+ * Tiempos y marcas están en segundos de partido según los relojes de la PLANILLA. Si una cámara
+ * que comparten está alineada distinto en el partido, esos segundos no significan lo mismo allá:
+ * en ese caso no se trasladan (`relojesDistintos`) y lo resuelve una persona. La alineación no
+ * depende del reloj y se copia igual.
+ */
+async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incluirSets, uid, q, opts }) {
+  const out = { camarasAgregadas: 0, tiemposCopiados: 0, alineacionesCopiadas: 0, marcasCopiadas: 0, relojesDistintos: false };
+  const propias = (planilla.videos || []).map((v) => (v.toObject ? v.toObject() : v));
+  const partido = await q(Partido.findById(planilla.partido).select('videos videoUrl')).lean();
+  const delPartido = partido?.videos || [];
+
+  if (propias.length) {
+    const porId = new Map(delPartido.map((v) => [v.youtubeId, v]));
+    out.relojesDistintos = propias.some((v) => porId.has(v.youtubeId) && !mismosTramos(v.tramos, porId.get(v.youtubeId).tramos));
+    // Si el partido ya tiene cámaras y ninguna coincide, no hay forma de saber que los relojes cuadren.
+    if (delPartido.length && !propias.some((v) => porId.has(v.youtubeId))) out.relojesDistintos = true;
+    const nuevas = propias.filter((v) => !porId.has(v.youtubeId)).map(({ _id, ...v }) => v);
+    if (nuevas.length) {
+      const $set = { videos: [...delPartido, ...nuevas] };
+      if (!partido.videoUrl) $set.videoUrl = `https://www.youtube.com/watch?v=${(delPartido[0] || nuevas[0]).youtubeId}`;
+      // updateOne: el post('save') de Partido recalcula marcador y tabla, y esto no lo amerita.
+      await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
+      out.camarasAgregadas = nuevas.length;
+    }
+  }
+  if (!incluirSets) return out;
+
+  for (const ps of sets) {
+    const setId = setPartidoPorPlanillaSet.get(String(ps._id));
+    if (!setId) continue;
+    const oficial = await q(SetPartido.findById(setId).select('tiempo alineacion')).lean();
+    const $set = {};
+    if (ps.tiempo && !oficial?.tiempo && !out.relojesDistintos) {
+      $set.tiempo = ps.tiempo;
+      out.tiemposCopiados += 1;
+    }
+    if (ps.alineacion?.length && !oficial?.alineacion?.length) {
+      $set.alineacion = ps.alineacion;
+      out.alineacionesCopiadas += 1;
+    }
+    if (Object.keys($set).length) await SetPartido.updateOne({ _id: setId }, { $set }, opts);
+
+    if (out.relojesDistintos || (await q(EventoSet.exists({ setPartido: setId })))) continue;
+    const marcas = await q(EventoSet.find({ planillaSet: ps._id })).lean();
+    if (!marcas.length) continue;
+    await EventoSet.insertMany(
+      marcas.map(({ _id, createdAt, updatedAt, __v, ...m }) => ({ ...m, planillaSet: null, setPartido: setId, creadoPor: m.creadoPor || uid })),
+      opts,
+    );
+    out.marcasCopiadas += marcas.length;
+  }
+  return out;
 }
 
 /**
