@@ -454,6 +454,28 @@ router.get('/', async (req, res) => {
       filtro.videoUrl = { $nin: ['', null] };
     }
 
+    // Public /partidos por defecto: sólo lo que se puede creer. Fuera quedan los programados
+    // con fecha pasada (no se jugaron o no se cargaron), los en_juego que nadie cerró, los
+    // finalizados 0-0 sin ningún set, y suspendidos/cancelados.
+    if (req.query.confiables === 'true') {
+      const ahora = Date.now();
+      const conSetsCerrados = await SetPartido.distinct('partido', { estadoSet: 'finalizado' });
+      andConditions.push({
+        $or: [
+          {
+            estado: 'finalizado',
+            $or: [
+              { marcadorLocal: { $gt: 0 } },
+              { marcadorVisitante: { $gt: 0 } },
+              { _id: { $in: conSetsCerrados } },
+            ],
+          },
+          { estado: 'en_juego', updatedAt: { $gte: new Date(ahora - 24 * 3600e3) } },
+          { estado: 'programado', fecha: { $gte: new Date(ahora - 6 * 3600e3) } },
+        ],
+      });
+    }
+
     if (andConditions.length > 0) {
       filtro.$and = andConditions;
     }
