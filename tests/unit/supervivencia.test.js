@@ -1,4 +1,4 @@
-import { lineaDeTiempo, vivosPorLado, estadisticasDesdeEventos, estaVivo } from '../../src/utils/supervivencia.js';
+import { lineaDeTiempo, vivosPorLado, estadisticasDesdeEventos, estaVivo, ganadorDesdeMarcas } from '../../src/utils/supervivencia.js';
 
 // Set de 3 contra 3: A = a1,a2,a3 · B = b1,b2,b3
 const jugadores = [
@@ -48,5 +48,29 @@ describe('supervivencia', () => {
   it('ignora marcas de jugadores fuera de la alineación', () => {
     const filas = lineaDeTiempo(jugadores, [{ t: 5, tipo: 'out', jugador: 'zz', motivo: 'hit' }], 0);
     expect(vivosPorLado(filas, 6)).toEqual({ A: 3, B: 3 });
+  });
+});
+
+describe('ganadorDesdeMarcas', () => {
+  const J = [{ id: 'a1', lado: 'L' }, { id: 'a2', lado: 'L' }, { id: 'b1', lado: 'V' }];
+  const lados = { ladoLocal: 'L', ladoVisitante: 'V' };
+  it('sin marcas no sugiere nada', () => {
+    expect(ganadorDesdeMarcas(J, [], lados).ganador).toBeNull();
+  });
+  it('gana quien deja al otro sin vivos', () => {
+    const r = ganadorDesdeMarcas(J, [{ t: 5, tipo: 'out', jugador: 'b1' }], lados);
+    expect(r).toEqual({ ganador: 'local', motivo: 'eliminacion', vivos: { local: 2, visitante: 0 } });
+  });
+  it('un reingreso deshace la eliminación', () => {
+    const r = ganadorDesdeMarcas(J, [{ t: 5, tipo: 'out', jugador: 'b1' }, { t: 9, tipo: 'reingreso', jugador: 'b1' }], lados);
+    expect(r.ganador).toBeNull();
+  });
+  it('con fin cargado y vivos en los dos lados, gana el que tiene más', () => {
+    const r = ganadorDesdeMarcas(J, [{ t: 5, tipo: 'out', jugador: 'a1' }, { t: 6, tipo: 'reingreso', jugador: 'a1' }], { ...lados, fin: 100 });
+    expect(r).toEqual({ ganador: 'local', motivo: 'mas_vivos', vivos: { local: 2, visitante: 1 } });
+  });
+  it('ignora marcas posteriores al fin del set', () => {
+    const r = ganadorDesdeMarcas(J, [{ t: 150, tipo: 'out', jugador: 'b1' }], { ...lados, fin: 100 });
+    expect(r.ganador).toBeNull();
   });
 });

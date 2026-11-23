@@ -67,3 +67,27 @@ export function estadisticasDesdeEventos(jugadores, eventos, { inicio = 0, fin =
   }
   return out;
 }
+
+/**
+ * Ganador de un set según las marcas, como sugerencia (no se aplica solo: las marcas pueden
+ * estar incompletas y el ganador mueve marcador y tabla).
+ *  - 'eliminacion': un lado se quedó sin vivos y el otro no.
+ *  - 'mas_vivos': el set tiene fin cargado, quedan vivos de los dos lados y uno tiene más.
+ *  Si no, ganador null (sin marcas, empate en vivos, o los dos lados en 0).
+ * `fin`: segundo en que terminó el set; sin él, el estado después de la última marca.
+ * → { ganador: 'local'|'visitante'|null, motivo, vivos: { local, visitante } }
+ */
+export function ganadorDesdeMarcas(jugadores, eventos, { inicio = 0, fin = null, ladoLocal, ladoVisitante }) {
+  const marcas = (eventos || []).filter((e) => e.t >= inicio && (fin == null || e.t <= fin));
+  const vacio = { ganador: null, motivo: null, vivos: { local: 0, visitante: 0 } };
+  if (!marcas.length || !ladoLocal || !ladoVisitante) return vacio;
+  const t = fin ?? Math.max(...marcas.map((e) => e.t)) + 1e-3;
+  const n = vivosPorLado(lineaDeTiempo(jugadores, marcas, inicio), t);
+  const vivos = { local: n[String(ladoLocal)] || 0, visitante: n[String(ladoVisitante)] || 0 };
+  if (vivos.local === 0 && vivos.visitante > 0) return { ganador: 'visitante', motivo: 'eliminacion', vivos };
+  if (vivos.visitante === 0 && vivos.local > 0) return { ganador: 'local', motivo: 'eliminacion', vivos };
+  if (fin != null && vivos.local !== vivos.visitante && vivos.local > 0 && vivos.visitante > 0) {
+    return { ganador: vivos.local > vivos.visitante ? 'local' : 'visitante', motivo: 'mas_vivos', vivos };
+  }
+  return { ...vacio, vivos };
+}

@@ -9,6 +9,8 @@ import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import Partido from '../models/Partido/Partido.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import { puedeAccederPlanilla, planillaEstaCerrada } from '../services/planillaEquipoService.js';
+import TimerManager from '../services/TimerManager.js';
+import { ganadorDesdeMarcas } from '../utils/supervivencia.js';
 import { resolverSet, alineacionDe, sincronizarEstadisticasPlanilla } from '../services/eventoSetService.js';
 
 /**
@@ -63,12 +65,29 @@ const filtroDe = (ref) => (ref.tipo === 'oficial' ? { setPartido: ref.set._id } 
 const modeloDe = (ref) => (ref.tipo === 'oficial' ? SetPartido : PlanillaSet);
 
 async function respuestaCompleta(ref) {
-  const [eventos, alineacion] = await Promise.all([
+  const [eventos, alineacion, partido] = await Promise.all([
     EventoSet.find(filtroDe(ref)).sort({ t: 1 }).lean(),
     alineacionDe(ref),
+    Partido.findById(ref.partidoId).select('equipoLocal equipoVisitante').lean(),
   ]);
+  const ganadorSugerido = ganadorDesdeMarcas(alineacion, eventos, {
+    inicio: ref.set.tiempo?.desde ?? 0,
+    fin: ref.set.tiempo?.hasta ?? null,
+    ladoLocal: partido?.equipoLocal && String(partido.equipoLocal),
+    ladoVisitante: partido?.equipoVisitante && String(partido.equipoVisitante),
+  });
   return {
-    set: { _id: ref.set._id, numeroSet: ref.set.numeroSet, tiempo: ref.set.tiempo ?? null },
+    set: {
+      _id: ref.set._id,
+      numeroSet: ref.set.numeroSet,
+      tiempo: ref.set.tiempo ?? null,
+      ganadorSet: ref.set.ganadorSet ?? 'pendiente',
+    },
+    // `equipo`: el id del ganador sugerido, para que la UI lo nombre sin saber quién es local.
+    ganadorSugerido: {
+      ...ganadorSugerido,
+      equipo: ganadorSugerido.ganador ? String(partido?.[ganadorSugerido.ganador === 'local' ? 'equipoLocal' : 'equipoVisitante']) : null,
+    },
     alineacion: alineacion.map((a) => ({ jugador: a.id, equipo: a.lado })),
     alineacionCargada: (ref.set.alineacion?.length ?? 0) > 0,
     eventos,
@@ -185,6 +204,36 @@ router.put('/tiempo', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, 
   req.ref.set.tiempo = valor;
   const sync = await sincronizarEstadisticasPlanilla(req.ref);
   res.json({ ...(await respuestaCompleta(req.ref)), sync });
+}));
+
+/**
+ * @swagger
+ * /api/eventos-set/ganador:
+ *   put:
+ *     summary: Carga el ganador del set (típicamente el sugerido por las marcas)
+ *     description: >
+ *       Mismos permisos que el resto de la captura. En un set oficial hace lo mismo que
+ *       PUT /api/set-partido/{id} con ganadorSet: cierra el set y frena su timer.
+ *     tags: [EventosSet]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/ganador', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, conErrores(async (req, res) => {
+  const { ganadorSet } = req.body;
+  if (!['local', 'visitante', 'empate', 'pendiente'].includes(ganadorSet)) {
+    return res.status(400).json({ error: 'ganadorSet inválido' });
+  }
+  const { ref } = req;
+  if (ref.tipo === 'oficial') {
+    const set = await SetPartido.findById(ref.set._id);
+    set.ganadorSet = ganadorSet;
+    await set.save();
+    if (ganadorSet !== 'pendiente') await TimerManager.pauseSetOnly(set.partido, true);
+    await TimerManager.reloadMatch(set.partido);
+  } else {
+    await PlanillaSet.updateOne({ _id: ref.set._id }, { $set: { ganadorSet } });
+  }
+  req.ref = await resolverSet(ref.tipo === 'oficial' ? { setPartido: ref.set._id } : { planillaSet: ref.set._id });
+  res.json(await respuestaCompleta(req.ref));
 }));
 
 /**
