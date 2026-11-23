@@ -32,9 +32,29 @@ describe('idsReferenciados', () => {
     expect(idsReferenciados({ tipo: 'jugador-claim', entidad: A }).jugador).toBe(A);
   });
 
-  it('un tipo que no tiene entidad mapeada no la usa como partido', () => {
-    expect(idsReferenciados({ tipo: 'usuario-crear-organizacion', entidad: A, datosPropuestos: { nombre: 'x' } }))
-      .toEqual({ partido: null, set: null, planilla: null, equipo: null, jugador: null, organizacion: null });
+  it('un tipo que no tiene entidad mapeada no la usa para nada', () => {
+    const r = idsReferenciados({ tipo: 'usuario-crear-organizacion', entidad: A, datosPropuestos: { nombre: 'x' } });
+    expect(Object.values(r).every((v) => v === null)).toBe(true);
+  });
+
+  it('contratos: editar usa entidad, eliminar usa contratoId de los datos', () => {
+    expect(idsReferenciados({ tipo: 'jugador-equipo-editar', entidad: A }).contrato).toBe(A);
+    expect(idsReferenciados({ tipo: 'jugador-equipo-eliminar', entidad: B, datosPropuestos: { contratoId: A } }).contrato).toBe(A);
+  });
+
+  it('temporada: el alta de jugador apunta a contrato y participación por los datos', () => {
+    const r = idsReferenciados({ tipo: 'jugador-temporada-crear', datosPropuestos: { jugadorEquipoId: A, participacionTemporadaId: B } });
+    expect(r).toMatchObject({ contrato: A, participacion: B });
+  });
+
+  it('bajas de temporada: entidad o el id explícito de los datos', () => {
+    expect(idsReferenciados({ tipo: 'participacion-temporada-eliminar', entidad: A }).participacion).toBe(A);
+    expect(idsReferenciados({ tipo: 'jugador-temporada-eliminar', entidad: B, datosPropuestos: { jugadorTemporadaId: A } }).jugadorTemporada).toBe(A);
+  });
+
+  it('stats por partido: entidad es la fila de estadísticas', () => {
+    expect(idsReferenciados({ tipo: 'estadisticasJugadorPartido', entidad: A }).statJugadorPartido).toBe(A);
+    expect(idsReferenciados({ tipo: 'estadisticasEquipoPartido', entidad: A }).statEquipoPartido).toBe(A);
   });
 
   it('ignora valores que no son ObjectId', () => {
