@@ -38,6 +38,8 @@ const eventoSetSchema = new Schema(
     entra: { type: Schema.Types.ObjectId, ref: 'Jugador', default: null },
 
     origen: { type: String, enum: ORIGENES_TIEMPO, default: 'manual' },
+    /** Sólo marcas en vivo: hora real (del servidor). `t` se deriva de acá con Partido.relojEnVivo. */
+    hora: { type: Date, default: null },
     creadoPor: { type: String, ref: 'Usuario', required: true },
   },
   { timestamps: true },

@@ -11,6 +11,7 @@ import { hasMatchPermission } from '../services/matchPermissionService.js';
 import { puedeAccederPlanilla, planillaEstaCerrada } from '../services/planillaEquipoService.js';
 import TimerManager from '../services/TimerManager.js';
 import { ganadorDesdeMarcas } from '../utils/supervivencia.js';
+import { relojDelPartido, segundoDesdeHora, alinearRelojEnVivo } from '../services/relojEnVivoService.js';
 import { resolverSet, alineacionDe, sincronizarEstadisticasPlanilla } from '../services/eventoSetService.js';
 
 /**
@@ -68,7 +69,7 @@ async function respuestaCompleta(ref) {
   const [eventos, alineacion, partido] = await Promise.all([
     EventoSet.find(filtroDe(ref)).sort({ t: 1 }).lean(),
     alineacionDe(ref),
-    Partido.findById(ref.partidoId).select('equipoLocal equipoVisitante').lean(),
+    Partido.findById(ref.partidoId).select('equipoLocal equipoVisitante relojEnVivo').lean(),
   ]);
   const ganadorSugerido = ganadorDesdeMarcas(alineacion, eventos, {
     inicio: ref.set.tiempo?.desde ?? 0,
@@ -90,6 +91,9 @@ async function respuestaCompleta(ref) {
     },
     alineacion: alineacion.map((a) => ({ jugador: a.id, equipo: a.lado })),
     alineacionCargada: (ref.set.alineacion?.length ?? 0) > 0,
+    // Captura en vivo: con esto el cliente calcula el segundo "ahora" igual que el servidor.
+    relojEnVivo: partido?.relojEnVivo ?? null,
+    ahoraServidor: Date.now(),
     eventos,
   };
 }
@@ -129,11 +133,15 @@ router.get('/', cargarSet, puedeLeer, conErrores(async (req, res) => {
  *     security: [{ bearerAuth: [] }]
  */
 router.post('/', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, conErrores(async (req, res) => {
-  const { t, tipo, jugador, equipo, motivo, por, entra, origen } = req.body;
+  const { tipo, jugador, equipo, motivo, por, entra, origen } = req.body;
+  let { t } = req.body;
+  // En vivo, el segundo sale de la hora real del servidor, no del reloj de juego del cliente.
+  const hora = origen === 'en_vivo' && req.ref.tipo === 'oficial' ? new Date() : null;
+  if (hora) t = Math.max(0, segundoDesdeHora(await relojDelPartido(req.ref.partidoId, hora), hora));
   await EventoSet.create({
     ...filtroDe(req.ref),
     partido: req.ref.partidoId,
-    t, tipo, jugador, equipo,
+    t, tipo, jugador, equipo, hora,
     motivo: motivo || null,
     por: por || null,
     entra: entra || null,
@@ -200,10 +208,56 @@ router.put('/tiempo', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, 
   const valor = tiempo
     ? { desde: tiempo.desde, hasta: tiempo.hasta, origen: tiempo.origen || 'manual', confirmado: tiempo.confirmado ?? true }
     : null;
+  // En vivo: el extremo que cambió es "ahora" (hora real del servidor), y se guarda su hora para
+  // poder recalcularlo al alinear con el video. El otro extremo conserva lo que tenía.
+  if (valor && valor.origen === 'en_vivo' && req.ref.tipo === 'oficial') {
+    const hora = new Date();
+    const ahora = Math.max(0, segundoDesdeHora(await relojDelPartido(req.ref.partidoId, hora), hora));
+    const previo = req.ref.set.tiempo;
+    if (previo?.horaDesde) valor.horaDesde = previo.horaDesde;
+    if (previo?.horaHasta) valor.horaHasta = previo.horaHasta;
+    if (!previo || previo.desde !== tiempo.desde) {
+      valor.desde = ahora;
+      valor.horaDesde = hora;
+    }
+    if (previo && previo.hasta !== tiempo.hasta) {
+      valor.hasta = ahora;
+      valor.horaHasta = hora;
+    }
+    if (valor.hasta <= valor.desde) valor.hasta = valor.desde + 1;
+  }
   await modeloDe(req.ref).updateOne({ _id: req.ref.set._id }, { $set: { tiempo: valor } }, { runValidators: true });
   req.ref.set.tiempo = valor;
   const sync = await sincronizarEstadisticasPlanilla(req.ref);
   res.json({ ...(await respuestaCompleta(req.ref)), sync });
+}));
+
+/**
+ * @swagger
+ * /api/eventos-set/reloj-en-vivo:
+ *   put:
+ *     summary: Alinea las marcas en vivo del partido con el video
+ *     description: >
+ *       "Esta marca en vivo está en este segundo del video". Con un solo punto alcanza: la hora
+ *       real avanza igual que el video. Recalcula todas las marcas en vivo del partido y el
+ *       tiempo en vivo de sus sets. Body { eventoId, segundo }. Requiere match.sets.
+ *     tags: [EventosSet]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/reloj-en-vivo', verificarToken, cargarRolDesdeBD, conErrores(async (req, res) => {
+  const { eventoId, segundo } = req.body;
+  if (!esId(eventoId) || !Number.isFinite(segundo) || segundo < 0) {
+    return res.status(400).json({ error: 'Indicá eventoId y segundo >= 0' });
+  }
+  const ev = await EventoSet.findById(eventoId).lean();
+  if (!ev?.hora || !ev.setPartido) return res.status(400).json({ error: 'Esa marca no es una marca en vivo de un set oficial' });
+  const ok = await hasMatchPermission({
+    partidoId: String(ev.partido), usuarioId: req.user.uid, rolGlobal: req.user.rol, permission: 'match.sets',
+  });
+  if (!ok) return res.status(403).json({ error: 'No tenés permisos sobre los sets de este partido' });
+  const resultado = await alinearRelojEnVivo(ev.partido, { hora: ev.hora, segundoVideo: segundo });
+  const ref = await resolverSet({ setPartido: String(ev.setPartido) });
+  res.json({ ...(await respuestaCompleta(ref)), alineado: { marcas: resultado.marcas, sets: resultado.sets } });
 }));
 
 /**

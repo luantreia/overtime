@@ -45,6 +45,22 @@ export const videoPartidoSchema = new Schema({
   tramos: { type: [tramoCamaraSchema], default: [] },
 });
 
+/**
+ * Reloj de la captura en vivo (Overtime-Partido). Las marcas en vivo se guardan con la hora
+ * real, que avanza igual que el video (el reloj de juego se frena en pausas y entretiempo):
+ * segundo de partido = segundo + (hora − ancla) / 1000. `ancla` es la hora de la primera
+ * marca en vivo; `segundo` arranca en 0 y se corrige UNA vez al alinear con el video
+ * (PUT /api/eventos-set/reloj-en-vivo), lo que recalcula todas las marcas en vivo del partido.
+ */
+export const relojEnVivoSchema = new Schema(
+  {
+    ancla: { type: Date, required: true },
+    segundo: { type: Number, default: 0 },
+    alineado: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
 /** Dónde está un set (o cualquier tramo) en la línea de tiempo del partido. */
 export const tiempoPartidoSchema = new Schema(
   {
@@ -54,6 +70,9 @@ export const tiempoPartidoSchema = new Schema(
     origen: { type: String, enum: ORIGENES_TIEMPO, default: 'manual' },
     /** Revisado por una persona (lo detectado por CV arranca sin confirmar). */
     confirmado: { type: Boolean, default: false },
+    /** Captura en vivo: hora real (del servidor) en que se marcaron inicio y fin (ver relojEnVivo). */
+    horaDesde: { type: Date, default: undefined },
+    horaHasta: { type: Date, default: undefined },
   },
   { _id: false },
 );
