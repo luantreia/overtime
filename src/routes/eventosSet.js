@@ -69,7 +69,7 @@ async function respuestaCompleta(ref) {
   const [eventos, alineacion, partido] = await Promise.all([
     EventoSet.find(filtroDe(ref)).sort({ t: 1 }).lean(),
     alineacionDe(ref),
-    Partido.findById(ref.partidoId).select('equipoLocal equipoVisitante relojEnVivo').lean(),
+    Partido.findById(ref.partidoId).select('equipoLocal equipoVisitante relojEnVivo relojJuego').lean(),
   ]);
   const ganadorSugerido = ganadorDesdeMarcas(alineacion, eventos, {
     inicio: ref.set.tiempo?.desde ?? 0,
@@ -93,6 +93,9 @@ async function respuestaCompleta(ref) {
     alineacionCargada: (ref.set.alineacion?.length ?? 0) > 0,
     // Captura en vivo: con esto el cliente calcula el segundo "ahora" igual que el servidor.
     relojEnVivo: partido?.relojEnVivo ?? null,
+    // Reloj de juego registrado en Overtime-Partido: con relojEnVivo se sabe el minuto de juego
+    // de cualquier segundo del video (utils/relojJuego.js).
+    relojJuego: partido?.relojJuego ?? [],
     ahoraServidor: Date.now(),
     eventos,
   };
@@ -245,18 +248,37 @@ router.put('/tiempo', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, 
  *     security: [{ bearerAuth: [] }]
  */
 router.put('/reloj-en-vivo', verificarToken, cargarRolDesdeBD, conErrores(async (req, res) => {
-  const { eventoId, segundo } = req.body;
-  if (!esId(eventoId) || !Number.isFinite(segundo) || segundo < 0) {
-    return res.status(400).json({ error: 'Indicá eventoId y segundo >= 0' });
+  // Dos formas de decir el punto de alineación: una marca en vivo (eventoId), o un momento del
+  // reloj de juego (setPartido + hora, p. ej. "el inicio del 1T es acá").
+  const { eventoId, setPartido, hora: horaBody, segundo } = req.body;
+  if (!Number.isFinite(segundo) || segundo < 0) return res.status(400).json({ error: 'segundo debe ser >= 0' });
+  let partidoId;
+  let hora;
+  let setId;
+  if (esId(eventoId)) {
+    const ev = await EventoSet.findById(eventoId).lean();
+    if (!ev?.hora || !ev.setPartido) return res.status(400).json({ error: 'Esa marca no es una marca en vivo de un set oficial' });
+    partidoId = ev.partido;
+    hora = ev.hora;
+    setId = ev.setPartido;
+  } else if (esId(setPartido) && horaBody && !Number.isNaN(new Date(horaBody).getTime())) {
+    const set = await SetPartido.findById(setPartido).select('partido').lean();
+    if (!set) return res.status(404).json({ error: 'Set no encontrado' });
+    const p = await Partido.findById(set.partido).select('relojJuego').lean();
+    const existe = (p?.relojJuego || []).some((x) => new Date(x.hora).getTime() === new Date(horaBody).getTime());
+    if (!existe) return res.status(400).json({ error: 'Ese momento no está en el reloj de juego del partido' });
+    partidoId = set.partido;
+    hora = new Date(horaBody);
+    setId = setPartido;
+  } else {
+    return res.status(400).json({ error: 'Indicá eventoId, o setPartido y hora' });
   }
-  const ev = await EventoSet.findById(eventoId).lean();
-  if (!ev?.hora || !ev.setPartido) return res.status(400).json({ error: 'Esa marca no es una marca en vivo de un set oficial' });
   const ok = await hasMatchPermission({
-    partidoId: String(ev.partido), usuarioId: req.user.uid, rolGlobal: req.user.rol, permission: 'match.sets',
+    partidoId: String(partidoId), usuarioId: req.user.uid, rolGlobal: req.user.rol, permission: 'match.sets',
   });
   if (!ok) return res.status(403).json({ error: 'No tenés permisos sobre los sets de este partido' });
-  const resultado = await alinearRelojEnVivo(ev.partido, { hora: ev.hora, segundoVideo: segundo });
-  const ref = await resolverSet({ setPartido: String(ev.setPartido) });
+  const resultado = await alinearRelojEnVivo(partidoId, { hora, segundoVideo: segundo });
+  const ref = await resolverSet({ setPartido: String(setId) });
   res.json({ ...(await respuestaCompleta(ref)), alineado: { marcas: resultado.marcas, sets: resultado.sets } });
 }));
 

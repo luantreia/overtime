@@ -1,6 +1,10 @@
 import { create } from 'timrjs/es/timr.js';
 import Partido from '../models/Partido/Partido.js';
 import SetPartido from '../models/Partido/SetPartido.js';
+import Fase from '../models/Competencia/Fase.js';
+import Competencia from '../models/Competencia/Competencia.js';
+import { resolverDuracionTiempo } from '../utils/relojJuego.js';
+import { relojDelPartido } from './relojEnVivoService.js';
 
 class TimerManager {
   constructor() {
@@ -42,7 +46,15 @@ class TimerManager {
 
     // Initialize Timers
     // Match Timer (Countdown)
-    const matchTimer = create(match.timerMatchValue || 0, { countdown: true });
+    // Duración de cada tiempo según competencia/fase/partido. Un partido que nunca arrancó toma esa
+    // duración aunque timerMatchValue tenga el default viejo de 20 minutos.
+    const [fase, competencia] = await Promise.all([
+      match.fase ? Fase.findById(match.fase).select('configuracion.duracionTiempoMinutos').lean() : null,
+      match.competencia ? Competencia.findById(match.competencia).select('duracionTiempoMinutos').lean() : null,
+    ]);
+    const duracion = resolverDuracionTiempo({ partido: match, fase, competencia });
+    const nuncaArranco = !(match.relojJuego?.length);
+    const matchTimer = create(nuncaArranco ? duracion : (match.timerMatchValue || 0), { countdown: true });
     
     // Set Timer (Countdown) - Default to 180s (3 min) for new sets
     const setTimer = create(activeSet?.timerSetValue ?? 180, { countdown: true });
@@ -56,7 +68,10 @@ class TimerManager {
       isSetRunning: false,
       isSuddenDeathActive: false,
       suddenDeathMode: activeSet?.suddenDeathMode || false,
-      modalidad: match.modalidad
+      modalidad: match.modalidad,
+      duracion,
+      // Tiempos que ya arrancaron: el primer START de un tiempo es 'inicio', los demás 'reanuda'.
+      periodosIniciados: new Set((match.relojJuego || []).filter((x) => x.tipo === 'inicio').map((x) => x.periodo)),
     };
 
     const matchData = { matchTimer, setTimer, suddenDeathTimer, state };
@@ -88,6 +103,7 @@ class TimerManager {
         isSetRunning: setTimer.started(),
         isSuddenDeathActive: suddenDeathTimer.started(),
         suddenDeathMode: data.state.suddenDeathMode,
+        duracionTiempo: data.state.duracion,
         serverTimestamp: Date.now()
       };
 
@@ -114,6 +130,29 @@ class TimerManager {
     });
   }
 
+  /**
+   * Deja constancia de un cambio del reloj de juego con la hora real del servidor. La primera
+   * vez también ancla el reloj en vivo del partido, para ubicar estos momentos en el video.
+   * No frena al timer si falla: el registro es para análisis, el reloj es lo que se usa en cancha.
+   */
+  registrarReloj(matchId, tipo, extra = {}) {
+    const data = this.matches.get(matchId);
+    if (!data) return Promise.resolve();
+    // El registro se arma YA (hora, tiempo y restante de este instante) y se escribe en cola por
+    // partido, para que dos comandos seguidos (pausa + cambio de tiempo) queden en orden.
+    const hora = new Date();
+    const registro = { tipo, periodo: data.state.period, hora, restante: data.matchTimer.getRaw().SS, ...extra };
+    data.colaReloj = (data.colaReloj || Promise.resolve()).then(async () => {
+      try {
+        await relojDelPartido(matchId, hora);
+        await Partido.updateOne({ _id: matchId }, { $push: { relojJuego: registro } });
+      } catch (e) {
+        console.error('[timer] no se pudo registrar el reloj de juego', matchId, e.message);
+      }
+    });
+    return data.colaReloj;
+  }
+
   // --- Actions ---
 
   async startMatch(matchId) {
@@ -122,6 +161,9 @@ class TimerManager {
         data.matchTimer.start();
         data.state.isMatchRunning = true;
         this.emitState(matchId);
+        const tipo = data.state.periodosIniciados.has(data.state.period) ? 'reanuda' : 'inicio';
+        data.state.periodosIniciados.add(data.state.period);
+        this.registrarReloj(matchId, tipo);
     }
   }
 
@@ -132,6 +174,7 @@ class TimerManager {
         data.state.isMatchRunning = false;
         this.emitState(matchId);
         this.persistMatch(matchId);
+        this.registrarReloj(matchId, 'pausa', { motivo: 'otro' });
     }
   }
 
@@ -151,15 +194,26 @@ class TimerManager {
     
     this.emitState(matchId);
     this.persistMatch(matchId);
+    // Ajustar a mano recrea el reloj en pausa: el registro lo deja frenado en el valor nuevo.
+    this.registrarReloj(matchId, 'ajuste', { corriendo: false });
   }
 
   async changePeriod(matchId, period) {
       const data = await this.ensureMatchLoaded(matchId);
+      const anterior = data.state.period;
       data.state.period = period;
-      // Usually changing period resets match time?
-      // For now just update period.
+      // Cada tiempo arranca con la duración completa (en pausa: arranca con el primer set del
+      // tiempo). Volver a un tiempo ya jugado no lo rellena: se corrige a mano si hace falta.
+      if (period > anterior && !data.state.periodosIniciados.has(period)) {
+        data.matchTimer.stop();
+        data.matchTimer.destroy();
+        data.matchTimer = create(data.state.duracion, { countdown: true });
+        data.state.isMatchRunning = false;
+        this.setupTickers(matchId);
+      }
       this.emitState(matchId);
       this.persistMatch(matchId);
+      this.registrarReloj(matchId, 'cambio_tiempo');
   }
 
   // --- Set Actions ---
@@ -239,8 +293,10 @@ class TimerManager {
 
   // --- Global Actions ---
 
-  async pauseAll(matchId) {
+  /** `motivo`: 'time_out' | 'revision' | 'otro' (Overtime-Partido lo manda al pausar). */
+  async pauseAll(matchId, { motivo = 'otro', lado = null } = {}) {
       const data = await this.ensureMatchLoaded(matchId);
+      const corria = data.matchTimer.started();
       
       // Only pause timers that are actually running to avoid timrjs errors
       if (data.matchTimer.started()) {
@@ -262,6 +318,10 @@ class TimerManager {
       this.emitState(matchId);
       this.persistMatch(matchId);
       this.persistSet(matchId);
+      if (corria) {
+        const m = ['time_out', 'revision', 'otro'].includes(motivo) ? motivo : 'otro';
+        this.registrarReloj(matchId, 'pausa', { motivo: m, lado: m === 'time_out' && ['local', 'visitante'].includes(lado) ? lado : null });
+      }
   }
 
   // Pause only set and sudden death timers (used when finishing a set)
@@ -294,7 +354,11 @@ class TimerManager {
       data.suddenDeathTimer.destroy();
 
       // Recreate timers with default values
-      data.matchTimer = create(20 * 60, { countdown: true }); // 20 mins
+      data.matchTimer = create(data.state.duracion, { countdown: true });
+      data.state.periodosIniciados = new Set();
+      // Reiniciar el partido borra el registro del reloj de juego (las marcas no se tocan).
+      Partido.updateOne({ _id: matchId }, { $set: { relojJuego: [] } }).catch((e) =>
+        console.error('[timer] no se pudo limpiar el reloj de juego', matchId, e.message));
       data.setTimer = create(3 * 60, { countdown: true }); // 3 mins
       data.suddenDeathTimer = create(0, { countdown: false }); // 0 secs
 
@@ -328,6 +392,7 @@ class TimerManager {
         isSetRunning: data.setTimer.started(),
         isSuddenDeathActive: data.suddenDeathTimer.started(),
         suddenDeathMode: data.state.suddenDeathMode,
+        duracionTiempo: data.state.duracion,
         serverTimestamp: Date.now()
     };
     this.io.to(matchId).emit('timer:update', payload);

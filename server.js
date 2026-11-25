@@ -507,7 +507,7 @@ io.on('connection', (socket) => {
                   await TimerManager.stopSuddenDeath(matchId);
                   break;
               case 'PAUSE_ALL':
-                  await TimerManager.pauseAll(matchId);
+                  await TimerManager.pauseAll(matchId, payload || {});
                   break;
               case 'PAUSE_SET_ONLY':
                   await TimerManager.pauseSetOnly(matchId);

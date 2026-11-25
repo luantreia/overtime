@@ -65,6 +65,28 @@ const PartidoSchema = new Schema({
 
   marcadorModificadoManualmente: { type: Boolean, default: true }, // <-- nuevo campo
 
+  // Duración de cada tiempo sólo para este partido (minutos). null = la de la fase o competencia.
+  duracionTiempoMinutos: { type: Number, min: 1, max: 120, default: null },
+
+  // Reloj de juego registrado: cada arranque, pausa, reanudación, ajuste y cambio de tiempo, con
+  // la hora real del servidor (ver utils/relojJuego.js). Lo escribe TimerManager.
+  relojJuego: {
+    type: [new Schema({
+      tipo: { type: String, enum: ['inicio', 'pausa', 'reanuda', 'ajuste', 'cambio_tiempo'], required: true },
+      periodo: { type: Number, required: true },
+      hora: { type: Date, required: true },
+      /** Segundos que le quedaban al tiempo en ese momento. */
+      restante: { type: Number, required: true },
+      /** Sólo en 'ajuste': si el reloj seguía corriendo. */
+      corriendo: { type: Boolean, default: undefined },
+      /** Sólo en 'pausa'. */
+      motivo: { type: String, enum: ['time_out', 'revision', 'otro', null], default: undefined },
+      /** Time out: quién lo pidió. */
+      lado: { type: String, enum: ['local', 'visitante', null], default: undefined },
+    }, { _id: false })],
+    default: [],
+  },
+
   // Timer State Persistence
   timerMatchValue: { type: Number, default: 1200 }, // 20 mins in seconds
   timerMatchRunning: { type: Boolean, default: false },

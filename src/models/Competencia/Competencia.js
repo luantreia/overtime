@@ -54,6 +54,10 @@ const CompetenciaSchema = new mongoose.Schema({
     { type: String, ref: 'Usuario' }
   ],
 
+  // Duración de cada tiempo del partido, en minutos. null = 20 (reglamento habitual). Una fase o
+  // un partido puntual lo pueden cambiar (ver utils/relojJuego.js → resolverDuracionTiempo).
+  duracionTiempoMinutos: { type: Number, min: 1, max: 120, default: null },
+
   // Ranked feature toggle (opt-in per competencia)
   rankedEnabled: { type: Boolean, default: false },
 

@@ -24,6 +24,9 @@ const FaseSchema = new mongoose.Schema({
 
   // CONFIGURACIÓN Y REGLAMENTO DE LA FASE
   configuracion: {
+    // Duración de cada tiempo en esta fase (minutos). null = la de la competencia.
+    duracionTiempoMinutos: { type: Number, min: 1, max: 120, default: null },
+
     // Reglas de puntuación (Liga/Grupos)
     puntuacion: {
       victoria: { type: Number, default: 3 },
