@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import { esOrigenPermitido } from '../config/origenesPermitidos.js';
 
 /**
  * Envío de mails transaccionales.
@@ -66,14 +67,20 @@ export async function enviarMail({ to, subject, text, html }) {
 }
 
 /** Base para armar los links que van en los mails (el frontend, no la API). */
-export function baseUrlApp() {
+export function baseUrlApp(origenPedido) {
+  // Si el pedido vino de una de nuestras apps, el link vuelve a esa app (un jugador que pide el
+  // reset desde Manager no tiene por qué terminar en el panel de DT). Se valida contra la misma
+  // allowlist del CORS, así que un Origin inventado no puede mandar el link a otro dominio.
+  const pedido = String(origenPedido || '').replace(/\/+$/, '');
+  // El propio backend está en la allowlist del CORS pero no sirve pantallas de reset.
+  if (pedido && esOrigenPermitido(pedido) && !pedido.includes('onrender.com')) return pedido;
   const origen = process.env.CLIENT_ORIGIN || '';
   // CLIENT_ORIGIN puede traer varias URLs separadas por coma; usamos la primera.
   return origen.split(',')[0].trim() || 'http://localhost:3000';
 }
 
-export async function enviarMailResetPassword({ to, nombre, token }) {
-  const link = `${baseUrlApp()}/reset-password/${token}`;
+export async function enviarMailResetPassword({ to, nombre, token, origen }) {
+  const link = `${baseUrlApp(origen)}/reset-password/${token}`;
   return enviarMail({
     to,
     subject: 'Restablecer tu contraseña de Overtime',
@@ -84,8 +91,8 @@ export async function enviarMailResetPassword({ to, nombre, token }) {
   });
 }
 
-export async function enviarMailVerificacion({ to, nombre, token }) {
-  const link = `${baseUrlApp()}/verificar-email/${token}`;
+export async function enviarMailVerificacion({ to, nombre, token, origen }) {
+  const link = `${baseUrlApp(origen)}/verificar-email/${token}`;
   return enviarMail({
     to,
     subject: 'Confirmá tu email en Overtime',

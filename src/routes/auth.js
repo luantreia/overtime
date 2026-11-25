@@ -149,7 +149,7 @@ router.post('/registro', validateUserCreation, handleValidationErrors, async (re
     // configurado el usuario entra igual y puede reenviarlo después.
     try {
       const tokenVerificacion = await emitirToken(user._id, 'verificacion-email', VERIFICACION_TTL_MS);
-      await enviarMailVerificacion({ to: user.email, nombre: user.nombre, token: tokenVerificacion });
+      await enviarMailVerificacion({ to: user.email, nombre: user.nombre, token: tokenVerificacion, origen: req.headers.origin });
     } catch (mailErr) {
       console.error('No se pudo enviar el mail de verificación:', mailErr);
     }
@@ -337,7 +337,7 @@ router.post('/olvide-password', async (req, res) => {
     }
 
     const rawToken = await emitirToken(user._id, 'reset-password', RESET_TTL_MS);
-    await enviarMailResetPassword({ to: user.email, nombre: user.nombre, token: rawToken });
+    await enviarMailResetPassword({ to: user.email, nombre: user.nombre, token: rawToken, origen: req.headers.origin });
 
     return res.json(respuestaGenerica);
   } catch (err) {
@@ -490,6 +490,7 @@ router.post('/verificar-email/reenviar', verificarToken, async (req, res) => {
       to: user.email,
       nombre: user.nombre,
       token: rawToken,
+      origen: req.headers.origin,
     });
 
     return res.json({

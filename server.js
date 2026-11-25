@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import { esOrigenPermitido } from './src/config/origenesPermitidos.js';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import swaggerUi from 'swagger-ui-express';
@@ -219,52 +220,12 @@ mongoose.connection.once('open', async () => {
 
 // Middleware
 // Configurar CORS para aceptar solicitudes desde cualquier origen
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://localhost:3004',
-  'http://localhost:3005',
-  // Public Page
-  'https://overtime-public.vercel.app',
-  'https://overtime-public.vercel.app/',
-  // Manager Panel
-  'https://overtime-manager.vercel.app',
-  'https://overtime-manager.vercel.app/',
-  // DT Panel 
-  'https://overtime-dt.vercel.app',
-  'https://overtime-dt.vercel.app/',
-  // Admin Panel
-  'https://overtime-admin.vercel.app',
-  'https://overtime-admin.vercel.app/',
-  // Organizaciones Panel
-  'https://overtime-organizaciones.vercel.app',
-  'https://overtime-organizaciones.vercel.app/',
-  // Legacy
-  'https://overtime-dodgeball.vercel.app',
-  'https://overtime-dodgeball.vercel.app/',
-  // Backend (Render)
-  'https://overtime-ddyl.onrender.com',
-  'https://overtime-ddyl.onrender.com/',
-  // Partido Panel
-  'https://overtime-partido.vercel.app',
-  'https://overtime-partido.vercel.app/',
-];
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Permite solicitudes sin origen (como Postman o backend a backend)
-    if (!origin) return callback(null, true);
-    // Permite cualquier origen localhost para desarrollo
-    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-      return callback(null, true);
-    }
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('No permitido por CORS'));
-    }
+    // Sin origen (Postman, backend a backend) o en la allowlist (incluye cualquier localhost).
+    if (!origin || esOrigenPermitido(origin)) return callback(null, true);
+    callback(new Error('No permitido por CORS'));
   },
   methods: 'GET,POST,PUT,PATCH,DELETE',
   allowedHeaders: 'Content-Type,Authorization',  // Encabezados permitidos
