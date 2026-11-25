@@ -12,6 +12,7 @@ import { puedeAccederPlanilla, planillaEstaCerrada } from '../services/planillaE
 import TimerManager from '../services/TimerManager.js';
 import { ganadorDesdeMarcas } from '../utils/supervivencia.js';
 import { relojDelPartido, segundoDesdeHora, alinearRelojEnVivo } from '../services/relojEnVivoService.js';
+import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
 import { resolverSet, alineacionDe, sincronizarEstadisticasPlanilla } from '../services/eventoSetService.js';
 
 /**
@@ -337,6 +338,7 @@ router.put('/videos/:partidoId', verificarToken, cargarRolDesdeBD, conErrores(as
   await Partido.updateOne({ _id: partidoId }, { $set: set }, { runValidators: true });
   const p = await Partido.findById(partidoId).select('videos videoUrl').lean();
   res.json(p);
+  completarDuracionesEnSegundoPlano(partidoId);
 }));
 
 /**

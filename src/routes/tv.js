@@ -1,6 +1,7 @@
 import express from 'express';
 import Partido from '../models/Partido/Partido.js';
 import { obtenerDuraciones, extraerYoutubeId, extraerInicio } from '../services/duracionYoutubeService.js';
+import { completarDuraciones } from '../services/duracionesPartidoService.js';
 
 const router = express.Router();
 
@@ -40,7 +41,16 @@ router.get('/videos', async (_req, res) => {
       for (const v of p.videos || []) if (v.youtubeId && v.duracion > 0) duraciones.set(v.youtubeId, v.duracion);
     }
     const faltan = [...new Set(conId.map((x) => x.videoId).filter((id) => !duraciones.has(id)))];
-    if (faltan.length) for (const [id, d] of await obtenerDuraciones(faltan)) duraciones.set(id, d);
+    if (faltan.length) {
+      const nuevas = await obtenerDuraciones(faltan);
+      for (const [id, d] of nuevas) duraciones.set(id, d);
+      // Lo que YouTube sí devolvió queda guardado en los partidos: la próxima vez no se pregunta.
+      const conDuracion = new Set([...nuevas].filter(([, d]) => d > 0).map(([id]) => id));
+      if (conDuracion.size) {
+        const ids = conId.filter((x) => conDuracion.has(x.videoId)).map((x) => x.p._id);
+        completarDuraciones(ids).catch((e) => console.error('[tv] no se pudieron guardar duraciones', e.message));
+      }
+    }
 
     const items = conId
       .map(({ p, videoId, inicio }) => {

@@ -20,6 +20,7 @@ import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import { AuditoriaService } from '../services/auditoriaService.js';
 import { resolverAlcanceEquipo } from '../services/alcanceEquipoAnaliticoService.js';
+import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
 
 
 const router = express.Router();
@@ -926,6 +927,8 @@ router.put(
 
       await partido.save();
       res.json(partido);
+      // Un video nuevo o cambiado: su duración se guarda para Overtime TV (sin demorar la respuesta).
+      if (req.body.videoUrl !== undefined && partido.videoUrl) completarDuracionesEnSegundoPlano(partido._id);
     } catch (err) {
       console.error('[ERROR][PUT /partidos/:id]', err);
       res.status(500).json({ message: 'Error interno al actualizar el partido', error: err.message });
