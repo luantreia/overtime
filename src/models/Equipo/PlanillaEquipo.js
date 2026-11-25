@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { videoPartidoSchema } from '../Partido/tiempoVideo.js';
+import { videoPartidoSchema, ventanaPartidoSchema } from '../Partido/tiempoVideo.js';
 const { Schema, model } = mongoose;
 
 /**
@@ -107,6 +107,9 @@ const planillaEquipoSchema = new Schema({
    * partido. Al oficializar se suman a los del partido.
    */
   videos: { type: [videoPartidoSchema], default: [] },
+
+  /** Inicio y fin del partido marcados en la planilla (diferido). Pasa al partido al oficializar. */
+  ventana: { type: ventanaPartidoSchema, default: null },
 
   notas: { type: String },
 

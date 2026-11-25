@@ -4,7 +4,7 @@ import SetPartido from '../models/Partido/SetPartido.js';
 import Fase from '../models/Competencia/Fase.js';
 import Competencia from '../models/Competencia/Competencia.js';
 import { resolverDuracionTiempo } from '../utils/relojJuego.js';
-import { relojDelPartido } from './relojEnVivoService.js';
+import { relojDelPartido, abrirVentanaEnVivo } from './relojEnVivoService.js';
 
 class TimerManager {
   constructor() {
@@ -146,6 +146,8 @@ class TimerManager {
       try {
         await relojDelPartido(matchId, hora);
         await Partido.updateOne({ _id: matchId }, { $push: { relojJuego: registro } });
+        // El primer arranque del 1T es el inicio del partido en vivo.
+        if (tipo === 'inicio' && registro.periodo === 1) await abrirVentanaEnVivo(matchId, hora);
       } catch (e) {
         console.error('[timer] no se pudo registrar el reloj de juego', matchId, e.message);
       }

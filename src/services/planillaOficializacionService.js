@@ -309,6 +309,15 @@ async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incl
     await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
     out.camarasAgregadas = nuevas.length;
   }
+  // Inicio y fin del partido marcados en la planilla: al partido, si no tiene (o tiene uno sin confirmar).
+  const ventana = planilla.ventana?.toObject ? planilla.ventana.toObject() : planilla.ventana;
+  if (ventana && ventana.desde != null && !out.relojesDistintos) {
+    const actual = await q(Partido.findById(planilla.partido).select('ventana')).lean();
+    if (!actual?.ventana || !actual.ventana.confirmado) {
+      await Partido.updateOne({ _id: planilla.partido }, { $set: { ventana } }, opts);
+      out.ventanaCopiada = true;
+    }
+  }
   if (!incluirSets) return out;
 
   for (const ps of sets) {

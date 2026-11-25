@@ -11,7 +11,7 @@ import { hasMatchPermission } from '../services/matchPermissionService.js';
 import { puedeAccederPlanilla, planillaEstaCerrada } from '../services/planillaEquipoService.js';
 import TimerManager from '../services/TimerManager.js';
 import { ganadorDesdeMarcas } from '../utils/supervivencia.js';
-import { relojDelPartido, segundoDesdeHora, alinearRelojEnVivo } from '../services/relojEnVivoService.js';
+import { relojDelPartido, segundoDesdeHora, alinearRelojEnVivo, ubicarDesdeConsola } from '../services/relojEnVivoService.js';
 import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
 import { resolverSet, alineacionDe, sincronizarEstadisticasPlanilla } from '../services/eventoSetService.js';
 
@@ -214,7 +214,8 @@ router.put('/tiempo', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar, 
     : null;
   // En vivo: el extremo que cambió es "ahora" (hora real del servidor), y se guarda su hora para
   // poder recalcularlo al alinear con el video. El otro extremo conserva lo que tenía.
-  if (valor && valor.origen === 'en_vivo' && req.ref.tipo === 'oficial') {
+  // marcarAhora: false = guardar estos segundos tal cual (p. ej. confirmar un set que ubicó la consola).
+  if (valor && valor.origen === 'en_vivo' && req.ref.tipo === 'oficial' && req.body.marcarAhora !== false) {
     const hora = new Date();
     const ahora = Math.max(0, segundoDesdeHora(await relojDelPartido(req.ref.partidoId, hora), hora));
     const previo = req.ref.set.tiempo;
@@ -285,6 +286,67 @@ router.put('/reloj-en-vivo', verificarToken, cargarRolDesdeBD, conErrores(async 
 
 /**
  * @swagger
+ * /api/eventos-set/ventana:
+ *   put:
+ *     summary: Inicio y fin del partido en el tiempo del partido (marcado en diferido)
+ *     description: >
+ *       Body { partidoId | planillaId, ventana: { desde, hasta } | null }. En un partido requiere
+ *       match.resultado; en una planilla, poder editarla (abierta). Queda con origen 'manual' y
+ *       confirmado: lo marcó una persona. Reemplaza a una ventana en vivo sin confirmar.
+ *     tags: [EventosSet]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/ventana', verificarToken, cargarRolDesdeBD, conErrores(async (req, res) => {
+  const { partidoId, planillaId } = req.body;
+  const v = req.body.ventana ?? null;
+  const num = (x) => x === null || (Number.isFinite(x) && x >= 0);
+  if (v && (!num(v.desde) || !num(v.hasta) || (v.desde != null && v.hasta != null && v.hasta <= v.desde))) {
+    return res.status(400).json({ error: 'ventana debe ser { desde, hasta } en segundos, con hasta > desde' });
+  }
+  const valor = v ? { desde: v.desde ?? null, hasta: v.hasta ?? null, origen: 'manual', confirmado: true } : null;
+  if (esId(planillaId)) {
+    const planilla = await PlanillaEquipo.findById(planillaId).lean();
+    if (!planilla) return res.status(404).json({ error: 'Planilla no encontrada' });
+    const acceso = await puedeAccederPlanilla({ planilla, usuario: req.user, accion: 'editar' });
+    if (!acceso.permitido) return res.status(403).json({ error: 'No podés editar esta planilla' });
+    if (planillaEstaCerrada(planilla)) return res.status(409).json({ error: 'La planilla está cerrada a ediciones' });
+    await PlanillaEquipo.updateOne({ _id: planillaId }, { $set: { ventana: valor } }, { runValidators: true });
+    return res.json({ ventana: valor });
+  }
+  if (!esId(partidoId)) return res.status(400).json({ error: 'Indicá partidoId o planillaId' });
+  const ok = await hasMatchPermission({ partidoId, usuarioId: req.user.uid, rolGlobal: req.user.rol, permission: 'match.resultado' });
+  if (!ok) return res.status(403).json({ error: 'No podés editar este partido' });
+  await Partido.updateOne({ _id: partidoId }, { $set: { ventana: valor } }, { runValidators: true });
+  return res.json({ ventana: valor });
+}));
+
+/**
+ * @swagger
+ * /api/eventos-set/consola/{partidoId}:
+ *   get:
+ *     summary: Lo que la consola de Overtime-Partido dejó para este partido, en el tiempo del partido
+ *     description: Sets oficiales (con su tiempo y ganador), ventana y si el reloj en vivo ya se alineó con el video. Público, como lo oficial.
+ *     tags: [EventosSet]
+ */
+router.get('/consola/:partidoId', conErrores(async (req, res) => {
+  const { partidoId } = req.params;
+  if (!esId(partidoId)) return res.status(400).json({ error: 'partidoId inválido' });
+  await ubicarDesdeConsola(partidoId);
+  const [p, sets] = await Promise.all([
+    Partido.findById(partidoId).select('relojEnVivo ventana relojJuego').lean(),
+    SetPartido.find({ partido: partidoId }).select('numeroSet ganadorSet tiempo iniciadoEn').sort({ numeroSet: 1 }).lean(),
+  ]);
+  if (!p) return res.status(404).json({ error: 'Partido no encontrado' });
+  res.json({
+    relojEnVivo: p.relojEnVivo ?? null,
+    ventana: p.ventana ?? null,
+    relojJuego: p.relojJuego ?? [],
+    sets: sets.map((s) => ({ _id: s._id, numeroSet: s.numeroSet, ganadorSet: s.ganadorSet, tiempo: s.tiempo ?? null, deConsola: Boolean(s.iniciadoEn) })),
+  });
+}));
+
+/**
+ * @swagger
  * /api/eventos-set/ganador:
  *   put:
  *     summary: Carga el ganador del set (típicamente el sugerido por las marcas)
@@ -306,6 +368,7 @@ router.put('/ganador', verificarToken, cargarRolDesdeBD, cargarSet, puedeEditar,
     await set.save();
     if (ganadorSet !== 'pendiente') await TimerManager.pauseSetOnly(set.partido, true);
     await TimerManager.reloadMatch(set.partido);
+    if (set.iniciadoEn && set.finalizadoEn) await ubicarDesdeConsola(set.partido);
   } else {
     await PlanillaSet.updateOne({ _id: ref.set._id }, { $set: { ganadorSet } });
   }

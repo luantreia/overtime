@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { videoPartidoSchema, relojEnVivoSchema } from './tiempoVideo.js';
+import { videoPartidoSchema, relojEnVivoSchema, ventanaPartidoSchema } from './tiempoVideo.js';
 const Schema = mongoose.Schema;
 
 const PartidoSchema = new Schema({
@@ -30,6 +30,9 @@ const PartidoSchema = new Schema({
   // tiempoVideo.js). Reemplaza a `videoUrl` de a poco: un partido sin `videos` se trata como
   // una sola cámara con el link de `videoUrl`.
   videos: { type: [videoPartidoSchema], default: [] },
+
+  // Dónde empieza y termina el partido en el tiempo del partido, en vivo o diferido (tiempoVideo.js).
+  ventana: { type: ventanaPartidoSchema, default: null },
 
   // Reloj de las marcas en vivo: hora real → segundo de partido (ver tiempoVideo.js).
   relojEnVivo: { type: relojEnVivoSchema, default: null },

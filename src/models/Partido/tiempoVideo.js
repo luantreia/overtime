@@ -61,6 +61,27 @@ export const relojEnVivoSchema = new Schema(
   { _id: false },
 );
 
+/**
+ * Dónde empieza y termina el PARTIDO en el tiempo del partido (el eje de todo: sets, marcas,
+ * pausas; las cámaras y la consola se amoldan a él con sus tramos / su reloj en vivo).
+ *  - origen 'en_vivo': lo marcó la consola de Overtime-Partido (horaDesde / horaHasta, hora real
+ *    del servidor; desde/hasta se calculan con Partido.relojEnVivo y se recalculan al alinear).
+ *  - origen 'manual': marcado en diferido sobre un video (Partido completo).
+ *  - origen 'cv': propuesto por un modelo.
+ * `hasta` es null mientras el partido no terminó.
+ */
+export const ventanaPartidoSchema = new Schema(
+  {
+    desde: { type: Number, default: null },
+    hasta: { type: Number, default: null },
+    origen: { type: String, enum: ORIGENES_TIEMPO, default: 'manual' },
+    confirmado: { type: Boolean, default: false },
+    horaDesde: { type: Date, default: undefined },
+    horaHasta: { type: Date, default: undefined },
+  },
+  { _id: false },
+);
+
 /** Dónde está un set (o cualquier tramo) en la línea de tiempo del partido. */
 export const tiempoPartidoSchema = new Schema(
   {

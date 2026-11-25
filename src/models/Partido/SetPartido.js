@@ -61,6 +61,13 @@ const SetPartidoSchema = new mongoose.Schema({
 SetPartidoSchema.pre('validate', function (next) {
   if (this.ganadorSet && this.ganadorSet !== 'pendiente') {
     this.estadoSet = 'finalizado';
+    // La hora de fin la escribía TimerManager.persistSet buscando el set 'en_juego', pero quien
+    // carga el ganador ya lo pasó a 'finalizado' antes: no se guardaba nunca (0 de 1645 en
+    // producción al 25/11/2026). Se anota acá, al cerrarse, sólo si el set arrancó por la consola.
+    if (this.iniciadoEn && !this.finalizadoEn) {
+      this.finalizadoEn = new Date();
+      this.duracionReal = Math.floor((this.finalizadoEn - this.iniciadoEn) / 1000);
+    }
   }
   next();
 });

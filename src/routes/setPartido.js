@@ -8,6 +8,7 @@ import verificarToken from '../middleware/authMiddleware.js';
 import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
 import { validarObjectId } from '../middleware/validacionObjectId.js';
 import TimerManager from '../services/TimerManager.js';
+import { ubicarDesdeConsola } from '../services/relojEnVivoService.js';
 import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js';
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
 import { requireMatchPermission } from '../middleware/requireMatchPermission.js';
@@ -253,6 +254,10 @@ router.put(
       
       await TimerManager.reloadMatch(set.partido);
       res.json(actualizado);
+      // Un set de la consola que se cerró: su tiempo en el eje del partido (hora real → video).
+      if (actualizado.iniciadoEn && actualizado.finalizadoEn) {
+        ubicarDesdeConsola(set.partido).catch((e) => console.error('[consola] no se pudo ubicar el set', e.message));
+      }
     } catch (err) {
       res.status(400).json({ error: err.message || 'Error al actualizar el set' });
     }

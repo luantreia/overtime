@@ -21,6 +21,7 @@ import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import { AuditoriaService } from '../services/auditoriaService.js';
 import { resolverAlcanceEquipo } from '../services/alcanceEquipoAnaliticoService.js';
 import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
+import { cerrarVentanaEnVivo } from '../services/relojEnVivoService.js';
 
 
 const router = express.Router();
@@ -927,6 +928,10 @@ router.put(
 
       await partido.save();
       res.json(partido);
+      // Finalizado con la consola: cierra el inicio/fin del partido en vivo.
+      if (req.body.estado === 'finalizado') {
+        cerrarVentanaEnVivo(partido._id).catch((e) => console.error('[ventana] no se pudo cerrar', e.message));
+      }
       // Un video nuevo o cambiado: su duración se guarda para Overtime TV (sin demorar la respuesta).
       if (req.body.videoUrl !== undefined && partido.videoUrl) completarDuracionesEnSegundoPlano(partido._id);
     } catch (err) {
