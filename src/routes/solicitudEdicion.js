@@ -34,6 +34,7 @@ import { hasTeamPermission } from '../services/teamPermissionService.js';
 import { hasMatchPermission } from '../services/matchPermissionService.js';
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import { aplicarPlanillaOficializada, recalcularMarcadorDelPartido } from '../services/planillaOficializacionService.js';
+import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
 import { contratoSolapado, mensajeSolapamiento } from '../services/contratoEquipoService.js';
 
 /**
@@ -1154,6 +1155,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       // TimerManager guarda el estado del partido en memoria: si se tocan los sets
       // hay que avisarle, igual que hace la ruta directa de sets.
       const partidosARecargarEnTimer = new Set();
+      const partidosConVideoNuevo = new Set();
       // Partidos a los que una oficialización les creó sets: su marcador quedó viejo.
       const partidosConSetsNuevos = new Set();
       // Qué se incorporó y qué se descartó, si se aprobó sólo una parte.
@@ -1674,6 +1676,7 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               { videoUrl: solicitud.datosPropuestos?.videoUrl || '' },
               { session },
             );
+            if (solicitud.datosPropuestos?.videoUrl) partidosConVideoNuevo.add(String(solicitud.entidad));
           } else {
             // Para otras acciones que modifican entidades (usuarios, equipos, orgs, etc.)
             // mantenerse con la misma lógica pero usar .save({ session }) donde aplique.
@@ -1701,6 +1704,9 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
       for (const partidoId of partidosConSetsNuevos) {
         await recalcularMarcadorDelPartido(partidoId);
       }
+
+      // Duración del video aprobado, para que entre en Overtime TV.
+      for (const partidoId of partidosConVideoNuevo) completarDuracionesEnSegundoPlano(partidoId);
 
       for (const partidoId of partidosARecargarEnTimer) {
         try {

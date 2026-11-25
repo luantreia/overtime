@@ -27,6 +27,7 @@ import EstadisticasJugadorSet from '../models/Jugador/EstadisticasJugadorSet.js'
 import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJugadorPartidoManual.js';
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
 import { seleccionPlanilla } from '../utils/seleccionAprobacion.js';
+import { completarDuracionesEnSegundoPlano } from './duracionesPartidoService.js';
 
 /**
  * @param {object} params
@@ -308,6 +309,10 @@ async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incl
     // updateOne: el post('save') de Partido recalcula marcador y tabla, y esto no lo amerita.
     await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
     out.camarasAgregadas = nuevas.length;
+    // Duración de las cámaras nuevas (la necesita Overtime TV). Dentro de una transacción, recién
+    // cuando termina: antes no se ven los videos. Si se abortó, no encuentra nada que completar.
+    if (opts.session) opts.session.once('ended', () => completarDuracionesEnSegundoPlano(planilla.partido));
+    else completarDuracionesEnSegundoPlano(planilla.partido);
   }
   // Inicio y fin del partido marcados en la planilla: al partido, si no tiene (o tiene uno sin confirmar).
   const ventana = planilla.ventana?.toObject ? planilla.ventana.toObject() : planilla.ventana;
