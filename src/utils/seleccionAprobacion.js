@@ -54,6 +54,25 @@ export function seleccionPlanilla(seleccion, { presentes, sets }) {
 }
 
 /**
+ * Qué se pidió oficializar de una planilla:
+ *  - 'completa' (default): sets y estadísticas de jugadores, como siempre.
+ *  - 'estructura': sólo el partido — sets con su tiempo y ganador, alineaciones, marcas y
+ *    cámaras —, sin convocatoria ni estadísticas de jugadores. Es una aprobación parcial sin
+ *    ningún jugador elegido, así que el traspaso es el de siempre.
+ */
+export const ALCANCES_OFICIALIZACION = ['completa', 'estructura'];
+export const normalizarAlcance = (a) => (a === 'estructura' ? 'estructura' : 'completa');
+
+/**
+ * La selección con la que se aplica una oficialización: la del aprobador, recortada por lo que
+ * se pidió. Con alcance 'estructura' no entra ningún jugador, elija lo que elija el aprobador.
+ */
+export function seleccionSegunAlcance(alcance, seleccion) {
+  if (normalizarAlcance(alcance) !== 'estructura') return seleccion ?? null;
+  return { ...(seleccion || {}), presentes: [] };
+}
+
+/**
  * Lote de estadísticas de un set: qué filas se publican. Las no elegidas quedan rechazadas.
  * seleccion: { statIds?: string[] }
  */

@@ -9,7 +9,7 @@ import { tiposSolicitudMeta } from '../config/solicitudesMeta.js';
 import { camposAltaFaltantes } from '../utils/camposAltaFaltantes.js';
 import { agregarContexto } from '../services/contextoSolicitudes.js';
 import { explicarAprobacion } from '../utils/explicarAprobacion.js';
-import { seleccionLote, seleccionCamposContrato } from '../utils/seleccionAprobacion.js';
+import { seleccionLote, seleccionCamposContrato, seleccionSegunAlcance } from '../utils/seleccionAprobacion.js';
 import { obtenerAdminsParaSolicitud } from '../services/obtenerAdminsParaSolicitud.js';
 import JugadorEquipo from '../models/Jugador/JugadorEquipo.js';
 import Jugador from '../models/Jugador/Jugador.js';
@@ -1406,7 +1406,8 @@ router.put('/:id', verificarToken, cargarRolDesdeBD, validarObjectId, async (req
               uid,
               solicitudId: solicitud._id,
               session,
-              seleccion,
+              // Si se pidió sólo la estructura, ningún jugador entra aunque el aprobador no lo destilde.
+              seleccion: seleccionSegunAlcance(datos.alcance, seleccion),
             });
             resumenParcial = resultado.resumen;
 

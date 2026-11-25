@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { seleccionPlanilla, seleccionLote, seleccionCamposContrato } from '../../src/utils/seleccionAprobacion.js';
+import { seleccionPlanilla, seleccionLote, seleccionCamposContrato, seleccionSegunAlcance, normalizarAlcance } from '../../src/utils/seleccionAprobacion.js';
 
 const planilla = {
   presentes: [{ _id: 'p1' }, { _id: 'p2' }, { _id: 'p3' }],
@@ -64,5 +64,19 @@ describe('seleccionCamposContrato', () => {
 
   it('no se puede elegir un grupo que la solicitud no trae', () => {
     expect(seleccionCamposContrato({ campos: ['foto', 'rol'] }, cambios).cambios).toEqual({ rol: 'capitan' });
+  });
+});
+
+describe('seleccionSegunAlcance', () => {
+  it('completa (o sin alcance) deja la selección del aprobador como está', () => {
+    expect(seleccionSegunAlcance(undefined, null)).toBeNull();
+    expect(seleccionSegunAlcance('completa', { sets: false })).toEqual({ sets: false });
+  });
+  it('estructura no incorpora ningún jugador, aunque el aprobador no haya tocado nada', () => {
+    expect(seleccionSegunAlcance('estructura', null)).toEqual({ presentes: [] });
+    expect(seleccionSegunAlcance('estructura', { presentes: ['p1'], pisarSets: [2] })).toEqual({ presentes: [], pisarSets: [2] });
+  });
+  it('un alcance desconocido cuenta como completa', () => {
+    expect(normalizarAlcance('cualquiera')).toBe('completa');
   });
 });

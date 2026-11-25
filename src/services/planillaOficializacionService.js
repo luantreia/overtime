@@ -342,13 +342,20 @@ async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incl
  * El marcador del partido no se recalcula solo al crear sets: sólo al finalizar el partido o
  * con PUT /partidos/:id/recalcular-marcador. Una oficialización que crea sets lo deja en 0 a 0
  * con todos los sets ganados. Se llama después de commitear (recalcularMarcador hace su propio
- * save, fuera de la transacción). Respeta un marcador cargado a mano. Si falla, no deshace
- * nada: los sets ya están y el marcador se puede recalcular desde el partido.
+ * save, fuera de la transacción). Respeta un marcador ya cargado; uno en 0 a 0 sale de los
+ * sets. Si falla, no deshace nada: los sets ya están y el marcador se puede recalcular desde
+ * el partido.
  */
 export async function recalcularMarcadorDelPartido(partidoId) {
   try {
     const partido = await Partido.findById(partidoId);
-    if (partido) await partido.recalcularMarcador();
+    if (!partido) return;
+    // `marcadorModificadoManualmente` viene en true por defecto, así que casi todos los partidos
+    // lo tienen aunque nadie haya cargado nada. Un partido sin resultado (0 a 0) toma el de los
+    // sets; uno con resultado cargado se respeta.
+    const sinResultado = !(partido.marcadorLocal > 0) && !(partido.marcadorVisitante > 0);
+    if (sinResultado) partido.marcadorModificadoManualmente = false;
+    await partido.recalcularMarcador();
   } catch (e) {
     console.error('No se pudo recalcular el marcador tras oficializar', partidoId, e.message);
   }

@@ -9,6 +9,7 @@ import PlanillaPresente from '../../models/Equipo/PlanillaPresente.js';
 import PlanillaSet from '../../models/Equipo/PlanillaSet.js';
 import EventoSet from '../../models/Partido/EventoSet.js';
 import PlanillaEstadistica from '../../models/Equipo/PlanillaEstadistica.js';
+import { normalizarAlcance, seleccionSegunAlcance } from '../../utils/seleccionAprobacion.js';
 import JugadorPartido from '../../models/Jugador/JugadorPartido.js';
 import SetPartido from '../../models/Partido/SetPartido.js';
 import Partido from '../../models/Partido/Partido.js';
@@ -1426,10 +1427,24 @@ router.post(
     try {
       const { planilla } = req;
       const visibilidadObjetivo = normalizarVisibilidadObjetivo(req.body?.visibilidadObjetivo);
+      // 'estructura': sólo sets (tiempo, ganador), alineaciones, marcas y cámaras; 'completa'
+      // suma la convocatoria y las estadísticas de jugadores (utils/seleccionAprobacion.js).
+      const alcance = normalizarAlcance(req.body?.alcance);
 
-      const estadisticas = await PlanillaEstadistica.countDocuments({ planilla: planilla._id });
-      if (!estadisticas) {
-        return res.status(400).json({ error: 'La planilla no tiene ninguna estadística cargada' });
+      if (alcance === 'estructura') {
+        if (planilla.modo !== 'sets') {
+          return res.status(400).json({ error: 'Una planilla de totales no tiene sets: no hay estructura para oficializar' });
+        }
+        if (!(await PlanillaSet.exists({ planilla: planilla._id }))) {
+          return res.status(400).json({ error: 'La planilla no tiene sets cargados' });
+        }
+      } else {
+        const estadisticas = await PlanillaEstadistica.countDocuments({ planilla: planilla._id });
+        if (!estadisticas) {
+          return res.status(400).json({
+            error: 'La planilla no tiene ninguna estadística cargada. Si sólo cargaste el partido (sets, tiempos y ganadores), pedí oficializar sólo la estructura.',
+          });
+        }
       }
 
       // Un set sin ganador se materializa como SetPartido 'en_juego'. Además de quedar
@@ -1466,9 +1481,11 @@ router.post(
           planillaId: planilla._id,
           visibilidad: visibilidadObjetivo,
           uid: req.user.uid,
+          seleccion: seleccionSegunAlcance(alcance, null),
         });
         return res.json({
           oficializada: true,
+          alcance,
           motivo: 'amistoso',
           planilla: await obtenerPlanillaCompleta(planilla._id),
         });
@@ -1484,6 +1501,7 @@ router.post(
           equipoId: String(planilla.equipo),
           modo: planilla.modo,
           visibilidadObjetivo,
+          alcance,
         },
       });
 
@@ -1491,7 +1509,7 @@ router.post(
       planilla.solicitudOficializacion = solicitud._id;
       await planilla.save();
 
-      return res.json({ oficializada: false, solicitudId: solicitud._id });
+      return res.json({ oficializada: false, alcance, solicitudId: solicitud._id });
     } catch (error) {
       console.error('Error solicitando oficialización de planilla:', error);
       return res.status(500).json({ error: 'Error interno solicitando la oficialización' });
