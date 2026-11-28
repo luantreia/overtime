@@ -35,6 +35,7 @@ import { hasMatchPermission } from '../services/matchPermissionService.js';
 import PlanillaEquipo from '../models/Equipo/PlanillaEquipo.js';
 import { aplicarPlanillaOficializada, recalcularMarcadorDelPartido } from '../services/planillaOficializacionService.js';
 import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
+import { fijarVideoPrincipal } from '../services/videoCatalogoService.js';
 import { contratoSolapado, mensajeSolapamiento } from '../services/contratoEquipoService.js';
 
 /**

@@ -13,6 +13,7 @@ import TimerManager from '../services/TimerManager.js';
 import { ganadorDesdeMarcas } from '../utils/supervivencia.js';
 import { relojDelPartido, segundoDesdeHora, alinearRelojEnVivo, ubicarDesdeConsola } from '../services/relojEnVivoService.js';
 import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
+import { reemplazarVideosPartido } from '../services/videoCatalogoService.js';
 import { resolverSet, alineacionDe, sincronizarEstadisticasPlanilla } from '../services/eventoSetService.js';
 
 /**
@@ -106,6 +107,7 @@ const conErrores = (fn) => async (req, res) => {
   try {
     await fn(req, res);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     if (err.name === 'ValidationError' || /exactamente uno|necesita/.test(err.message)) {
       return res.status(400).json({ error: err.message });
     }
@@ -393,13 +395,9 @@ router.put('/videos/:partidoId', verificarToken, cargarRolDesdeBD, conErrores(as
   const videos = Array.isArray(req.body.videos) ? req.body.videos : null;
   if (!videos) return res.status(400).json({ error: 'videos debe ser un array' });
 
-  const set = { videos };
-  const actual = await Partido.findById(partidoId).select('videoUrl').lean();
-  if (!actual) return res.status(404).json({ error: 'Partido no encontrado' });
-  // Compatibilidad: la cámara principal también va a `videoUrl` si estaba vacío.
-  if (!actual.videoUrl && videos[0]?.youtubeId) set.videoUrl = `https://www.youtube.com/watch?v=${videos[0].youtubeId}`;
-  await Partido.updateOne({ _id: partidoId }, { $set: set }, { runValidators: true });
-  const p = await Partido.findById(partidoId).select('videos videoUrl').lean();
+  if (!(await Partido.exists({ _id: partidoId }))) return res.status(404).json({ error: 'Partido no encontrado' });
+  // Al catálogo de videos; Partido.videos / videoUrl se rearman desde ahí.
+  const p = await reemplazarVideosPartido(partidoId, videos, { creadoPor: req.user.uid });
   res.json(p);
   completarDuracionesEnSegundoPlano(partidoId);
 }));

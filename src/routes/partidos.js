@@ -21,6 +21,7 @@ import SolicitudEdicion from '../models/SolicitudEdicion.js';
 import { AuditoriaService } from '../services/auditoriaService.js';
 import { resolverAlcanceEquipo } from '../services/alcanceEquipoAnaliticoService.js';
 import { completarDuracionesEnSegundoPlano } from '../services/duracionesPartidoService.js';
+import { fijarVideoPrincipal } from '../services/videoCatalogoService.js';
 import { cerrarVentanaEnVivo } from '../services/relojEnVivoService.js';
 
 
@@ -899,7 +900,7 @@ router.put(
         'division',
         'nombrePartido',
         'posicionBracket',
-        'videoUrl',
+        // videoUrl NO va acá: es proyección del catálogo de videos (ver abajo).
         // Nuevos campos permitidos a editar
         'modalidad',
         'categoria',
@@ -927,6 +928,15 @@ router.put(
       }
 
       await partido.save();
+      // El link de video va al catálogo (models/Video/Video.js), que rearma videoUrl / videos.
+      if (req.body.videoUrl !== undefined) {
+        try {
+          const proy = await fijarVideoPrincipal(partido._id, req.body.videoUrl, { creadoPor: req.user?.uid });
+          partido.set(proy);
+        } catch (e) {
+          return res.status(e.status || 500).json({ message: e.message });
+        }
+      }
       res.json(partido);
       // Finalizado con la consola: cierra el inicio/fin del partido en vivo.
       if (req.body.estado === 'finalizado') {

@@ -28,6 +28,7 @@ import EstadisticasJugadorPartidoManual from '../models/Jugador/EstadisticasJuga
 import { recalcularAgregadosDeJugadorPartido } from '../utils/estadisticasAggregator.js';
 import { seleccionPlanilla } from '../utils/seleccionAprobacion.js';
 import { completarDuracionesEnSegundoPlano } from './duracionesPartidoService.js';
+import { agregarCamaras } from './videoCatalogoService.js';
 
 /**
  * @param {object} params
@@ -304,10 +305,8 @@ async function trasladarCaptura({ planilla, sets, setPartidoPorPlanillaSet, incl
   const { nuevas, relojesDistintos } = compararCamaras(propias, delPartido);
   out.relojesDistintos = relojesDistintos;
   if (nuevas.length) {
-    const $set = { videos: [...delPartido, ...nuevas] };
-    if (!partido.videoUrl) $set.videoUrl = `https://www.youtube.com/watch?v=${(delPartido[0] || nuevas[0]).youtubeId}`;
-    // updateOne: el post('save') de Partido recalcula marcador y tabla, y esto no lo amerita.
-    await Partido.updateOne({ _id: planilla.partido }, { $set }, { runValidators: true, ...opts });
+    // Al catálogo de videos (al final de las cámaras); Partido.videos / videoUrl se rearman desde ahí.
+    await agregarCamaras(planilla.partido, nuevas, { session: opts.session, creadoPor: uid });
     out.camarasAgregadas = nuevas.length;
     // Duración de las cámaras nuevas (la necesita Overtime TV). Dentro de una transacción, recién
     // cuando termina: antes no se ven los videos. Si se abortó, no encuentra nada que completar.

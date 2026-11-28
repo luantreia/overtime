@@ -4,7 +4,7 @@
  * (`overtime.partidoId`).
  *
  * Qué escribe, por partido de Overtime:
- *  - `Partido.videos[]`: una entrada por video de YouTube con sus tramos (segundo de partido =
+ *  - Catálogo de videos (models/Video/Video.js, proyectado a `Partido.videos[]`): una entrada por video de YouTube con sus tramos (segundo de partido =
  *    segundo de cámara + d). Si el partido ya tiene `videos`, no se toca salvo con `--forzar`.
  *  - `Partido.videoUrl`: sólo si está vacío, con la cámara principal (la TV y la ficha lo leen).
  *  - `SetPartido.tiempo`: para los sets del panel con número, si el SetPartido existe en
@@ -32,6 +32,7 @@ import mongoose from 'mongoose';
 import Partido from '../src/models/Partido/Partido.js';
 import SetPartido from '../src/models/Partido/SetPartido.js';
 import { obtenerDuraciones } from '../src/services/duracionYoutubeService.js';
+import { reemplazarVideosPartido, fijarVideoPrincipal } from '../src/services/videoCatalogoService.js';
 
 const arg = (n) => {
   const i = process.argv.indexOf(n);
@@ -228,8 +229,10 @@ const main = async () => {
     tot.sets += opsSets.length;
 
     if (ESCRIBIR) {
-      // updateOne directo: el pre('save') de Partido recalcula resultados y rating, y esto no los cambia.
-      if (Object.keys(cambios).length) await Partido.updateOne({ _id: ot._id }, { $set: cambios }, { runValidators: true });
+      // SetPartido con bulkWrite directo: el pre('save') recalcula resultados y rating, y esto no los cambia.
+      // Los videos van al catálogo (models/Video/Video.js), que rearma Partido.videos/videoUrl.
+      if (cambios.videos) await reemplazarVideosPartido(ot._id, cambios.videos);
+      else if (cambios.videoUrl) await fijarVideoPrincipal(ot._id, cambios.videoUrl);
       if (opsSets.length) await SetPartido.bulkWrite(opsSets);
     }
   }

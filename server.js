@@ -109,6 +109,8 @@ import jugadorPartidoRoutes from './src/routes/Jugadores/jugadorPartido.js';
 
 import partidosRoutes from './src/routes/partidos.js';
 import tvRoutes from './src/routes/tv.js';
+import videosRoutes from './src/routes/videos.js';
+import { migrarTodoAlCatalogo } from './src/services/videoCatalogoService.js';
 import eventosSetRoutes from './src/routes/eventosSet.js';
 import setPartidoRoutes from './src/routes/setPartido.js';
 import estadisticasRoutes from './src/routes/estadisticas.js';
@@ -172,6 +174,13 @@ mongoose.connect(process.env.MONGO_URI, {
   });
 
 // Ensure MatchPlayer index matches triple-scope uniqueness
+// Videos viejos embebidos en Partido → catálogo (models/Video/Video.js). Idempotente.
+mongoose.connection.once('open', () => {
+  migrarTodoAlCatalogo()
+    .then((r) => { if (r.partidos) console.log(`[DB] Catálogo de videos: migrados ${r.videos} videos de ${r.partidos} partidos`); })
+    .catch((err) => console.error('[DB] Migración al catálogo de videos falló:', err?.message || err));
+});
+
 mongoose.connection.once('open', async () => {
   try {
     const collection = mongoose.connection.collection('matchplayers');
@@ -273,6 +282,7 @@ app.use('/api/jugador-partido', jugadorPartidoRoutes);
 
 app.use('/api/partidos', partidosRoutes);
 app.use('/api/tv', tvRoutes);
+app.use('/api/videos', videosRoutes);
 app.use('/api/eventos-set', eventosSetRoutes);
 app.use('/api/set-partido', setPartidoRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);

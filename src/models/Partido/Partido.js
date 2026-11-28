@@ -22,13 +22,10 @@ const PartidoSchema = new Schema({
 
   nombrePartido: { type: String, trim: true },
 
-  // URL de YouTube del partido (en vivo o video final). Se guarda tal cual la pega
-  // el usuario (watch?v=, youtu.be, /live/, etc.); el ID se extrae en el frontend.
+  // PROYECCIÓN del catálogo de videos (models/Video/Video.js): `videoUrl` es la cámara
+  // principal y `videos` todas, en orden. Las apps los leen como siempre, pero NO se escriben
+  // directo: pasar por services/videoCatalogoService.js, que los rearma desde el catálogo.
   videoUrl: { type: String, default: '' },
-
-  // Videos del partido, uno por cámara, alineados a un reloj de partido común (ver
-  // tiempoVideo.js). Reemplaza a `videoUrl` de a poco: un partido sin `videos` se trata como
-  // una sola cámara con el link de `videoUrl`.
   videos: { type: [videoPartidoSchema], default: [] },
 
   // Dónde empieza y termina el partido en el tiempo del partido, en vivo o diferido (tiempoVideo.js).

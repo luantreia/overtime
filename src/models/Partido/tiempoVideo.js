@@ -18,7 +18,7 @@ const { Schema } = mongoose;
 
 export const ORIGENES_TIEMPO = ['manual', 'cv', 'en_vivo'];
 
-const tramoCamaraSchema = new Schema(
+export const tramoCamaraSchema = new Schema(
   {
     /** [desde, hasta] en segundos de cámara. */
     cam: {

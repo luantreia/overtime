@@ -1,85 +1,233 @@
 import express from 'express';
-import Partido from '../models/Partido/Partido.js';
-import { obtenerDuraciones, extraerYoutubeId, extraerInicio } from '../services/duracionYoutubeService.js';
-import { completarDuraciones } from '../services/duracionesPartidoService.js';
+import mongoose from 'mongoose';
+import verificarToken from '../middleware/authMiddleware.js';
+import { cargarRolDesdeBD } from '../middleware/cargarRolDesdeBD.js';
+import Video from '../models/Video/Video.js';
+import CanalTv from '../models/Video/CanalTv.js';
+import { obtenerDuraciones } from '../services/duracionYoutubeService.js';
+import { proyectarEnPartido } from '../services/videoCatalogoService.js';
 
 const router = express.Router();
+const esId = (v) => mongoose.Types.ObjectId.isValid(v);
+
+/** Qué videos programa la TV: los sueltos y la cámara principal de cada partido, si están en TV. */
+const FILTRO_TV = { enTv: true, $or: [{ partido: null }, { orden: 0 }] };
 
 /**
  * @swagger
  * /api/tv/videos:
  *   get:
- *     summary: Catálogo de Overtime TV
+ *     summary: Catálogo y canales de Overtime TV
  *     description: |
- *       Partidos con video reproducible y la duración efectiva de cada uno (desde el `t=` del
- *       link hasta el final). Con esto el cliente arma la grilla según el reloj: todos ven lo
- *       mismo al mismo tiempo. `ahora` es la hora del servidor, para corregir relojes de
- *       clientes desfasados. Los videos privados/borrados no se incluyen.
+ *       Sale del catálogo de videos (models/Video/Video.js): los videos sueltos y la cámara
+ *       principal de cada partido, con `enTv`, y la duración efectiva de cada uno (desde el `t=`
+ *       hasta el final). `_id` es el del partido (para links ya compartidos) o el del video si es
+ *       suelto. `canales` son los canales activos (orden de Admin) con los `_id` que programa cada
+ *       uno; si está vacío, la TV arma un canal por competencia. `ahora` es la hora del servidor.
  *     tags: [TV]
  *     responses:
  *       200:
- *         description: "{ ahora: number, items: [...] }"
+ *         description: "{ ahora: number, items: [...], canales: [...] }"
  */
 router.get('/videos', async (_req, res) => {
   try {
-    const partidos = await Partido.find({ videoUrl: { $nin: ['', null] } })
-      .select('videoUrl videos fecha marcadorLocal marcadorVisitante equipoLocal equipoVisitante competencia fase')
-      .populate('equipoLocal', 'nombre escudo')
-      .populate('equipoVisitante', 'nombre escudo')
+    const videos = await Video.find(FILTRO_TV)
+      .select('youtubeId inicio duracion titulo partido competencia')
+      .populate({
+        path: 'partido',
+        select: 'fecha marcadorLocal marcadorVisitante equipoLocal equipoVisitante fase',
+        populate: [{ path: 'equipoLocal', select: 'nombre escudo' }, { path: 'equipoVisitante', select: 'nombre escudo' }, { path: 'fase', select: 'nombre' }],
+      })
       .populate('competencia', 'nombre')
-      .populate('fase', 'nombre')
       .lean();
 
-    const conId = partidos
-      .map((p) => ({ p, videoId: extraerYoutubeId(p.videoUrl), inicio: extraerInicio(p.videoUrl) }))
-      .filter((x) => x.videoId);
-
-    // Primero la duración guardada en el partido (scripts/guardarDuracionesVideo.js); a YouTube
-    // sólo se le pregunta por lo que falte: desde Render, YouTube suele bloquear esa consulta.
-    const duraciones = new Map();
-    for (const { p } of conId) {
-      for (const v of p.videos || []) if (v.youtubeId && v.duracion > 0) duraciones.set(v.youtubeId, v.duracion);
-    }
-    const faltan = [...new Set(conId.map((x) => x.videoId).filter((id) => !duraciones.has(id)))];
+    // A YouTube sólo se le pregunta por lo que falte: desde Render suele bloquear esa consulta.
+    const faltan = [...new Set(videos.filter((v) => !(v.duracion > 0)).map((v) => v.youtubeId))];
     if (faltan.length) {
       const nuevas = await obtenerDuraciones(faltan);
-      for (const [id, d] of nuevas) duraciones.set(id, d);
-      // Lo que YouTube sí devolvió queda guardado en los partidos: la próxima vez no se pregunta.
-      const conDuracion = new Set([...nuevas].filter(([, d]) => d > 0).map(([id]) => id));
-      if (conDuracion.size) {
-        const ids = conId.filter((x) => conDuracion.has(x.videoId)).map((x) => x.p._id);
-        completarDuraciones(ids).catch((e) => console.error('[tv] no se pudieron guardar duraciones', e.message));
+      const conDuracion = [...nuevas].filter(([, d]) => d > 0);
+      for (const v of videos) if (nuevas.get(v.youtubeId) > 0) v.duracion = nuevas.get(v.youtubeId);
+      // Lo que YouTube sí devolvió queda guardado: la próxima vez no se pregunta.
+      if (conDuracion.length) {
+        (async () => {
+          for (const [youtubeId, duracion] of conDuracion) await Video.updateMany({ youtubeId, duracion: null }, { $set: { duracion } });
+          const partidos = new Set(videos.filter((v) => v.partido && nuevas.get(v.youtubeId) > 0).map((v) => String(v.partido._id)));
+          for (const id of partidos) await proyectarEnPartido(id);
+        })().catch((e) => console.error('[tv] no se pudieron guardar duraciones', e.message));
       }
     }
 
-    const items = conId
-      .map(({ p, videoId, inicio }) => {
-        const total = duraciones.get(videoId);
+    const idDeVideo = new Map(); // _id de Video → _id del item
+    const items = videos
+      .map((v) => {
+        const total = v.duracion;
+        const inicio = v.inicio || 0;
         if (!total || total - inicio < 30) return null;
+        const p = v.partido;
+        const _id = p ? String(p._id) : String(v._id);
+        idDeVideo.set(String(v._id), _id);
         return {
-          _id: p._id,
-          videoId,
+          _id,
+          partidoId: p ? String(p._id) : null,
+          videoId: v.youtubeId,
+          titulo: v.titulo || '',
           inicio,
           duracion: total - inicio,
-          fecha: p.fecha,
-          marcadorLocal: p.marcadorLocal,
-          marcadorVisitante: p.marcadorVisitante,
-          equipoLocal: p.equipoLocal,
-          equipoVisitante: p.equipoVisitante,
-          competencia: p.competencia,
-          fase: p.fase,
+          fecha: p?.fecha,
+          marcadorLocal: p?.marcadorLocal,
+          marcadorVisitante: p?.marcadorVisitante,
+          equipoLocal: p?.equipoLocal,
+          equipoVisitante: p?.equipoVisitante,
+          competencia: v.competencia,
+          fase: p?.fase,
         };
       })
       .filter(Boolean)
       // Orden estable: el cliente mezcla con una semilla, así que la entrada tiene que ser la misma para todos.
-      .sort((a, b) => String(a._id).localeCompare(String(b._id)));
+      .sort((a, b) => a._id.localeCompare(b._id));
+
+    const porCompetencia = new Map();
+    for (const v of videos) {
+      const it = idDeVideo.get(String(v._id));
+      if (!it || !v.competencia) continue;
+      const k = String(v.competencia._id);
+      if (!porCompetencia.has(k)) porCompetencia.set(k, []);
+      porCompetencia.get(k).push(it);
+    }
+    const canales = (await CanalTv.find({ activo: true }).sort({ orden: 1, nombre: 1 }).lean())
+      .map((c) => {
+        const ids = new Set([
+          ...(c.videos || []).map((id) => idDeVideo.get(String(id))).filter(Boolean),
+          ...(c.competencias || []).flatMap((id) => porCompetencia.get(String(id)) || []),
+        ]);
+        return { _id: String(c._id), slug: c.slug, nombre: c.nombre, descripcion: c.descripcion, ids: [...ids].sort() };
+      })
+      .filter((c) => c.ids.length > 0);
 
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ ahora: Date.now(), items });
+    res.json({ ahora: Date.now(), items, canales });
   } catch (err) {
     console.error('[tv] error armando catálogo:', err);
     res.status(500).json({ message: 'Error al armar la programación' });
   }
 });
+
+/* ── Canales: sólo Super Admin ─────────────────────────────────────────────── */
+
+const soloAdmin = (req, res, next) =>
+  String(req.user?.rol || '').toLowerCase() === 'admin' ? next() : res.status(403).json({ error: 'Sólo Super Admin' });
+
+const slugDe = (s) =>
+  String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** Campos editables de un canal, validados. → { datos } | { error } */
+function leerCanal(body = {}, parcial = false) {
+  const datos = {};
+  if (body.nombre !== undefined || !parcial) {
+    const nombre = String(body.nombre || '').trim();
+    if (!nombre) return { error: 'El canal necesita un nombre' };
+    datos.nombre = nombre;
+  }
+  if (body.slug !== undefined || !parcial) {
+    const slug = slugDe(body.slug || body.nombre);
+    if (!slug) return { error: 'Slug inválido' };
+    datos.slug = slug;
+  }
+  if (body.descripcion !== undefined) datos.descripcion = String(body.descripcion || '');
+  if (body.activo !== undefined) datos.activo = Boolean(body.activo);
+  if (body.orden !== undefined) datos.orden = Number(body.orden) || 0;
+  for (const campo of ['videos', 'competencias']) {
+    if (body[campo] === undefined) continue;
+    if (!Array.isArray(body[campo]) || !body[campo].every(esId)) return { error: `${campo} debe ser una lista de ids` };
+    datos[campo] = [...new Set(body[campo].map(String))];
+  }
+  return { datos };
+}
+
+const POBLAR_CANAL = [
+  { path: 'competencias', select: 'nombre' },
+  { path: 'videos', select: 'youtubeId titulo etiqueta duracion enTv partido competencia', populate: [{ path: 'competencia', select: 'nombre' }, { path: 'partido', select: 'fecha equipoLocal equipoVisitante', populate: [{ path: 'equipoLocal', select: 'nombre' }, { path: 'equipoVisitante', select: 'nombre' }] }] },
+];
+
+const conErrores = (fn) => async (req, res) => {
+  try {
+    await fn(req, res);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: 'Ya hay un canal con ese slug' });
+    if (err.name === 'ValidationError') return res.status(400).json({ error: err.message });
+    console.error('[tv/canales]', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+/**
+ * @swagger
+ * /api/tv/canales:
+ *   get:
+ *     summary: Lista todos los canales (incluidos los inactivos). Sólo Super Admin.
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ *   post:
+ *     summary: "Crea un canal: { nombre, slug?, descripcion?, activo?, orden?, videos?, competencias? }"
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/canales', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (_req, res) => {
+  res.json(await CanalTv.find().sort({ orden: 1, nombre: 1 }).populate(POBLAR_CANAL).lean());
+}));
+
+router.post('/canales', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (req, res) => {
+  const { datos, error } = leerCanal(req.body);
+  if (error) return res.status(400).json({ error });
+  if (datos.orden === undefined) {
+    const ultimo = await CanalTv.findOne().sort({ orden: -1 }).select('orden').lean();
+    datos.orden = (ultimo?.orden ?? -1) + 1;
+  }
+  const canal = await CanalTv.create(datos);
+  res.status(201).json(await CanalTv.findById(canal._id).populate(POBLAR_CANAL).lean());
+}));
+
+/**
+ * @swagger
+ * /api/tv/canales/orden:
+ *   put:
+ *     summary: "Reordena los canales: { ids: [canalId, ...] } en el orden nuevo. Sólo Super Admin."
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/canales/orden', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (req, res) => {
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || !ids.every(esId)) return res.status(400).json({ error: 'ids debe ser una lista de ids' });
+  await CanalTv.bulkWrite(ids.map((id, orden) => ({ updateOne: { filter: { _id: id }, update: { $set: { orden } } } })));
+  res.json(await CanalTv.find().sort({ orden: 1, nombre: 1 }).populate(POBLAR_CANAL).lean());
+}));
+
+/**
+ * @swagger
+ * /api/tv/canales/{id}:
+ *   put:
+ *     summary: Edita un canal (campos parciales). Sólo Super Admin.
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ *   delete:
+ *     summary: Borra un canal (los videos quedan en el catálogo). Sólo Super Admin.
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/canales/:id', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (req, res) => {
+  if (!esId(req.params.id)) return res.status(400).json({ error: 'id inválido' });
+  const { datos, error } = leerCanal(req.body, true);
+  if (error) return res.status(400).json({ error });
+  const canal = await CanalTv.findByIdAndUpdate(req.params.id, { $set: datos }, { new: true, runValidators: true }).populate(POBLAR_CANAL).lean();
+  if (!canal) return res.status(404).json({ error: 'Canal no encontrado' });
+  res.json(canal);
+}));
+
+router.delete('/canales/:id', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (req, res) => {
+  if (!esId(req.params.id)) return res.status(400).json({ error: 'id inválido' });
+  const r = await CanalTv.deleteOne({ _id: req.params.id });
+  if (!r.deletedCount) return res.status(404).json({ error: 'Canal no encontrado' });
+  res.status(204).end();
+}));
 
 export default router;
