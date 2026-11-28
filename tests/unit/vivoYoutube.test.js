@@ -1,4 +1,5 @@
-import { idsDelFeed, vivosDeVideosList, vivoDePaginaLive, leerReferenciaCanal } from '../../src/services/vivoYoutubeService.js';
+import { idsDelFeed, vivosDeVideosList, vivoDePaginaLive, leerReferenciaCanal, RX_CANAL_YOUTUBE } from '../../src/services/vivoYoutubeService.js';
+import { videosDelFeed, videosDePlaylist } from '../../src/services/videosCanalYoutubeService.js';
 
 const UC = 'UCSJ4gkVC6NrvII8umztf0Ow';
 
@@ -40,4 +41,26 @@ it('vivoDePaginaLive lee el vivo de la página /live, o null si no hay', () => {
   const html = '..."videoDetails":{"videoId":"AAAAAAAAAAA","title":"Final \\"A\\"","lengthSeconds":"0","author":"WDBF","isLive":true}...';
   expect(vivoDePaginaLive(html, UC)).toMatchObject({ videoId: 'AAAAAAAAAAA', titulo: 'Final "A"', canalYoutube: 'WDBF' });
   expect(vivoDePaginaLive(html.replace('"isLive":true', '"isLive":false'), UC)).toBeNull();
+});
+
+describe('RX_CANAL_YOUTUBE', () => {
+  it('acepta ids reales y rechaza el resto', () => {
+    expect(RX_CANAL_YOUTUBE.test(UC)).toBe(true);
+    expect(RX_CANAL_YOUTUBE.test('UCK8sQmJBp8GCxrOtXWBpyEA')).toBe(true);
+    expect(RX_CANAL_YOUTUBE.test('UCxxx')).toBe(false);
+  });
+});
+
+describe('videos de un canal', () => {
+  it('videosDelFeed lee id, título (desescapado) y fecha', () => {
+    const xml = '<feed><entry><yt:videoId>AAAAAAAAAAA</yt:videoId><title>USA &amp; Canada</title><published>2026-01-01T00:00:00+00:00</published></entry></feed>';
+    expect(videosDelFeed(xml)).toEqual([{ youtubeId: 'AAAAAAAAAAA', titulo: 'USA & Canada', publicado: '2026-01-01T00:00:00+00:00' }]);
+  });
+  it('videosDePlaylist saltea privados y borrados', () => {
+    const json = { items: [
+      { snippet: { title: 'Final', resourceId: { videoId: 'AAAAAAAAAAA' } }, contentDetails: { videoPublishedAt: 'x' } },
+      { snippet: { title: 'Private video', resourceId: { videoId: 'BBBBBBBBBBB' } } },
+    ] };
+    expect(videosDePlaylist(json).map((v) => v.youtubeId)).toEqual(['AAAAAAAAAAA']);
+  });
 });

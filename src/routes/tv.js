@@ -6,7 +6,7 @@ import Video from '../models/Video/Video.js';
 import CanalTv from '../models/Video/CanalTv.js';
 import { obtenerDuraciones } from '../services/duracionYoutubeService.js';
 import { proyectarEnPartido } from '../services/videoCatalogoService.js';
-import { vivosDeCanales, resolverCanalYoutube } from '../services/vivoYoutubeService.js';
+import { vivosDeCanales, resolverCanalYoutube, RX_CANAL_YOUTUBE } from '../services/vivoYoutubeService.js';
 
 const router = express.Router();
 const esId = (v) => mongoose.Types.ObjectId.isValid(v);
@@ -173,7 +173,7 @@ function leerCanal(body = {}, parcial = false) {
   if (body.activo !== undefined) datos.activo = Boolean(body.activo);
   if (body.orden !== undefined) datos.orden = Number(body.orden) || 0;
   if (body.fuentesYoutube !== undefined) {
-    const ok = Array.isArray(body.fuentesYoutube) && body.fuentesYoutube.every((f) => /^UC[w-]{22}$/.test(f?.channelId || ''));
+    const ok = Array.isArray(body.fuentesYoutube) && body.fuentesYoutube.every((f) => RX_CANAL_YOUTUBE.test(f?.channelId || ''));
     if (!ok) return { error: 'fuentesYoutube debe ser una lista de { channelId, nombre }' };
     const vistos = new Set();
     datos.fuentesYoutube = body.fuentesYoutube

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
+import { RX_CANAL_YOUTUBE } from '../../services/vivoYoutubeService.js';
 
 /**
  * Canal de Overtime TV. Sólo lo administra el Super Admin (Overtime-Admin).
@@ -12,7 +13,7 @@ const { Schema } = mongoose;
  */
 const fuenteYoutubeSchema = new Schema(
   {
-    channelId: { type: String, required: true, match: /^UC[w-]{22}$/ },
+    channelId: { type: String, required: true, match: RX_CANAL_YOUTUBE },
     nombre: { type: String, trim: true, default: '' },
   },
   { _id: false },

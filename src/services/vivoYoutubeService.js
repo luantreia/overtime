@@ -15,7 +15,9 @@
 
 const TTL_MS = 1000 * 60 * 3;
 const UA = { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'es' };
-const RX_CANAL = /^UC[\w-]{22}$/;
+/** Id de canal de YouTube (UC + 22). Lo comparten modelos, rutas y servicios: no copiarlo. */
+export const RX_CANAL_YOUTUBE = /^UC[\w-]{22}$/;
+const RX_CANAL = RX_CANAL_YOUTUBE;
 
 const cache = new Map(); // channelId -> { vivos, vence }
 const enCurso = new Map(); // channelId -> Promise
