@@ -6,7 +6,18 @@ const { Schema } = mongoose;
  *
  * Qué programa un canal = `videos` (elegidos a mano) ∪ los videos de las `competencias`
  * (se suman solos a medida que se cargan). Sólo entran videos con `enTv: true`.
+ *
+ * `fuentesYoutube`: canales de YouTube cuyas transmisiones en vivo se muestran en este canal
+ * mientras están al aire (ver services/vivoYoutubeService.js).
  */
+const fuenteYoutubeSchema = new Schema(
+  {
+    channelId: { type: String, required: true, match: /^UC[w-]{22}$/ },
+    nombre: { type: String, trim: true, default: '' },
+  },
+  { _id: false },
+);
+
 const CanalTvSchema = new Schema(
   {
     nombre: { type: String, required: true, trim: true },
@@ -17,6 +28,7 @@ const CanalTvSchema = new Schema(
     activo: { type: Boolean, default: true },
     videos: [{ type: Schema.Types.ObjectId, ref: 'Video' }],
     competencias: [{ type: Schema.Types.ObjectId, ref: 'Competencia' }],
+    fuentesYoutube: { type: [fuenteYoutubeSchema], default: [] },
   },
   { timestamps: true },
 );

@@ -6,6 +6,7 @@ import Video from '../models/Video/Video.js';
 import CanalTv from '../models/Video/CanalTv.js';
 import { obtenerDuraciones } from '../services/duracionYoutubeService.js';
 import { proyectarEnPartido } from '../services/videoCatalogoService.js';
+import { vivosDeCanales, resolverCanalYoutube } from '../services/vivoYoutubeService.js';
 
 const router = express.Router();
 const esId = (v) => mongoose.Types.ObjectId.isValid(v);
@@ -100,15 +101,50 @@ router.get('/videos', async (_req, res) => {
           ...(c.videos || []).map((id) => idDeVideo.get(String(id))).filter(Boolean),
           ...(c.competencias || []).flatMap((id) => porCompetencia.get(String(id)) || []),
         ]);
-        return { _id: String(c._id), slug: c.slug, nombre: c.nombre, descripcion: c.descripcion, ids: [...ids].sort() };
+        const conVivo = (c.fuentesYoutube || []).length > 0;
+        return { _id: String(c._id), slug: c.slug, nombre: c.nombre, descripcion: c.descripcion, ids: [...ids].sort(), conVivo };
       })
-      .filter((c) => c.ids.length > 0);
+      // Un canal sin grabados igual se lista si puede tener vivos.
+      .filter((c) => c.ids.length > 0 || c.conVivo);
 
     res.set('Cache-Control', 'public, max-age=300');
     res.json({ ahora: Date.now(), items, canales });
   } catch (err) {
     console.error('[tv] error armando catálogo:', err);
     res.status(500).json({ message: 'Error al armar la programación' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/tv/vivo:
+ *   get:
+ *     summary: Transmisiones en vivo de YouTube que están al aire ahora
+ *     description: |
+ *       Por cada canal activo con `fuentesYoutube`, las transmisiones en curso de esos canales de
+ *       YouTube (puede haber varias). `vivos` junta todas sin repetir, para "Todos los canales".
+ *       YouTube se consulta como mucho cada 3 minutos por canal, no por visita.
+ *     tags: [TV]
+ *     responses:
+ *       200:
+ *         description: "{ ahora, canales: [{ slug, nombre, vivos }], vivos }"
+ */
+router.get('/vivo', async (_req, res) => {
+  try {
+    const canales = await CanalTv.find({ activo: true, 'fuentesYoutube.0': { $exists: true } }).sort({ orden: 1, nombre: 1 }).lean();
+    const porYoutube = await vivosDeCanales(canales.flatMap((c) => c.fuentesYoutube.map((f) => f.channelId)));
+    const salida = canales.map((c) => ({
+      slug: c.slug,
+      nombre: c.nombre,
+      vivos: c.fuentesYoutube.flatMap((f) => porYoutube.get(f.channelId) || []),
+    }));
+    const vistos = new Set();
+    const vivos = salida.flatMap((c) => c.vivos).filter((v) => !vistos.has(v.videoId) && vistos.add(v.videoId));
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ ahora: Date.now(), canales: salida, vivos });
+  } catch (err) {
+    console.error('[tv/vivo]', err);
+    res.status(500).json({ message: 'Error consultando transmisiones en vivo' });
   }
 });
 
@@ -136,6 +172,14 @@ function leerCanal(body = {}, parcial = false) {
   if (body.descripcion !== undefined) datos.descripcion = String(body.descripcion || '');
   if (body.activo !== undefined) datos.activo = Boolean(body.activo);
   if (body.orden !== undefined) datos.orden = Number(body.orden) || 0;
+  if (body.fuentesYoutube !== undefined) {
+    const ok = Array.isArray(body.fuentesYoutube) && body.fuentesYoutube.every((f) => /^UC[w-]{22}$/.test(f?.channelId || ''));
+    if (!ok) return { error: 'fuentesYoutube debe ser una lista de { channelId, nombre }' };
+    const vistos = new Set();
+    datos.fuentesYoutube = body.fuentesYoutube
+      .filter((f) => !vistos.has(f.channelId) && vistos.add(f.channelId))
+      .map((f) => ({ channelId: f.channelId, nombre: String(f.nombre || '') }));
+  }
   for (const campo of ['videos', 'competencias']) {
     if (body[campo] === undefined) continue;
     if (!Array.isArray(body[campo]) || !body[campo].every(esId)) return { error: `${campo} debe ser una lista de ids` };
@@ -195,6 +239,22 @@ router.post('/canales', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(
  *     tags: [TV]
  *     security: [{ bearerAuth: [] }]
  */
+/**
+ * @swagger
+ * /api/tv/canales/resolver-youtube:
+ *   post:
+ *     summary: "Link de un canal de YouTube (@handle, /channel/UC…) → { channelId, nombre }. Sólo Super Admin."
+ *     tags: [TV]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post('/canales/resolver-youtube', verificarToken, cargarRolDesdeBD, soloAdmin, async (req, res) => {
+  try {
+    res.json(await resolverCanalYoutube(req.body?.url));
+  } catch (err) {
+    res.status(err.status || 502).json({ error: err.status ? err.message : 'No se pudo consultar YouTube' });
+  }
+});
+
 router.put('/canales/orden', verificarToken, cargarRolDesdeBD, soloAdmin, conErrores(async (req, res) => {
   const ids = req.body?.ids;
   if (!Array.isArray(ids) || !ids.every(esId)) return res.status(400).json({ error: 'ids debe ser una lista de ids' });
